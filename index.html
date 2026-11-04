@@ -51,7 +51,33 @@ h2:first-child{margin-top:0}
 .btn.ghost{border-color:transparent;background:transparent}
 .btn.ghost:hover{background:var(--bg)}
 .row{display:flex;gap:8px;align-items:center}
-.team{margin-bottom:12px}
+.team{margin-bottom:6px}
+.sside{position:sticky;top:-14px;background:var(--panel);padding:0 0 10px;margin-top:-2px;z-index:2}
+.sq{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px 8px 32px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2366707a' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E") no-repeat 10px center}
+.sbtns{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}
+.sbtns .btn{text-align:left}
+.sbtns .btn.on{background:var(--accent-soft);border-color:var(--accent)}
+.tog{border:0;background:transparent;padding:0 2px;color:var(--muted);width:18px;font-size:11px}
+.gym mark{background:#fff1a8;color:inherit;border-radius:3px;padding:0 1px}
+.gym.sel mark{background:rgba(255,255,255,.3)}
+.mtb{width:100%;border-collapse:collapse;font-size:13px}
+.mtb th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px;border-bottom:2px solid var(--line);white-space:nowrap}
+.mtb td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.mtb tr:hover td{background:#fafbfc}
+.mtb input[type=text],.mtb input[type=date],.mtb select{border:1px solid transparent;background:transparent;border-radius:6px;padding:4px 6px;width:100%}
+.mtb input:hover,.mtb select:hover{border-color:var(--line);background:#fff}
+.mtb input:focus,.mtb select:focus{border-color:var(--accent);background:#fff;outline:none}
+.mtb .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mgrid{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);gap:18px;align-items:start}
+@media (max-width:1100px){.mgrid{grid-template-columns:1fr}}
+.inl{display:grid;grid-template-columns:1fr 1fr 150px 1fr auto;gap:8px;align-items:end}
+.inl label{font-size:11.5px;color:var(--muted);display:grid;gap:3px}
+.inl input,.inl select,.bulk select,.mfilt input,.mfilt select{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;width:100%}
+@media (max-width:900px){.inl{grid-template-columns:1fr 1fr}}
+.bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--accent-soft);border-radius:8px;padding:8px 10px;margin:8px 0}
+.bulk select{width:auto}
+.mfilt{display:grid;grid-template-columns:1fr 220px;gap:8px;margin-bottom:6px}
+.tline{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .team-h{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;font-weight:650;cursor:pointer}
 .team-h:hover,.team-h.sel{background:var(--accent-soft)}
 .team-h .n{flex:1}
@@ -499,39 +525,93 @@ function warnings(ag, R){
 /* ================= RENDU : BARRE LATÉRALE ================= */
 const yr=g=>g.naissance?g.naissance.slice(0,4):(g.annee||'');
 function gymName(g){ return `${g.prenom||''} ${g.nom||''}`.trim() || 'Sans nom' }
+const norm=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+function hl(text,q){ if(!q) return esc(text); const n=norm(text); const i=n.indexOf(q); if(i<0) return esc(text); return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length)) }
+const byName=(a,b)=>norm(gymName(a)).localeCompare(norm(gymName(b)));
+UI.collapsed=UI.collapsed||{}; UI.sq=UI.sq||'';
 function renderSide(){
   const el=document.getElementById('side');
-  const teamBlock = (t) => {
-    const gs=S.gyms.filter(g=>(g.team||null)===(t?t.id:null));
-    if(!t && !gs.length) return '';
+  el.innerHTML = `<div class="sside">
+      <input class="sq" id="sideQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.sq)}" autocomplete="off">
+      <div class="sbtns"><button class="btn ${UI.view==='manage'?'on':''}" id="bManage">⚙️ Gérer gymnastes &amp; équipes</button></div>
+    </div>
+    <div id="sideList"></div>`;
+  renderSideList();
+}
+function renderSideList(){
+  const el=document.getElementById('sideList'); if(!el) return;
+  const q=norm(UI.sq);
+  const blocks=[...S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))), null].map(t=>{
+    const all=S.gyms.filter(g=>(g.team||null)===(t?t.id:null)).sort(byName);
+    if(!t && !all.length) return '';
+    const teamHit = t && q && norm(t.name).includes(q);
+    const gs = !q || teamHit ? all : all.filter(g=>norm(gymName(g)).includes(q));
+    if(q && !teamHit && !gs.length) return '';
+    const key=t?t.id:'none', closed=!q && UI.collapsed[key];
     return `<div class="team">
-      <div class="team-h ${t&&UI.view==='team'&&UI.team===t.id?'sel':''}" ${t?`data-team="${t.id}"`:''}>
-        <span class="n">${t?esc(t.name):'Sans équipe'}</span>
-        <span class="hint">${gs.length}</span>
-        ${t?`<span class="act"><button class="btn ghost sm" data-rteam="${t.id}" title="Renommer">✎</button><button class="btn ghost sm" data-dteam="${t.id}" title="Supprimer l'équipe">✕</button></span>`:''}
+      <div class="team-h ${t&&UI.view==='team'&&UI.team===t.id?'sel':''}" ${t?`data-team="${t.id}"`:`data-tog="none"`}>
+        <button class="tog" data-tog="${key}" title="${closed?'Déplier':'Replier'}">${closed?'▶':'▼'}</button>
+        <span class="n">${t?hl(t.name,q):'Sans équipe'}</span><span class="hint">${all.length}</span>
       </div>
-      ${gs.map(g=>`<div class="gym ${UI.view==='gym'&&UI.gym===g.id?'sel':''}" data-gym="${g.id}">
-        <span>${esc(gymName(g))}</span><span class="nd">${f2(totalGym(g.id))}</span></div>`).join('') || '<div class="empty">Aucune gymnaste</div>'}
+      ${closed?'':gs.map(g=>`<div class="gym ${UI.view==='gym'&&UI.gym===g.id?'sel':''}" data-gym="${g.id}">
+        <span>${hl(gymName(g),q)}</span><span class="nd">${f2(totalGym(g.id))}</span></div>`).join('') || (q?'':'<div class="empty">Aucune gymnaste</div>')}
     </div>`;
-  };
-  el.innerHTML = `
-    <h2>Équipes &amp; gymnastes</h2>
-    ${S.teams.map(teamBlock).join('')}
-    ${teamBlock(null)}
-    ${!S.teams.length && !S.gyms.length ? '<div class="empty">Commence par créer une équipe.</div>':''}
-    <h2>Nouvelle équipe</h2>
-    <form class="add" id="fTeam"><div class="row"><input name="n" placeholder="ex. Fédéral A 10-13 ans" required><button class="btn primary">+</button></div></form>
-    <h2>Nouvelle gymnaste</h2>
-    <form class="add" id="fGym">
-      <input name="p" placeholder="Prénom" required>
-      <input name="n" placeholder="Nom">
-      <label class="hint" style="margin-top:2px">Date de naissance</label><input name="a" type="date">
-      <select name="t"><option value="">— Sans équipe —</option>${S.teams.map(t=>`<option value="${t.id}" ${UI.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
-      <button class="btn primary">Ajouter la gymnaste</button>
+  }).join('');
+  el.innerHTML = blocks || (q?'<div class="empty">Aucun résultat.</div>':'<div class="empty">Aucune gymnaste. Clique sur <b>⚙️ Gérer</b> pour en ajouter.</div>');
+}
+
+/* ================= PAGE GESTION ================= */
+UI.mq=UI.mq||''; UI.mteam=UI.mteam||''; UI.sel=UI.sel||{};
+const canDelete=()=>typeof ROLE==='undefined' || ROLE==='admin';
+const teamOpts=(sel,empty='— Sans équipe —')=>`<option value="">${empty}</option>`+S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))).map(t=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${esc(t.name)}</option>`).join('');
+function renderManage(){
+  const m=document.getElementById('main');
+  const nb=id=>S.gyms.filter(g=>g.team===id).length;
+  m.innerHTML=`<div class="gymhead"><div><h2 class="name">Gymnastes &amp; équipes</h2><div class="meta">${S.gyms.length} gymnaste(s) · ${S.teams.length} équipe(s)</div></div></div>
+  <div class="card" style="margin-bottom:16px">
+    <h3>Ajouter une gymnaste</h3>
+    <form class="inl" id="fGym">
+      <label>Prénom<input name="p" required autocomplete="off"></label>
+      <label>Nom<input name="n" autocomplete="off"></label>
+      <label>Date de naissance<input name="a" type="date"></label>
+      <label>Équipe<select name="t">${teamOpts(UI.lastTeam||'')}</select></label>
+      <button class="btn primary">Ajouter</button>
     </form>
-    <h2>Données</h2>
-    <div class="hint">Tout est enregistré automatiquement en ligne et partagé avec les entraîneurs du club. <b>Importer</b> permet d'ajouter les gymnastes d'une sauvegarde de la clé USB. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div>
-  `;
+    <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour la suivante et garde l'équipe choisie.</div>
+  </div>
+  <div class="mgrid">
+    <div class="card"><h3>Toutes les gymnastes</h3>
+      <div class="mfilt"><input id="mQ" placeholder="Filtrer par nom…" value="${esc(UI.mq)}" autocomplete="off"><select id="mTeamF">${teamOpts(UI.mteam,'Toutes les équipes').replace('<option value="">Toutes les équipes</option>','<option value="">Toutes les équipes</option><option value="__none" '+(UI.mteam==='__none'?'selected':'')+'>Sans équipe</option>')}</select></div>
+      <div id="mTable"></div>
+    </div>
+    <div class="card"><h3>Équipes</h3>
+      ${S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))).map(t=>`<div class="tline"><span><b>${esc(t.name)}</b></span><span class="hint">${nb(t.id)} gym.</span>
+        <button class="btn sm" data-rteam="${t.id}">Renommer</button><button class="btn sm" data-dteam="${t.id}">Supprimer</button></div>`).join('')||'<div class="empty">Aucune équipe.</div>'}
+      <form class="add" id="fTeam" style="margin-top:10px"><div class="row"><input name="n" placeholder="Nom de la nouvelle équipe" required><button class="btn primary">Créer</button></div></form>
+      ${typeof SB_URL==='undefined'?`<h3 style="margin-top:18px">Données</h3><div class="hint">Avec Chrome ou Edge, ouvre le fichier de données de la clé USB (en haut à droite) : tout s'y enregistre automatiquement. <b>Sauvegarde complète</b> et <b>Importer</b> servent à faire des copies.</div>${!S.gyms.length?'<div style="margin-top:8px"><button class="btn sm" id="bDemo">Charger un exemple</button></div>':''}`
+        :`<h3 style="margin-top:18px">Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div>`}
+    </div>
+  </div>`;
+  renderManageTable();
+}
+function renderManageTable(){
+  const el=document.getElementById('mTable'); if(!el) return;
+  const q=norm(UI.mq);
+  const list=S.gyms.filter(g=>(!q||norm(gymName(g)+' '+(S.teams.find(t=>t.id===g.team)?.name||'')).includes(q)) && (!UI.mteam || (UI.mteam==='__none'?!g.team:g.team===UI.mteam)))
+    .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||'')) || norm(a.prenom).localeCompare(norm(b.prenom)));
+  for(const id in UI.sel) if(!S.gyms.some(g=>g.id===id)) delete UI.sel[id];
+  const nSel=Object.keys(UI.sel).length, allOn=list.length && list.every(g=>UI.sel[g.id]);
+  el.innerHTML=`${nSel?`<div class="bulk"><b>${nSel} sélectionnée(s)</b> → affecter à <select id="bulkTeam">${teamOpts('')}</select><button class="btn sm primary" id="bBulk">Appliquer</button><button class="btn sm" id="bBulkNone">Désélectionner</button></div>`:''}
+   <table class="mtb"><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"></th><th>Nom</th><th>Prénom</th><th style="width:140px">Naissance</th><th style="min-width:190px">Équipe</th><th class="num">Total ND</th><th></th></tr></thead>
+   <tbody>${list.map(g=>`<tr>
+     <td><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''}></td>
+     <td><input type="text" data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}"></td>
+     <td><input type="text" data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}"></td>
+     <td><input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}"></td>
+     <td><select data-mteam="${g.id}">${teamOpts(g.team)}</select></td>
+     <td class="num">${f2(totalGym(g.id))}</td>
+     <td style="white-space:nowrap"><button class="btn sm" data-gym="${g.id}">Ouvrir</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer">✕</button>`:''}</td></tr>`).join('')}</tbody></table>
+   ${!list.length?'<div class="empty">Aucune gymnaste.</div>':''}`;
 }
 
 /* ================= RENDU : ZONE PRINCIPALE ================= */
@@ -540,6 +620,7 @@ function render(){ renderSide(); renderMain(); save() }
 function renderMain(){
   const m=document.getElementById('main');
   if(UI.view==='members'){ renderMembers(); return }
+  if(UI.view==='manage'){ renderManage(); return }
   if(UI.view==='team' && S.teams.find(t=>t.id===UI.team)) return m.innerHTML=renderTeam();
   const g=S.gyms.find(x=>x.id===UI.gym);
   if(!g){ m.innerHTML=welcome(); return }
@@ -779,10 +860,15 @@ function moveItem(ag, from, to){
 }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-fs],[data-pdf],[data-ttab],#bGymSave,[data-gym],[data-team],[data-rteam],[data-dteam],[data-tab],[data-sec],[data-add],[data-link],[data-up],[data-down],[data-rm],[data-unforce],[data-app],#bRen,#bDel,#bClear,#bDemo,#bExport,#bImport,#bPrint');
+  const t=ev.target.closest('[data-fs],[data-tog],[data-delg],#bManage,#bBulk,#bBulkNone,[data-pdf],[data-ttab],#bGymSave,[data-gym],[data-team],[data-rteam],[data-dteam],[data-tab],[data-sec],[data-add],[data-link],[data-up],[data-down],[data-rm],[data-unforce],[data-app],#bRen,#bDel,#bClear,#bDemo,#bExport,#bImport,#bPrint');
   if(!t) return;
   const d=t.dataset, ag=UI.tab;
   if(d.fs){ ({open:openDataFile,new:newDataFile,relink}[d.fs])(); return }
+  if(d.tog){ ev.stopPropagation(); UI.collapsed[d.tog]=!UI.collapsed[d.tog]; renderSideList(); return }
+  if(t.id==='bManage'){ UI.view='manage'; render(); return }
+  if(d.delg){ const g=S.gyms.find(x=>x.id===d.delg); if(confirm(`Supprimer ${gymName(g)} et tous ses mouvements ?`)){ S.gyms=S.gyms.filter(x=>x!==g); delete S.routines[g.id]; delete UI.sel[g.id]; if(UI.gym===g.id) UI.gym=null; render() } return }
+  if(t.id==='bBulk'){ const v=document.getElementById('bulkTeam').value||null; S.gyms.forEach(g=>{ if(UI.sel[g.id]) g.team=v }); const n=Object.keys(UI.sel).length; UI.sel={}; render(); toast(n+' gymnaste(s) affectée(s)'); return }
+  if(t.id==='bBulkNone'){ UI.sel={}; renderManageTable(); return }
   if(d.pdf){ pdf(d.pdf); return }
   if(d.ttab){ UI.ttab=d.ttab; renderMain(); return }
   if(t.id==='bGymSave'){ exportGym(S.gyms.find(x=>x.id===UI.gym)); return }
@@ -813,6 +899,11 @@ document.addEventListener('change',ev=>{
   const t=ev.target;
   if(t.dataset.bon){ routine(UI.gym,UI.tab).ov[t.dataset.bon]=t.checked; render(); return }
   if(t.dataset.vault){ routine(UI.gym,'saut')[t.dataset.vault]=t.value||null; render(); return }
+  if(t.dataset.mf){ const g=S.gyms.find(x=>x.id===t.dataset.gid); const v=t.value.trim(); if(t.dataset.mf==='prenom'&&!v){ t.value=g.prenom; return } g[t.dataset.mf]=v; renderSideList(); save(); return }
+  if(t.dataset.mteam){ S.gyms.find(x=>x.id===t.dataset.mteam).team=t.value||null; renderSideList(); renderManageTable(); save(); return }
+  if(t.dataset.selg){ if(t.checked) UI.sel[t.dataset.selg]=1; else delete UI.sel[t.dataset.selg]; renderManageTable(); return }
+  if(t.id==='selAll'){ document.querySelectorAll('[data-selg]').forEach(c=>{ if(t.checked) UI.sel[c.dataset.selg]=1; else delete UI.sel[c.dataset.selg] }); renderManageTable(); return }
+  if(t.id==='mTeamF'){ UI.mteam=t.value; renderManageTable(); return }
   if(t.id==='sTeam'){ S.gyms.find(x=>x.id===UI.gym).team=t.value||null; render(); return }
   if(t.id==='sCopy' && t.value){ const src=S.routines[t.value][UI.tab]; if(confirm('Remplacer le mouvement actuel par celui de '+gymName(S.gyms.find(x=>x.id===t.value))+' ?')){ S.routines[UI.gym][UI.tab]=JSON.parse(JSON.stringify(src)); render() } else t.value=''; return }
   if(t.id==='fImport' && t.files.length){
@@ -830,12 +921,16 @@ document.addEventListener('change',ev=>{
   }
 });
 document.addEventListener('input',ev=>{
+  if(ev.target.id==='sideQ'){ UI.sq=ev.target.value; renderSideList(); return }
+  if(ev.target.id==='mQ'){ UI.mq=ev.target.value; renderManageTable(); return }
   if(ev.target.id==='q'){ UI.q=ev.target.value; const pos=ev.target.selectionStart; renderMain(); const q=document.getElementById('q'); q.focus(); q.setSelectionRange(pos,pos) }
 });
 document.addEventListener('submit',ev=>{
   ev.preventDefault(); const f=ev.target, v=n=>(f.elements[n]?.value||'').trim();
   if(f.id==='fTeam'){ S.teams.push({id:uid(),name:v('n')}); render(); }
-  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),team:v('t')||null}; S.gyms.push(g); UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); }
+  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),team:v('t')||null}; S.gyms.push(g); UI.lastTeam=g.team||'';
+    if(UI.view==='manage'){ render(); toast(gymName(g)+' ajoutée'); document.querySelector('#fGym [name=p]')?.focus(); }
+    else { UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); } }
 });
 /* glisser-déposer */
 let dragFrom=null;
