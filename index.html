@@ -1406,12 +1406,13 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.clo
 const LIC_FEDS=['FFG','UFOLEP'];
 const LIC_DOCS=[['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['autorisation_parentale','Autorisation parentale'],['droit_image',"Droit à l'image"]];
 const LIC_ALERTE_JOURS=60; // un document est signalé « bientôt périmé » dans les 60 jours avant sa date de validité
-const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],open:null,q:'',f:'',club:null});
+const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],open:null,q:'',f:'',club:null});
 let LIC=licNew();
 const licEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const licDocs=licEdit; // les documents de santé ne sont visibles que par l'administrateur et les entraîneurs
 const licOf=(gid,fed)=>LIC.lic.find(x=>x.licencie_id===gid&&x.federation===fed);
 const docOf=(gid,t)=>LIC.docs.find(x=>x.licencie_id===gid&&x.type===t);
+const licGroupes=gid=>LIC.grp?LIC.grp.filter(x=>LIC.mem.some(m=>m.licencie_id===gid&&m.groupe_id===x.id)):[];
 function docState(d){ // ok | bientot | perime | manquant
   if(!d||(!d.date_remise&&!d.date_validite)) return 'manquant';
   if(d.date_validite){
@@ -1453,9 +1454,16 @@ async function loadLic(){
       sb.from('licencies').select('id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email').eq('club_id',CLUB.id),
       sb.from('licences_federales').select('id,licencie_id,federation,numero').eq('club_id',CLUB.id).eq('saison',SAISON)];
     if(licDocs()) q.push(sb.from('documents_licencie').select('id,licencie_id,type,date_remise,date_validite').eq('club_id',CLUB.id));
+    const qg=Promise.all([
+      sb.from('groupes_entrainement').select('id,nom,jour,heure_debut,heure_fin,lieu').eq('club_id',CLUB.id).eq('saison',SAISON),
+      sb.from('groupe_licencies').select('groupe_id,licencie_id').eq('club_id',CLUB.id)]);
     const res=await Promise.all(q); res.forEach(chk);
     LIC.info=Object.fromEntries(res[0].data.map(x=>[x.id,x]));
     LIC.lic=res[1].data; LIC.docs=res[2]?res[2].data:[]; LIC.err='';
+    // groupes d'entraînement : facultatif (script migration-presences.sql), n'empêche pas l'affichage des licences
+    try{ const rg=await qg; if(rg[0].error||rg[1].error) throw new Error('groupes indisponibles');
+      LIC.grp=rg[0].data.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+      LIC.mem=rg[1].data }catch(e){ LIC.grp=null; LIC.mem=[] }
   }catch(e){ LIC.err=e.message }
   LIC.loaded=true; LIC.loading=false;
 }
@@ -1469,7 +1477,7 @@ function licCountsHtml(){
 
 function licTableHtml(){
   const q=norm(LIC.q), f=LIC.f;
-  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':!!licOf(g.id,f));
+  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
   const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
   const fed=(g,fd)=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}">${esc(x.numero||'✓')}</span>`:`<span class="lb no">—</span>` };
@@ -1478,12 +1486,19 @@ function licTableHtml(){
     const is=licIssues(g), c=LIC.info[g.id]||{}, hasC=!!(c.parent_email||c.telephone_urgence||c.email||c.telephone);
     return `<tr class="${LIC.open===g.id?'sel':''}">
       <td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td><td>${esc(yr(g))}</td><td>${fed(g,'FFG')}</td><td>${fed(g,'UFOLEP')}</td>
+      ${LIC.grp?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
       ${dc?`<td>${stBadge(licSante(g.id))}</td><td>${stBadge(docState(docOf(g.id,'autorisation_parentale')))}</td>`:''}
       <td>${hasC?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Manquant</span>'}</td>
       <td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>
       <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Ouvrir'}</button></td></tr>`}).join('');
-  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${LIC.grp?'<th>Groupes</th>':''}${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
     +(list.length?'':'<div class="empty">Aucun licencié ne correspond.</div>');
+}
+
+function groupesFiche(g,ro){
+  if(!LIC.grp) return `<h4>Groupes d’entraînement</h4><div class="hint">Disponible après l’exécution du script <b>migration-presences.sql</b> dans Supabase.</div>`;
+  if(!LIC.grp.length) return `<h4>Groupes d’entraînement</h4><div class="hint">Aucun groupe pour la saison ${SAISON} : créez-les dans l’onglet Présences, puis affectez ici chaque licencié.</div>`;
+  return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem">${LIC.grp.map(x=>`<label class="cbx"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> ${esc(presGLabel(x))}</label>`).join('')}</div>`;
 }
 
 function licFicheHtml(){
@@ -1500,6 +1515,7 @@ function licFicheHtml(){
   return `<form class="card lfiche" id="fLic" autocomplete="off">
     <div class="lhead"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
     <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
+    ${groupesFiche(g,ro)}
     <h4>Coordonnées</h4><div class="lgrid">${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>
     <h4>Contact parent</h4><div class="lgrid">${inp('responsable_legal','Responsable légal')}${inp('telephone_urgence','Téléphone du parent ou d’urgence','tel')}${inp('parent_email','Mail du parent','email')}</div>
     ${docs}
@@ -1517,7 +1533,7 @@ function renderLic(){
     <div id="licFicheBox">${licFicheHtml()}</div>
     <div class="card"><h3>Tous les licenciés</h3>
       <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
-        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div id="licTable">${licTableHtml()}</div></div>`;
 }
 
@@ -1537,6 +1553,14 @@ async function licSave(f){
       const dr=v('dr_'+t), dv=v('dv_'+t), ex=docOf(gid,t);
       if(dr||dv) chk(await sb.from('documents_licencie').upsert({club_id:CLUB.id,licencie_id:gid,type:t,date_remise:dr,date_validite:dv},{onConflict:'licencie_id,type'}));
       else if(ex) chk(await sb.from('documents_licencie').delete().eq('id',ex.id));
+    }
+    if(LIC.grp&&LIC.grp.length){
+      const want=LIC.grp.filter(x=>f.elements['grp_'+x.id]&&f.elements['grp_'+x.id].checked).map(x=>x.id);
+      const have=LIC.mem.filter(m=>m.licencie_id===gid).map(m=>m.groupe_id);
+      const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x)&&LIC.grp.some(y=>y.id===x));
+      if(add.length) chk(await sb.from('groupe_licencies').upsert(add.map(x=>({groupe_id:x,licencie_id:gid,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
+      if(rm.length) chk(await sb.from('groupe_licencies').delete().eq('licencie_id',gid).in('groupe_id',rm));
+      if(add.length||rm.length) PRES.loaded=false; // la liste des groupes est rechargée dans Présences
     }
     LIC.loaded=false; await loadLic(); renderMain(); toast('Dossier enregistré');
   }catch(e){ toast('Erreur : '+e.message) }
@@ -1661,7 +1685,7 @@ function presCountHtml(){
 }
 function presListHtml(){
   const gid=PRES.groupe, d=PRES.date, ms=presMembers(gid), ed=presEdit();
-  if(!ms.length) return '<div class="empty">Aucun licencié dans ce groupe.'+(ed?' Ajoutez-les dans l’onglet Groupes.':'')+'</div>';
+  if(!ms.length) return '<div class="empty">Aucun licencié dans ce groupe.'+(ed?' Affectez-les depuis leur fiche dans l’onglet Licences.':'')+'</div>';
   return ms.map(g=>{ const s=PRES.map[presK(gid,g.id,d)]||'', ch=presChain(gid,g.id);
     return `<div class="prow ${s}"><div class="pn"><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${ch>=PRES_SEUIL?` <span class="lb warn" title="Absences non excusées d’affilée">⚠ ${ch} absences d’affilée</span>`:''}</div>
       <div class="pbs">${PRES_STAT.map(([k,l])=>`<button type="button" class="pb ${k} ${s===k?'on':''}" ${ed?`data-pres-set="${g.id}|${k}"`:'disabled'}>${l}</button>`).join('')}</div></div>` }).join('');
@@ -1686,8 +1710,8 @@ function presPointageHtml(){
 }
 
 function presGroupeForm(g){
-  const mem=g?new Set(PRES.membres.filter(m=>m.groupe_id===g.id).map(m=>m.licencie_id)):new Set(), ro=presEdit()?'':'disabled';
-  const gyms=S.gyms.slice().sort(byNom), v=(k)=>esc(g&&g[k]||'');
+  const mem=g?presMembers(g.id):[], ro=presEdit()?'':'disabled';
+  const v=(k)=>esc(g&&g[k]||'');
   return `<form class="card lfiche pgrp" id="fGrp" ${g?`data-gid="${g.id}"`:''} autocomplete="off">
     <h3>${g?esc(g.nom):'Nouveau groupe'}</h3>
     <div class="lgrid"><label>Nom<input name="nom" value="${v('nom')}" required ${ro}></label>
@@ -1695,8 +1719,8 @@ function presGroupeForm(g){
       <label>Début<input type="time" name="hd" value="${esc(hhmm(g&&g.heure_debut))}" ${ro}></label>
       <label>Fin<input type="time" name="hf" value="${esc(hhmm(g&&g.heure_fin))}" ${ro}></label>
       <label>Lieu<input name="lieu" value="${v('lieu')}" ${ro}></label></div>
-    <details ${g?'':'open'} style="margin-top:10px"><summary><b>Membres</b> (${mem.size})</summary>
-      <div class="pmem">${gyms.map(x=>`<label class="cbx"><input type="checkbox" name="m_${x.id}" ${mem.has(x.id)?'checked':''} ${ro}> ${esc(x.nom||'')} ${esc(x.prenom||'')}</label>`).join('')||'<span class="hint">Aucun licencié enregistré.</span>'}</div></details>
+    <div style="margin-top:10px"><b>Membres</b> (${mem.length})${mem.length?`<div class="pmem">${mem.map(x=>`<span class="lb ok">${esc(x.nom||'')} ${esc(x.prenom||'')}</span>`).join(' ')}</div>`:''}
+      <div class="hint">${g?'Pour ajouter ou retirer un licencié, ouvrez sa fiche dans l’onglet Licences (rubrique « Groupes d’entraînement »).':'Une fois le groupe créé, affectez-y les licenciés depuis leur fiche dans l’onglet Licences.'}</div></div>
     ${presEdit()?`<div class="lfoot"><button class="btn primary" type="submit">${g?'Enregistrer le groupe':'Créer le groupe'}</button>${g?` <button type="button" class="btn" data-pres-del="${g.id}">Supprimer le groupe</button>`:''}</div>`:''}
   </form>`;
 }
@@ -1736,13 +1760,8 @@ async function presSaveGroupe(f){
   const v=n=>(f.elements[n]?.value||'').trim(), gid=f.dataset.gid||uid();
   try{
     chk(await sb.from('groupes_entrainement').upsert({id:gid,club_id:CLUB.id,saison:SAISON,nom:v('nom'),jour:+v('jour')||null,heure_debut:v('hd')||null,heure_fin:v('hf')||null,lieu:v('lieu')||null}));
-    const want=S.gyms.filter(g=>f.elements['m_'+g.id]&&f.elements['m_'+g.id].checked).map(g=>g.id);
-    const have=PRES.membres.filter(x=>x.groupe_id===gid).map(x=>x.licencie_id);
-    const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x));
-    if(add.length) chk(await sb.from('groupe_licencies').upsert(add.map(l=>({groupe_id:gid,licencie_id:l,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
-    if(rm.length) chk(await sb.from('groupe_licencies').delete().eq('groupe_id',gid).in('licencie_id',rm));
     if(!f.dataset.gid) PRES.groupe=gid;
-    PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
+    LIC.loaded=false; PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
   }catch(e){ toast('Erreur : '+e.message) }
 }
 
@@ -1758,7 +1777,7 @@ document.addEventListener('click',async ev=>{
   if(d.presDel){ const g=PRES.groupes.find(x=>x.id===d.presDel); if(!g||!presEdit()) return;
     if(!presOnline()){ toast('Connexion nécessaire pour supprimer un groupe'); return }
     if(!confirm(`Supprimer le groupe « ${g.nom} » et tous ses pointages ?`)) return;
-    try{ chk(await sb.from('groupes_entrainement').delete().eq('id',g.id)); if(PRES.groupe===g.id) PRES.groupe=null; PRES.queue=PRES.queue.filter(o=>o.g!==g.id); PRES.loaded=false; await presLoad(); renderMain(); toast('Groupe supprimé') }
+    try{ chk(await sb.from('groupes_entrainement').delete().eq('id',g.id)); if(PRES.groupe===g.id) PRES.groupe=null; PRES.queue=PRES.queue.filter(o=>o.g!==g.id); LIC.loaded=false; PRES.loaded=false; await presLoad(); renderMain(); toast('Groupe supprimé') }
     catch(e){ toast('Erreur : '+e.message) } }
 });
 document.addEventListener('change',ev=>{
