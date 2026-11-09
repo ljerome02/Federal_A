@@ -251,13 +251,12 @@ aside{display:none!important}
 .mvl{margin:0 3px;color:var(--muted)}
 .mvb{display:inline-block;background:var(--accent-soft);border-radius:6px;padding:1px 6px;font-size:12px;margin:1px 4px 1px 0}
 
-/* ===== v5.2 : Effectif en liste ===== */
-.rtools{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-.rtools .sq{max-width:320px;flex:1 1 220px}
-.rtools label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
-.rtb td{vertical-align:middle}
-.rtb input[type=text],.rtb input[type=date],.rtb select{width:100%;min-width:110px}
-.rtb tr.rgrp td{background:var(--accent-soft);font-weight:700;padding:6px 10px}
+/* ===== v6 : compétitions ===== */
+.ccount{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.cc{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:13px}
+.cc b{font-variant-numeric:tabular-nums;margin-left:2px}
+.cc.todo{border-color:#e0a030;background:#fff7e6}
+select.todo{border-color:#e0a030;background:#fff7e6}
 </style>
 </head>
 <body>
@@ -321,7 +320,7 @@ let UI = {gym:null, team:null, tab:'barres', sec:{}, q:'', view:'gym'};
 /* ================= SUPABASE ================= */
 const SB_URL='https://bplpdhzafydubfdzolbj.supabase.co', SB_KEY='sb_publishable_C_YxlRfovhyQzbd6ulZzkQ_Rm4M72BP', SAISON='2026-2027';
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
-let HASPROG=true, NOB=false;
+let HASPROG=true, HASCOMP=true, NOB=false;
 let SESSION=null, CLUB=null, ROLE=null, SNAP=null, syncTimer=null, SYNC='ok', SYNCERR='', lastSync=null, CLUBS=[];
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const chk=r=>{ if(r && r.error) throw new Error(r.error.message); return r };
@@ -337,7 +336,7 @@ async function sync(){
     const ut=cur.teams.filter(t=>!same(t,oT.get(t.id)));
     if(ut.length) chk(await sb.from('equipes').upsert(ut.map(t=>({id:t.id, club_id:CLUB.id, nom:t.name, saison:SAISON, ...(HASPROG?{programme:t.prog||'A', categorie:t.cat||null}:{})}))));
     const ug=cur.gyms.filter(g=>!same(g,oG.get(g.id)));
-    if(ug.length) chk(await sb.from('licencies').upsert(ug.map(g=>({id:g.id, club_id:CLUB.id, prenom:g.prenom||'?', nom:g.nom||null, date_naissance:g.naissance||null}))));
+    if(ug.length) chk(await sb.from('licencies').upsert(ug.map(g=>({id:g.id, club_id:CLUB.id, prenom:g.prenom||'?', nom:g.nom||null, date_naissance:g.naissance||null, ...(HASCOMP?{competition:g.compet||null}:{})}))));
     for(const g of ug){ const o=oG.get(g.id);
       if(!o || o.team!==g.team){
         if(o) chk(await sb.from('equipe_gymnastes').delete().eq('licencie_id',g.id));
@@ -358,15 +357,16 @@ async function sync(){
 async function loadClub(){
   let e=await sb.from('equipes').select('id,nom,programme,categorie').eq('club_id',CLUB.id).order('nom');
   HASPROG=!e.error; if(e.error) e=await sb.from('equipes').select('id,nom').eq('club_id',CLUB.id).order('nom');
-  const [l,eg,m]=await Promise.all([
-    sb.from('licencies').select('id,prenom,nom,date_naissance').eq('club_id',CLUB.id).order('prenom'),
+  let l=await sb.from('licencies').select('id,prenom,nom,date_naissance,competition').eq('club_id',CLUB.id).order('prenom');
+  HASCOMP=!l.error; if(l.error) l=await sb.from('licencies').select('id,prenom,nom,date_naissance').eq('club_id',CLUB.id).order('prenom');
+  const [eg,m]=await Promise.all([
     sb.from('equipe_gymnastes').select('equipe_id,licencie_id'),
     sb.from('mouvements').select('licencie_id,agres,data').eq('saison',SAISON)]);
   [e,l,eg,m].forEach(chk);
   const tm={}; eg.data.forEach(x=>tm[x.licencie_id]=x.equipe_id);
   const ids=new Set(l.data.map(g=>g.id));
   S={teams:e.data.map(t=>({id:t.id,name:t.nom,prog:t.programme||'A',cat:t.categorie||null})),
-     gyms:l.data.map(g=>({id:g.id,prenom:g.prenom,nom:g.nom||'',naissance:g.date_naissance||'',team:tm[g.id]||null})),
+     gyms:l.data.map(g=>({id:g.id,prenom:g.prenom,nom:g.nom||'',naissance:g.date_naissance||'',compet:g.competition||'',team:tm[g.id]||null})),
      routines:{}};
   m.data.forEach(r=>{ if(ids.has(r.licencie_id)) (S.routines[r.licencie_id]??={})[r.agres]=r.data });
   SNAP=JSON.parse(JSON.stringify(S)); lastSync=new Date(); SYNC='ok';
@@ -616,49 +616,53 @@ function renderSideList(){
 UI.mq=UI.mq||''; UI.mteam=UI.mteam||''; UI.sel=UI.sel||{};
 const canDelete=()=>typeof ROLE==='undefined' || ROLE==='admin';
 const teamOpts=(sel,empty='— Sans équipe —')=>`<option value="">${empty}</option>`+S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))).map(t=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${esc(t.name)}</option>`).join('');
+function compCounts(){
+  const n=f=>S.gyms.filter(f).length, td=nTodo();
+  return `<span class="cc">🏅 Équipe <b>${n(teamOk)}</b></span><span class="cc">🧍 Individuel <b>${n(indOk)}</b></span><span class="cc">Pas de compétition <b>${n(g=>g.compet==='aucune')}</b></span><span class="cc ${td?'todo':''}">À choisir <b>${td}</b></span>`;
+}
 function renderManage(){
   const m=document.getElementById('main');
-  const nb=id=>S.gyms.filter(g=>g.team===id).length;
-  m.innerHTML=`<div class="gymhead"><div><h2 class="name">Gymnastes &amp; équipes</h2><div class="meta">${S.gyms.length} gymnaste(s) · ${S.teams.length} équipe(s)</div></div></div>
+  const warn=!HASCOMP?`<div class="warn" style="margin-bottom:12px">⚠ La base n'a pas encore la colonne « competition » : exécute le script <b>migration-competition.sql</b> dans Supabase, sinon le choix de compétition ne sera pas enregistré.</div>`:'';
+  const fo=(UI.mcomp||'');
+  m.innerHTML=`<div class="gymhead"><div><h2 class="name">Gymnastes</h2><div class="meta">${S.gyms.length} gymnaste(s) · choisis pour chacune : compétition équipe, individuelle, les deux ou aucune</div></div></div>${warn}
+  <div class="ccount" id="mCounts"></div>
   <div class="card" style="margin-bottom:16px">
     <h3>Ajouter une gymnaste</h3>
     <form class="inl" id="fGym">
       <label>Prénom<input name="p" required autocomplete="off"></label>
       <label>Nom<input name="n" autocomplete="off"></label>
       <label>Date de naissance<input name="a" type="date"></label>
-      <label>Équipe<select name="t">${teamOpts(UI.lastTeam||'')}</select></label>
+      <label>Compétition<select name="c">${compOpts(UI.lastComp||'')}</select></label>
       <button class="btn primary">Ajouter</button>
     </form>
-    <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour la suivante et garde l'équipe choisie.</div>
+    <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour la suivante et garde la compétition choisie.</div>
   </div>
-  <div class="mgrid">
-    <div class="card"><h3>Toutes les gymnastes</h3>
-      <div class="mfilt"><input id="mQ" placeholder="Filtrer par nom…" value="${esc(UI.mq)}" autocomplete="off"><select id="mTeamF">${teamOpts(UI.mteam,'Toutes les équipes').replace('<option value="">Toutes les équipes</option>','<option value="">Toutes les équipes</option><option value="__none" '+(UI.mteam==='__none'?'selected':'')+'>Sans équipe</option>')}</select></div>
-      <div id="mTable"></div>
-    </div>
-    <div class="card"><h3>Équipes</h3>
-      <div class="hint" style="margin-bottom:8px">${S.teams.length} équipe(s). La création et la composition des équipes se font dans l'onglet <b>🏅 Équipes</b>.</div><button class="btn primary" data-nav="teams">Ouvrir l'onglet Équipes</button>
-      ${typeof SB_URL==='undefined'?`<h3 style="margin-top:18px">Données</h3><div class="hint">Avec Chrome ou Edge, ouvre le fichier de données de la clé USB (en haut à droite) : tout s'y enregistre automatiquement. <b>Sauvegarde complète</b> et <b>Importer</b> servent à faire des copies.</div>${!S.gyms.length?'<div style="margin-top:8px"><button class="btn sm" id="bDemo">Charger un exemple</button></div>':''}`
-        :`<h3 style="margin-top:18px">Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div>`}
-    </div>
-  </div>`;
+  <div class="card"><h3>Toutes les gymnastes</h3>
+    <div class="mfilt"><input id="mQ" placeholder="Filtrer par nom…" value="${esc(UI.mq)}" autocomplete="off"><select id="mCompF">
+      <option value="">Toutes</option><option value="todo" ${fo==='todo'?'selected':''}>À choisir</option><option value="team" ${fo==='team'?'selected':''}>Compétition équipe</option><option value="ind" ${fo==='ind'?'selected':''}>Compétition individuelle</option><option value="none" ${fo==='none'?'selected':''}>Pas de compétition</option></select></div>
+    <div id="mTable"></div>
+  </div>
+  ${typeof SB_URL==='undefined'?`<div class="card" style="margin-top:16px"><h3>Données</h3><div class="hint">Avec Chrome ou Edge, ouvre le fichier de données de la clé USB (en haut à droite) : tout s'y enregistre automatiquement. <b>Sauvegarde complète</b> et <b>Importer</b> servent à faire des copies.</div>${!S.gyms.length?'<div style="margin-top:8px"><button class="btn sm" id="bDemo">Charger un exemple</button></div>':''}</div>`
+    :`<div class="card" style="margin-top:16px"><h3>Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div></div>`}`;
   renderManageTable();
 }
 function renderManageTable(){
   const el=document.getElementById('mTable'); if(!el) return;
-  const q=norm(UI.mq);
-  const list=S.gyms.filter(g=>(!q||norm(gymName(g)+' '+(S.teams.find(t=>t.id===g.team)?.name||'')).includes(q)) && (!UI.mteam || (UI.mteam==='__none'?!g.team:g.team===UI.mteam)))
+  const q=norm(UI.mq), f=UI.mcomp||'';
+  const match=g=>!f||(f==='todo'?!g.compet:f==='team'?teamOk(g):f==='ind'?indOk(g):g.compet==='aucune');
+  const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&match(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||'')) || norm(a.prenom).localeCompare(norm(b.prenom)));
   for(const id in UI.sel) if(!S.gyms.some(g=>g.id===id)) delete UI.sel[id];
+  const cn=document.getElementById('mCounts'); if(cn) cn.innerHTML=compCounts();
   const nSel=Object.keys(UI.sel).length, allOn=list.length && list.every(g=>UI.sel[g.id]);
-  el.innerHTML=`${nSel?`<div class="bulk"><b>${nSel} sélectionnée(s)</b> → affecter à <select id="bulkTeam">${teamOpts('')}</select><button class="btn sm primary" id="bBulk">Appliquer</button><button class="btn sm" id="bBulkNone">Désélectionner</button></div>`:''}
-   <table class="mtb"><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"></th><th>Nom</th><th>Prénom</th><th style="width:140px">Naissance</th><th style="min-width:190px">Équipe</th><th class="num">Total ND</th><th></th></tr></thead>
+  el.innerHTML=`${nSel?`<div class="bulk"><b>${nSel} sélectionnée(s)</b> → compétition <select id="bulkComp">${compOpts('','— Choisir —')}</select><button class="btn sm primary" id="bBulkC">Appliquer</button><button class="btn sm" id="bBulkNone">Désélectionner</button></div>`:''}
+   <table class="mtb"><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"></th><th>Nom</th><th>Prénom</th><th style="width:140px">Naissance</th><th style="min-width:190px">Compétition</th><th class="num">Total ND</th><th></th></tr></thead>
    <tbody>${list.map(g=>`<tr>
      <td><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''}></td>
      <td><input type="text" data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}"></td>
      <td><input type="text" data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}"></td>
      <td><input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}"></td>
-     <td><select data-mteam="${g.id}">${teamOpts(g.team)}</select></td>
+     <td><select data-mcomp="${g.id}" class="${g.compet?'':'todo'}">${compOpts(g.compet)}</select></td>
      <td class="num">${f2(totalGym(g.id))}</td>
      <td style="white-space:nowrap"><button class="btn sm" data-gym="${g.id}">Ouvrir</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer">✕</button>`:''}</td></tr>`).join('')}</tbody></table>
    ${!list.length?'<div class="empty">Aucune gymnaste.</div>':''}`;
@@ -979,7 +983,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('submit',ev=>{
   ev.preventDefault(); const f=ev.target, v=n=>(f.elements[n]?.value||'').trim();
   if(f.id==='fTeam'){ S.teams.push({id:uid(),name:v('n')}); render(); }
-  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),team:v('t')||null}; S.gyms.push(g); UI.lastTeam=g.team||'';
+  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),compet:v('c'),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
     if(UI.view==='manage'){ render(); toast(gymName(g)+' ajoutée'); document.querySelector('#fGym [name=p]')?.focus(); }
     else { UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); } }
 });
@@ -996,7 +1000,7 @@ function exportData(){
 }
 function demo(){
   const t={id:uid(),name:'Fédéral A – Équipe 1'}; S.teams.push(t);
-  const mk=(p,n,a)=>{const g={id:uid(),prenom:p,nom:n,annee:a,team:t.id}; S.gyms.push(g); return g};
+  const mk=(p,n,a)=>{const g={id:uid(),prenom:p,nom:n,annee:a,compet:'equipe_indiv',team:t.id}; S.gyms.push(g); return g};
   const g1=mk('Léa','Martin','2014'), g2=mk('Inès','Bernard','2013'); mk('Zoé','Petit','2015');
   const set=(g,ag,ids,links=[])=>{ S.routines[g.id]??={}; S.routines[g.id][ag]={items:ids.map((e,i)=>({e,link:links.includes(i)})),ov:{}} };
   set(g1,'barres',['B03','B13','B12','B20','B22','B11','B19']);
@@ -1021,8 +1025,15 @@ const indivCat=a=>a==null?'Date de naissance manquante':a<10?'Moins de 10 ans':a
 const teamOf=g=>S.teams.find(t=>t.id===g.team);
 const byTeamName=(a,b)=>norm(a.name).localeCompare(norm(b.name));
 const hasTeam=g=>S.teams.some(t=>t.id===g.team);
+/* compétition choisie pour chaque gymnaste */
+const COMPS=[['equipe','Équipe'],['indiv','Individuel'],['equipe_indiv','Équipe + individuel'],['aucune','Pas de compétition']];
+const compLabel=k=>(COMPS.find(c=>c[0]===k)||[0,''])[1];
+const teamOk=g=>g.compet==='equipe'||g.compet==='equipe_indiv';
+const indOk=g=>g.compet==='indiv'||g.compet==='equipe_indiv';
+const compOpts=(sel,blank='— À choisir —')=>`<option value="">${blank}</option>`+COMPS.map(([k,l])=>`<option value="${k}" ${sel===k?'selected':''}>${l}</option>`).join('');
+const nTodo=()=>S.gyms.filter(g=>!g.compet).length;
 /* gymnastes sans équipe, avec date de naissance connue, dont l'âge correspond à la catégorie */
-const eligible=cat=>cat?S.gyms.filter(g=>{ const a=ageOf(g); return !hasTeam(g)&&a!=null&&inCat(cat,a) }).sort(byName):[];
+const eligible=cat=>cat?S.gyms.filter(g=>{ const a=ageOf(g); return !hasTeam(g)&&teamOk(g)&&a!=null&&inCat(cat,a) }).sort(byName):[];
 const teamsFor=g=>{ const a=ageOf(g); if(a==null) return null; return S.teams.filter(t=>t.cat&&inCat(t.cat,a)&&S.gyms.filter(x=>x.team===t.id).length<progOf(t).max).sort(byTeamName) };
 const orderedGyms=()=>[...S.gyms].sort(byName);
 
@@ -1047,17 +1058,16 @@ function teamAlerts(t){
   return a;
 }
 const mvDone=g=>AGRES.filter(a=>!compute0(g.id,a.k).empty).length;
-function gymBadge(g){ const a=ageOf(g), t=teamOf(g); let s=''; if(a!=null) s+=` · Catégorie individuelle ${indivCat(a)}`; if(t) s+=` · Équipe ${esc(t.name)} (${progOf(t).l}${t.cat?', '+catName(t.cat):''})`; return s }
+function gymBadge(g){ const a=ageOf(g), t=teamOf(g); let s=''; if(a!=null) s+=` · Catégorie individuelle ${indivCat(a)}`; if(g.compet) s+=` · Compétition : ${compLabel(g.compet)}`; if(t) s+=` · Équipe ${esc(t.name)} (${progOf(t).l}${t.cat?', '+catName(t.cat):''})`; return s }
 function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') return ''; return `<br>En équipe (Fédéral A régional, sans bonif.) : <b>${f2(teamCompute(g,ag).nd)}</b>` }
 
 /* ---------- barre d'onglets ---------- */
 function navBar(){
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['roster','📋 Effectif'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
 }
 function renderMain(){
   const m=document.getElementById('main');
-  if(UI.view==='roster'){ m.innerHTML=navBar()+renderRoster(); renderSideList(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
   if(UI.view==='summary'){ m.innerHTML=navBar()+renderSummary(); return }
   renderMain0();
@@ -1073,14 +1083,14 @@ function neGymsHtml(cat){
   if(!cat) return '<div class="hint">Choisis une catégorie pour voir les gymnastes disponibles.</div>';
   const l=eligible(cat);
   return l.length?`<div class="hint" style="margin-bottom:4px">Gymnastes disponibles dans cette catégorie (${l.length}) : coche celles de l’équipe.</div><div class="negrid">${l.map(g=>`<label class="chk"><input type="checkbox" name="g" value="${g.id}"> ${labG(g)}</label>`).join('')}</div>`
-    :'<div class="hint">Aucune gymnaste disponible dans cette catégorie (sans équipe et avec une date de naissance).</div>';
+    :'<div class="hint">Aucune gymnaste disponible dans cette catégorie (inscrite en compétition équipe, sans équipe et avec une date de naissance).</div>';
 }
 function renderTeams(){
   const teams=S.teams.slice().sort(byTeamName);
-  const free=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)).sort(byName);
+  const free=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)&&teamOk(g)).sort(byName);
   const lab=g=>`${esc(gymName(g))}${g.naissance?' ('+esc(g.naissance.slice(0,4))+')':''}`;
   const warn=!HASPROG?`<div class="warn" style="margin-bottom:12px">⚠ La base n'a pas encore les colonnes « programme » et « catégorie » : exécute le script <b>migration-equipes.sql</b> dans Supabase, sinon ces réglages ne seront pas enregistrés.</div>`:'';
-  return `<div class="gymhead"><div><h2 class="name">Équipes</h2><div class="meta">${teams.length} équipe(s) · ${free.length} gymnaste(s) sans équipe</div></div></div>${warn}
+  return `<div class="gymhead"><div><h2 class="name">Équipes</h2><div class="meta">${teams.length} équipe(s) · ${free.length} gymnaste(s) à placer</div></div></div>${warn}${compNote()}
   <div class="card" style="margin-bottom:16px"><h3>Créer une équipe</h3>
     <form class="inl" id="fTeamNew">
       <label>Nom<input name="n" required autocomplete="off" placeholder="ex. Fédéral A 12-15 ans"></label>
@@ -1102,9 +1112,9 @@ function renderTeams(){
         ${(()=>{ const room=P.max-gs.length, c=eligible(t.cat); return `<select data-eqadd="${t.id}" ${(!t.cat||room<=0)?'disabled':''}><option value="">${!t.cat?'Choisis d’abord une catégorie':room<=0?'Équipe complète ('+P.max+')':c.length?'+ Ajouter une gymnaste ('+c.length+' disponible'+(c.length>1?'s':'')+')…':'Aucune gymnaste disponible'}</option>${c.map(g=>`<option value="${g.id}">${lab(g)}</option>`).join('')}</select>` })()}</div>
       ${al.length?`<div class="warns">${al.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}</div>`:'<div class="okline">✓ Composition conforme au règlement.</div>'}
     </div>` }).join('')||'<div class="card empty">Aucune équipe : crée la première ci-dessus.</div>'}
-  <div class="card"><h3>Gymnastes sans équipe (${free.length})</h3>
+  <div class="card"><h3>Gymnastes en compétition équipe, sans équipe (${free.length})</h3>
     ${free.length?`<table class="mtb"><thead><tr><th>Gymnaste</th><th>Naissance</th><th>Catégorie individuelle</th><th>Affecter à</th></tr></thead><tbody>
-      ${free.map(g=>`<tr><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.split('-').reverse().join('/')):'<span class="hint">—</span>'}</td><td>${indivCat(ageOf(g))}</td><td>${(()=>{ const l=teamsFor(g); return l===null?'<select disabled><option>Date de naissance à renseigner</option></select>':l.length?`<select data-eqassign="${g.id}"><option value="">— Choisir une équipe —</option>${l.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select>`:'<select disabled><option>Aucune équipe compatible</option></select>' })()}</td></tr>`).join('')}</tbody></table><div class="hint" style="margin-top:6px">Seules les équipes de la bonne catégorie et non complètes sont proposées. Une gymnaste ne peut être que dans une seule équipe.</div>`:'<div class="empty">Toutes les gymnastes ont une équipe.</div>'}
+      ${free.map(g=>`<tr><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.split('-').reverse().join('/')):'<span class="hint">—</span>'}</td><td>${indivCat(ageOf(g))}</td><td>${(()=>{ const l=teamsFor(g); return l===null?'<select disabled><option>Date de naissance à renseigner</option></select>':l.length?`<select data-eqassign="${g.id}"><option value="">— Choisir une équipe —</option>${l.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select>`:'<select disabled><option>Aucune équipe compatible</option></select>' })()}</td></tr>`).join('')}</tbody></table><div class="hint" style="margin-top:6px">Seules les équipes de la bonne catégorie et non complètes sont proposées. Une gymnaste ne peut être que dans une seule équipe.</div>`:'<div class="empty">Toutes les gymnastes inscrites en compétition équipe ont une équipe.</div>'}
   </div>`;
 }
 
@@ -1136,11 +1146,11 @@ function sumTeams(){
 }
 function sumIndiv(){
   const all=!!UI.sumAll, order=['10-11 ans','12-13 ans','14-15 ans','16 ans et +','Moins de 10 ans','Date de naissance manquante'];
-  const list=S.gyms.filter(g=>all||mvDone(g)>0);
-  const ctl=`<label class="chk"><input type="checkbox" id="sumAll" ${all?'checked':''}> Afficher aussi les gymnastes sans mouvement</label>`;
+  const list=S.gyms.filter(g=>indOk(g)&&(all||mvDone(g)>0));
+  const ctl=`<label class="chk"><input type="checkbox" id="sumAll" ${all?'checked':''}> Afficher aussi les gymnastes individuelles sans mouvement</label>`;
   const groups=order.map(c=>({c,gs:list.filter(g=>indivCat(ageOf(g))===c).sort((a,b)=>totalGym(b.id)-totalGym(a.id)||byName(a,b))})).filter(x=>x.gs.length);
-  if(!groups.length) return `<div class="card">${ctl}<div class="empty">Aucune gymnaste avec un mouvement.</div></div>`;
-  return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027.</div></div>`
+  if(!groups.length) return `<div class="card">${ctl}<div class="empty">Aucune gymnaste inscrite en individuel${all?'':' avec un mouvement'}.</div>${indNote()}</div>`;
+  return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027.</div>${indNote()}</div>`
     + groups.map(x=>{ const ranked=!/Moins|manquante/.test(x.c);
       return `<div class="card" style="margin-bottom:16px"><h3>${esc(x.c)} <span class="hint">${x.gs.length} gymnaste(s)</span></h3>
         <table class="tb"><thead><tr>${ranked?'<th>#</th>':''}<th>Gymnaste</th><th>Équipe</th>${AGRES.map(a=>`<th>${a.l}</th>`).join('')}<th>Total</th><th>Mouvements</th></tr></thead><tbody>
@@ -1181,14 +1191,10 @@ document.addEventListener('submit',ev=>{
   render(); toast('Équipe créée'+(ids.length?' avec '+ids.length+' gymnaste(s)':''));
 });
 
-/* ================= v5.1 : Effectif (ancien menu latéral), sélecteur, détail des mouvements ================= */
-renderSide=function(){};            // le menu latéral est remplacé par l'onglet « Effectif »
+/* ================= v5.1 : sélecteur, détail des mouvements ================= */
+renderSide=function(){};            // pas de menu latéral
 const rosterOrder=()=>[...S.teams.slice().sort(byTeamName).flatMap(t=>S.gyms.filter(g=>g.team===t.id).sort(byName)),...S.gyms.filter(g=>!hasTeam(g)).sort(byName)];
 function miniNotes(g){ const f=(k,l)=>{ const c=compute(g.id,k); return `${l} ${c.empty?'—':f2(c.nd)}` }; return `${yr(g)?yr(g)+' · ':''}${f('saut','S')} · ${f('barres','B')} · ${f('poutre','P')} · ${f('sol','Sol')}` }
-function renderRoster(){
-  return `<div class="gymhead"><div><h2 class="name">Effectif</h2><div class="meta">${S.gyms.length} gymnaste(s) · ${S.teams.length} équipe(s) · clique sur une gymnaste pour composer ses mouvements, sur une équipe pour sa fiche</div></div></div>
-    <input class="sq" id="sideQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.sq)}" autocomplete="off" style="max-width:420px;margin-bottom:12px"><div id="sideList"></div>`;
-}
 function pickerBar(){
   if(!S.gyms.length) return '';
   if(UI.view==='team'){ const ts=S.teams.slice().sort(byTeamName); return `<div class="pick"><label>Équipe <select id="pickTeam">${ts.map(t=>`<option value="${t.id}" ${UI.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label></div>` }
@@ -1225,83 +1231,32 @@ document.addEventListener('change',ev=>{
 });
 
 
-/* ================= v5.2 : Effectif en liste (tri alphabétique / âge), sans tenir compte des équipes ================= */
-UI.rview=UI.rview||'list'; UI.rsort=UI.rsort||'alpha'; UI.rflt=UI.rflt||''; UI.rq=UI.rq||'';
-const renderRosterTeams=renderRoster;
-const rKey=g=>norm(g.nom||g.prenom||'');
-const rByName=(a,b)=>rKey(a).localeCompare(rKey(b))||norm(a.prenom||'').localeCompare(norm(b.prenom||''));
-function rSorted(){
-  let l=S.gyms.slice(); const q=norm(UI.rq);
-  if(q) l=l.filter(g=>norm(gymName(g)).includes(q)||norm((teamOf(g)||{}).name||'').includes(q));
-  if(UI.rflt==='free') l=l.filter(g=>!hasTeam(g));
-  if(UI.rflt==='nodate') l=l.filter(g=>!g.naissance);
-  if(UI.rsort==='alpha') l.sort(rByName);
-  else{ const dir=UI.rsort==='young'?-1:1;
-    l.sort((a,b)=>{ const x=a.naissance||'', y=b.naissance||''; if(!x&&!y) return rByName(a,b); if(!x) return 1; if(!y) return -1; return x===y?rByName(a,b):(x<y?-1:1)*dir }) }
-  return l;
-}
-function rTeamSel(g){
-  const a=ageOf(g), cur=teamOf(g);
-  if(a==null&&!cur) return '<select disabled><option>Date de naissance à renseigner</option></select>';
-  const ok=a==null?[]:S.teams.filter(t=>t.cat&&inCat(t.cat,a)&&(t.id===g.team||S.gyms.filter(x=>x.team===t.id).length<progOf(t).max));
-  const list=[...(cur&&!ok.includes(cur)?[cur]:[]),...ok].sort(byTeamName);
-  return `<select data-rlteam="${g.id}"><option value="">${list.length?'— Sans équipe —':'— Sans équipe (aucune équipe compatible) —'}</option>${list.map(t=>`<option value="${t.id}" ${g.team===t.id?'selected':''}>${esc(t.name)}${!ok.includes(t)?(t.cat?' ⚠ hors catégorie':' ⚠ catégorie à régler'):''}</option>`).join('')}</select>`;
-}
-const rAgeTxt=g=>{ const a=ageOf(g); return a==null?'<span class="hint">—</span>':`<b>${a} ans</b> · ${a<10?'trop jeune pour le Fédéral A':indivCat(a)}` };
-function rRow(g){
-  return `<tr><td><input type="text" data-rl="nom" data-gid="${g.id}" value="${esc(g.nom||'')}"></td>
-    <td><input type="text" data-rl="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}"></td>
-    <td><input type="date" data-rl="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}"></td>
-    <td data-rlage="${g.id}">${rAgeTxt(g)}</td>
-    <td data-rlcell="${g.id}">${rTeamSel(g)}</td>
-    <td>${mvDone(g)}/4</td><td class="num"><b>${f2(totalGym(g.id))}</b></td>
-    <td><button class="btn sm" data-gym="${g.id}">Ouvrir</button></td></tr>`;
-}
-function rTable(){
-  const l=rSorted(); if(!l.length) return '<div class="empty">Aucune gymnaste.</div>';
-  const yOf=g=>g.naissance?g.naissance.slice(0,4):''; let html='', last=null;
-  l.forEach(g=>{
-    if(UI.rsort!=='alpha'){ const y=yOf(g); if(y!==last){ last=y; const n=l.filter(x=>yOf(x)===y).length;
-      html+=`<tr class="rgrp"><td colspan="8">${y?`${ageOf(g)} ans · nées en ${y}`:'Date de naissance manquante'} <span class="hint">${n}</span></td></tr>` } }
-    html+=rRow(g);
-  });
-  return `<div style="overflow-x:auto"><table class="mtb rtb"><thead><tr><th>Nom</th><th>Prénom</th><th style="width:150px">Naissance</th><th>Âge · catégorie</th><th style="min-width:230px">Équipe</th><th>Mouvements</th><th class="num">Total</th><th></th></tr></thead><tbody>${html}</tbody></table></div><div class="hint" style="margin-top:8px">${l.length} gymnaste(s) affichée(s). Les modifications (nom, date de naissance, équipe) s'enregistrent automatiquement. Seules les équipes de la bonne catégorie (réglée dans l'onglet Équipes) et non complètes sont proposées.</div>`;
-}
-const rRefreshTeams=()=>document.querySelectorAll('[data-rlcell]').forEach(td=>{ const g=S.gyms.find(x=>x.id===td.dataset.rlcell); if(g) td.innerHTML=rTeamSel(g) });
-renderRoster=function(){
-  const v=UI.rview;
-  const toggle=`<div class="seg" style="margin-bottom:12px"><button data-rview="list" class="${v==='list'?'on':''}">Liste (sans équipes)</button><button data-rview="team" class="${v==='team'?'on':''}">Par équipe</button></div>`;
-  if(v==='team') return toggle+renderRosterTeams();
-  return `<div class="gymhead"><div><h2 class="name">Effectif</h2><div class="meta">${S.gyms.length} gymnaste(s) · liste complète, sans tenir compte des équipes</div></div></div>${toggle}
-  <div class="card" style="margin-bottom:12px"><h3>Ajouter une gymnaste</h3>
-    <form class="inl" id="fRoster"><label>Prénom<input name="p" required autocomplete="off"></label><label>Nom<input name="n" autocomplete="off"></label><label>Date de naissance<input name="a" type="date"></label><button class="btn primary">Ajouter</button></form>
-    <div class="hint" style="margin-top:6px">Entrée pour ajouter : le formulaire se vide pour la suivante. L'équipe se choisit ensuite dans le tableau.</div></div>
-  <div class="card"><div class="rtools">
-    <input class="sq" id="rlQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.rq)}" autocomplete="off">
-    <label>Trier par<select id="rlSort"><option value="alpha" ${UI.rsort==='alpha'?'selected':''}>Ordre alphabétique (nom)</option><option value="young" ${UI.rsort==='young'?'selected':''}>Âge : plus jeunes d'abord</option><option value="old" ${UI.rsort==='old'?'selected':''}>Âge : plus âgées d'abord</option></select></label>
-    <label>Afficher<select id="rlFlt"><option value="" ${!UI.rflt?'selected':''}>Toutes les gymnastes</option><option value="free" ${UI.rflt==='free'?'selected':''}>Sans équipe</option><option value="nodate" ${UI.rflt==='nodate'?'selected':''}>Date de naissance manquante</option></select></label>
-  </div><div id="rlTable">${rTable()}</div></div>`;
+
+
+/* ================= v6 : compétition choisie par gymnaste (équipe / individuel / les deux / aucune) ================= */
+const compNote=()=>{ const td=nTodo(), no=S.gyms.filter(g=>g.compet && !teamOk(g)).length;
+  return (td||no)?`<div class="hint" style="margin-bottom:12px">Seules les gymnastes inscrites en <b>compétition équipe</b> sont proposées ici.${td?` <b>${td}</b> gymnaste(s) n'ont pas encore de compétition choisie`:''}${td&&no?' et ':(no?' ':'')}${no?`<b>${no}</b> ne font pas d'équipe`:''}${td||no?' : voir l\'onglet <button class="btn sm" data-nav="manage">👥 Gymnastes</button>.':''}</div>`:'' };
+const indNote=()=>{ const td=nTodo(), sans=S.gyms.filter(g=>!indOk(g)&&mvDone(g)>0).length;
+  return (td||sans)?`<div class="hint" style="margin-top:6px">Seules les gymnastes inscrites en <b>compétition individuelle</b> sont listées.${sans?` ${sans} gymnaste(s) avec mouvement n'y sont pas inscrites.`:''}${td?` ${td} sans compétition choisie.`:''} Réglage dans l'onglet <button class="btn sm" data-nav="manage">👥 Gymnastes</button>.</div>`:'' };
+/* une gymnaste en équipe fait forcément la compétition équipe */
+const _renderMain6=renderMain;
+renderMain=function(){
+  S.gyms.forEach(g=>{ if(hasTeam(g)){ if(g.compet==='indiv') g.compet='equipe_indiv'; else if(g.compet==='aucune') g.compet='equipe' } });
+  return _renderMain6.apply(this,arguments);
 };
-document.addEventListener('click',ev=>{
-  const b=ev.target.closest('[data-rview]'); if(!b) return; UI.rview=b.dataset.rview; render();
-});
-document.addEventListener('input',ev=>{
-  if(ev.target.id==='rlQ'){ UI.rq=ev.target.value; const t=document.getElementById('rlTable'); if(t) t.innerHTML=rTable() }
-});
+function setComp(g,v){ g.compet=v||''; if(g.team && !teamOk(g)){ const t=teamOf(g); g.team=null; return t?t.name:'équipe' } return null }
 document.addEventListener('change',ev=>{
-  const t=ev.target, d=t.dataset;
-  if(t.id==='rlSort'||t.id==='rlFlt'){ if(t.id==='rlSort') UI.rsort=t.value; else UI.rflt=t.value; const x=document.getElementById('rlTable'); if(x) x.innerHTML=rTable(); return }
-  if(d.rl){ const g=S.gyms.find(x=>x.id===d.gid); if(!g) return; const v=t.value.trim();
-    if(d.rl==='prenom'&&!v){ t.value=g.prenom; return }
-    g[d.rl]=v; save();
-    if(d.rl==='naissance'){ const a=document.querySelector(`[data-rlage="${g.id}"]`); if(a) a.innerHTML=rAgeTxt(g); rRefreshTeams() }
-    return }
-  if(d.rlteam){ const g=S.gyms.find(x=>x.id===d.rlteam); if(!g) return; g.team=t.value||null; save(); rRefreshTeams(); toast(g.team?'Équipe : '+teamOf(g).name:'Retirée de son équipe'); }
+  const t=ev.target; if(!t||!t.dataset) return;
+  if(t.dataset.mcomp){ const g=S.gyms.find(x=>x.id===t.dataset.mcomp); if(!g) return;
+    const r=setComp(g,t.value); renderManageTable(); save(); if(r) toast(`${gymName(g)} retirée de l'équipe « ${r} »`); return }
+  if(t.id==='mCompF'){ UI.mcomp=t.value; renderManageTable() }
 });
-document.addEventListener('submit',ev=>{
-  const f=ev.target; if(f.id!=='fRoster') return; const v=n=>(f.elements[n]?.value||'').trim();
-  if(!v('p')) return; S.gyms.push({id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),team:null});
-  render(); toast(v('p')+' ajoutée'); document.querySelector('#fRoster [name=p]')?.focus();
+document.addEventListener('click',ev=>{
+  const t=ev.target; if(!t||t.id!=='bBulkC') return;
+  const v=document.getElementById('bulkComp').value; if(!v){ toast("Choisis d'abord une compétition"); return }
+  let out=0; const n=Object.keys(UI.sel).length;
+  S.gyms.forEach(g=>{ if(UI.sel[g.id]){ if(setComp(g,v)) out++ } });
+  UI.sel={}; render(); toast(`${n} gymnaste(s) : ${compLabel(v)}${out?` (${out} retirée(s) de leur équipe)`:''}`);
 });
 
 render();
