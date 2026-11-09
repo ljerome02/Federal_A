@@ -229,6 +229,27 @@ table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid va
 .chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:6px}
 span.kept{background:#dff3e6;border-radius:4px}
 .negrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 12px}
+/* ===== v5.1 ===== */
+aside{display:none!important}
+.app{grid-template-columns:1fr!important}
+#main #sideList .team{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+#main #sideList .team-h{grid-column:1/-1}
+#main #sideList .empty{grid-column:1/-1}
+#main #sideList .gym{flex-wrap:wrap;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px}
+#main #sideList .gym:hover{border-color:var(--accent)}
+#main #sideList .gym .mini{flex-basis:100%;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pick{display:flex;gap:8px;align-items:center;margin:0 0 12px;flex-wrap:wrap}
+.pick label{display:flex;gap:6px;align-items:center}
+.mvh{margin:18px 0 4px;font-size:14px}
+.mvd{margin-top:8px}.mvd summary{cursor:pointer;font-weight:700;margin-bottom:6px}
+.mvt td,.mvt th{text-align:left;vertical-align:top}
+.mvt td:last-child,.mvt th:last-child{text-align:right}
+.mvc{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin:1px 0;font-size:12px}
+.mvc b{color:var(--accent)}
+.mvc.rep{text-decoration:line-through;opacity:.6}
+.mvc.hors{border-style:dashed;opacity:.7}
+.mvl{margin:0 3px;color:var(--muted)}
+.mvb{display:inline-block;background:var(--accent-soft);border-radius:6px;padding:1px 6px;font-size:12px;margin:1px 4px 1px 0}
 </style>
 </head>
 <body>
@@ -577,7 +598,7 @@ function renderSideList(){
         <span class="n">${t?hl(t.name,q):'Sans équipe'}</span><span class="hint">${all.length}</span>
       </div>
       ${closed?'':gs.map(g=>`<div class="gym ${UI.view==='gym'&&UI.gym===g.id?'sel':''}" data-gym="${g.id}">
-        <span>${hl(gymName(g),q)}</span><span class="nd">${f2(totalGym(g.id))}</span></div>`).join('') || (q?'':'<div class="empty">Aucune gymnaste</div>')}
+        <span>${hl(gymName(g),q)}</span><span class="nd">${f2(totalGym(g.id))}</span><span class="mini">${miniNotes(g)}</span></div>`).join('') || (q?'':'<div class="empty">Aucune gymnaste</div>')}
     </div>`;
   }).join('');
   el.innerHTML = blocks || (q?'<div class="empty">Aucun résultat.</div>':'<div class="empty">Aucune gymnaste. Clique sur <b>⚙️ Gérer</b> pour en ajouter.</div>');
@@ -666,7 +687,7 @@ function welcome(){
     <h3>Bienvenue 👋</h3>
     <p>Cet outil compose les mouvements <b>Fédéral A</b> à partir des grilles de la brochure FFGym 2026-2027 et calcule la <b>note de départ</b> (note D) de chaque agrès.</p>
     <ol>
-      <li>Onglet <b>👥 Gymnastes</b> : ajoute tes gymnastes. Onglet <b>🏅 Équipes</b> : crée les équipes (Fédéral A ou A régional) et compose-les.</li>
+      <li>Onglet <b>👥 Gymnastes</b> : ajoute tes gymnastes. Onglet <b>🏅 Équipes</b> : crée les équipes (Fédéral A ou A régional) et compose-les. Onglet <b>📋 Effectif</b> : retrouve toute ton équipe d'un coup d'œil.</li>
       <li>Onglet <b>✏️ Mouvements</b> : choisis une gymnaste, puis un agrès : clique sur les éléments du catalogue pour les ajouter.</li>
       <li>Réorganise l'ordre par glisser-déposer (ou ▲▼) et clique sur <b>« lier »</b> entre deux éléments pour indiquer une série.</li>
       <li>La note de départ = valeur des 7 meilleurs éléments différents (7 pts max) + bonifications (3 × 0,5 pt).</li>
@@ -1024,14 +1045,16 @@ function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') r
 /* ---------- barre d'onglets ---------- */
 function navBar(){
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['roster','📋 Effectif'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
 }
 function renderMain(){
   const m=document.getElementById('main');
+  if(UI.view==='roster'){ m.innerHTML=navBar()+renderRoster(); renderSideList(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
   if(UI.view==='summary'){ m.innerHTML=navBar()+renderSummary(); return }
   renderMain0();
-  if(UI.view!=='members') m.innerHTML=navBar()+m.innerHTML;
+  if(UI.view==='gym'||UI.view==='team') m.innerHTML=navBar()+pickerBar()+m.innerHTML;
+  else if(UI.view!=='members') m.innerHTML=navBar()+m.innerHTML;
 }
 
 /* ---------- onglet Équipes ---------- */
@@ -1098,6 +1121,7 @@ function sumTeams(){
         ${gs.map(g=>`<tr class="click" data-gym="${g.id}"><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.slice(0,4)):'—'}</td>${AGRES.map(a=>cell(g,a.k)).join('')}<td>${mvDone(g)}/4</td></tr>`).join('')}</tbody>
         <tfoot><tr><td colspan="2">Total équipe (${P.kept} meilleures notes par agrès)</td>${AGRES.map(a=>`<td>${f2(T[a.k].total)}</td>`).join('')}<td><b>${f2(AGRES.reduce((s,a)=>s+T[a.k].total,0))}</b></td></tr></tfoot></table>
       <div class="hint" style="margin-top:6px"><span class="kept" style="padding:1px 6px">vert</span> = note comptée · gris = non comptée${t.prog==='AR'?' · notes sans bonifications (Fédéral A régional)':''}</div>
+      ${mvSummary(t)}
       ${miss.length?`<div class="warns">${miss.map(x=>`<div class="warn">${esc(gymName(x.g))} : pas de mouvement à ${x.m.join(', ')}.</div>`).join('')}</div>`:''}
       ${al.length?`<div class="warns">${al.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}</div>`:''}
     </div>` }).join('');
@@ -1147,6 +1171,49 @@ document.addEventListener('submit',ev=>{
   const nt={id:uid(),name:v('n'),prog:p,cat:c}; S.teams.push(nt);
   ids.forEach(id=>{ const g=S.gyms.find(x=>x.id===id); if(g&&!hasTeam({team:g.team})) g.team=nt.id });
   render(); toast('Équipe créée'+(ids.length?' avec '+ids.length+' gymnaste(s)':''));
+});
+
+/* ================= v5.1 : Effectif (ancien menu latéral), sélecteur, détail des mouvements ================= */
+renderSide=function(){};            // le menu latéral est remplacé par l'onglet « Effectif »
+const rosterOrder=()=>[...S.teams.slice().sort(byTeamName).flatMap(t=>S.gyms.filter(g=>g.team===t.id).sort(byName)),...S.gyms.filter(g=>!hasTeam(g)).sort(byName)];
+function miniNotes(g){ const f=(k,l)=>{ const c=compute(g.id,k); return `${l} ${c.empty?'—':f2(c.nd)}` }; return `${yr(g)?yr(g)+' · ':''}${f('saut','S')} · ${f('barres','B')} · ${f('poutre','P')} · ${f('sol','Sol')}` }
+function renderRoster(){
+  return `<div class="gymhead"><div><h2 class="name">Effectif</h2><div class="meta">${S.gyms.length} gymnaste(s) · ${S.teams.length} équipe(s) · clique sur une gymnaste pour composer ses mouvements, sur une équipe pour sa fiche</div></div></div>
+    <input class="sq" id="sideQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.sq)}" autocomplete="off" style="max-width:420px;margin-bottom:12px"><div id="sideList"></div>`;
+}
+function pickerBar(){
+  if(!S.gyms.length) return '';
+  if(UI.view==='team'){ const ts=S.teams.slice().sort(byTeamName); return `<div class="pick"><label>Équipe <select id="pickTeam">${ts.map(t=>`<option value="${t.id}" ${UI.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label></div>` }
+  const groups=[...S.teams.slice().sort(byTeamName).map(t=>[t.name,S.gyms.filter(g=>g.team===t.id).sort(byName)]),['Sans équipe',S.gyms.filter(g=>!hasTeam(g)).sort(byName)]].filter(x=>x[1].length);
+  return `<div class="pick"><button class="btn sm" data-gstep="-1">‹ Précédente</button><label>Gymnaste <select id="pickGym"><option value="">— Choisir une gymnaste —</option>${groups.map(([n,l])=>`<optgroup label="${esc(n)}">${l.map(g=>`<option value="${g.id}" ${UI.gym===g.id?'selected':''}>${esc(gymName(g))}</option>`).join('')}</optgroup>`).join('')}</select></label><button class="btn sm" data-gstep="1">Suivante ›</button></div>`;
+}
+const BSHORT={bascule:'Bascule',proche:'Tour proche',elan:'Élan',gym:'Série gym.',acro:'Série acro/mixte',dir:'Acro avant + arrière',lignes:'2 lignes acro',ligne3:'Ligne de 3',sauts:'2 sauts'};
+const shortT=(t,n=44)=>t.length>n?t.slice(0,n-1)+'…':t;
+function mvChips(g,ag){
+  const R=routine(g.id,ag), C=teamCompute(g,ag);
+  return R.items.map((it,i)=>{ const e=BY_ID[it.e], st=C.status[i], cls=st==='ok'?'':st==='rep'?'rep':'hors';
+    return `<span class="mvc ${cls}" title="${esc(e.t)}${st==='rep'?' (répété : non compté)':st==='hors'?' (hors des 7 meilleurs)':''}">${esc(shortT(e.t))} <b>${f2(e.v)}</b></span>`+(i<R.items.length-1?`<span class="mvl">${it.link?'⛓':'›'}</span>`:'') }).join('');
+}
+function mvSummary(t){
+  const gs=S.gyms.filter(g=>g.team===t.id).sort(byName);
+  return '<h4 class="mvh">Détail des mouvements</h4>'+AGRES.map(a=>{
+    const rows=gs.map(g=>{ const C=teamCompute(g,a.k), nm=esc(gymName(g));
+      if(C.empty) return `<tr><td>${nm}</td><td class="none" colspan="${a.k==='saut'?2:5}">Pas de mouvement</td></tr>`;
+      if(a.k==='saut'){ const R=routine(g.id,'saut'), vt=id=>{ const v=VAULTS.find(x=>x.id===id); return v?`${esc(shortT(v.t,60))} <b>${f2(R.app==='trampo'?v.tt:v.tr)}</b>`:null };
+        return `<tr><td>${nm}</td><td class="mvcell"><span class="hint">${R.app==='trampo'?'Trampo-tremp':'Tremplin'}</span> · ${[vt(R.s1),vt(R.s2)].filter(Boolean).map((x,i)=>`<span class="mvc">Saut ${i+1} : ${x}</span>`).join(' ')}</td><td><b>${f2(C.nd)}</b></td></tr>` }
+      const bons=t.prog==='AR'?'<span class="hint">sans bonif.</span>':(BONIFS[a.k].filter(b=>C.bon[b.k]).map(b=>`<span class="mvb">${BSHORT[b.k]}</span>`).join('')||'—');
+      return `<tr><td>${nm}</td><td class="mvcell">${mvChips(g,a.k)}</td><td>${Math.min(C.nDistinct,MAX_EL)}/${MAX_EL}</td><td>${f2(C.diff)}</td><td>${bons}</td><td><b>${f2(C.nd)}</b></td></tr>` }).join('');
+    const head=a.k==='saut'?'<tr><th>Gymnaste</th><th>Sauts</th><th>Note</th></tr>':'<tr><th>Gymnaste</th><th>Mouvement (dans l\'ordre)</th><th>Éléments</th><th>Difficulté</th><th>Bonifications</th><th>Note</th></tr>';
+    return `<details open class="mvd"><summary>${a.l}</summary><table class="tb mvt"><thead>${head}</thead><tbody>${rows}</tbody></table></details>` }).join('');
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-gstep]'); if(!b) return; const o=rosterOrder(); if(!o.length) return;
+  const i=o.findIndex(g=>g.id===UI.gym); UI.gym=o[(i+(+b.dataset.gstep)+o.length)%o.length].id; UI.view='gym'; render();
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target;
+  if(t.id==='pickGym'){ if(t.value){ UI.gym=t.value; UI.view='gym'; render() } return }
+  if(t.id==='pickTeam'){ UI.team=t.value; UI.view='team'; render() }
 });
 
 render();
