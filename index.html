@@ -318,6 +318,22 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .lfeds{display:flex;flex-wrap:wrap;gap:12px}
 .lfed{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .lfoot{margin-top:16px}
+/* module présences */
+.pctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pctl select{min-width:220px;flex:1;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;font-size:15px}
+.pdate{display:flex;gap:6px;align-items:center}
+.pdate input{border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:#fff}
+.prow.present{background:var(--ok-soft)}.prow.absent{background:#fdecea}.prow.excuse{background:var(--warn-soft)}
+.pn{font-size:15px;flex:1 1 180px}
+.pbs{display:flex;gap:6px}
+.pb{min-height:44px;min-width:84px;border:1px solid var(--line);background:#fff;border-radius:10px;font-weight:600;font-size:14px}
+.pb.present.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.pb.absent.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.pb.excuse.on{background:var(--warn);border-color:var(--warn);color:#fff}
+.pb:disabled{opacity:.6;cursor:default}
+.pmem{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;margin-top:8px}
+@media (max-width:600px){.pbs{width:100%}.pb{flex:1;min-width:0}}
 </style>
 </head>
 <body>
@@ -383,12 +399,20 @@ const SB_URL='https://bplpdhzafydubfdzolbj.supabase.co', SB_KEY='sb_publishable_
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
 let HASPROG=true, HASCOMP=true, NOB=false;
 let SESSION=null, CLUB=null, ROLE=null, SNAP=null, syncTimer=null, SYNC='ok', SYNCERR='', lastSync=null, CLUBS=[];
+
+/* ---------- fonctionnement hors connexion ---------- */
+let OFFLINE=false;
+const lsGet=k=>{ try{ return JSON.parse(localStorage.getItem(k)) }catch(e){ return null } };
+const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); return true }catch(e){ return false } };
+const isNetErr=e=>/failed to fetch|networkerror|network request failed|load failed|fetch failed|hors connexion|timeout/i.test(String((e&&e.message)||e));
+const withTimeout=(p,ms=8000)=>Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),ms))]);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const chk=r=>{ if(r && r.error) throw new Error(r.error.message); return r };
 function save(){ if(!CLUB||!SNAP) return; clearTimeout(syncTimer); SYNC='pending'; renderFstat(); syncTimer=setTimeout(sync,500) }
 let syncing=false;
 async function sync(){
   if(!CLUB||!SNAP) return;
+  if(navigator.onLine===false){ if(same(S,SNAP)){ SYNC='ok'; renderFstat(); return } SYNC='error'; SYNCERR='Hors connexion : les modifications seront envoyées au retour du réseau'; renderFstat(); return }
   if(syncing){ save(); return }
   syncing=true; const cur=JSON.parse(JSON.stringify(S)), old=SNAP; SYNC='saving'; renderFstat();
   try{
@@ -411,11 +435,11 @@ async function sync(){
     if(dg.length) chk(await sb.from('licencies').delete().in('id',dg));
     const dt=old.teams.filter(t=>!cT.has(t.id)).map(t=>t.id);
     if(dt.length) chk(await sb.from('equipes').delete().in('id',dt));
-    SNAP=cur; SYNC='ok'; SYNCERR=''; lastSync=new Date();
+    SNAP=cur; SYNC='ok'; SYNCERR=''; lastSync=new Date(); OFFLINE=false;
   }catch(e){ SYNC='error'; SYNCERR=e.message; toast("Erreur d'enregistrement : "+e.message) }
   syncing=false; renderFstat();
 }
-async function loadClub(){
+async function loadClubNet(){
   let e=await sb.from('equipes').select('id,nom,programme,categorie').eq('club_id',CLUB.id).order('nom');
   HASPROG=!e.error; if(e.error) e=await sb.from('equipes').select('id,nom').eq('club_id',CLUB.id).order('nom');
   let l=await sb.from('licencies').select('id,prenom,nom,date_naissance,competition').eq('club_id',CLUB.id).order('prenom');
@@ -432,6 +456,17 @@ async function loadClub(){
   m.data.forEach(r=>{ if(ids.has(r.licencie_id)) (S.routines[r.licencie_id]??={})[r.agres]=r.data });
   SNAP=JSON.parse(JSON.stringify(S)); lastSync=new Date(); SYNC='ok';
   if(UI.gym && !ids.has(UI.gym)) UI.gym=null;
+}
+const FA_CACHE=()=>'federalA-cache-'+(CLUB&&CLUB.id);
+async function loadClub(){
+  try{ await withTimeout(loadClubNet(),15000); OFFLINE=false; lsSet(FA_CACHE(),{S,ts:Date.now()}) }
+  catch(e){
+    if(!isNetErr(e)) throw e;
+    const c=lsGet(FA_CACHE()); if(!c||!c.S) throw e;
+    S=c.S; SNAP=JSON.parse(JSON.stringify(S)); SYNC='ok'; OFFLINE=true; lastSync=c.ts?new Date(c.ts):null;
+    if(UI.gym && !S.gyms.some(g=>g.id===UI.gym)) UI.gym=null;
+    toast('Hors connexion : dernières données connues');
+  }
 }
 async function refresh(){ if(SYNC!=='ok'){ toast('Enregistrement en cours…'); return } try{ await loadClub(); render(); toast('Données actualisées') }catch(e){ toast('Erreur : '+e.message) } }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && CLUB && SYNC==='ok') loadClub().then(render).catch(()=>{}) });
@@ -462,9 +497,15 @@ function showNoClub(){
     <div class="msg" id="gmsg" hidden></div></form>`;
 }
 async function enterApp(){
-  const r=await sb.from('membres_club').select('club_id,role,clubs(nom)').eq('user_id',SESSION.user.id);
-  if(r.error){ gate.hidden=false; gate.innerHTML=`<div class="gbox"><h1>Erreur</h1><p>${esc(r.error.message)}</p></div>`; return }
-  CLUBS=r.data.map(x=>({id:x.club_id,role:x.role,nom:x.clubs?.nom||'Club'}));
+  let r; try{ r=await withTimeout(sb.from('membres_club').select('club_id,role,clubs(nom)').eq('user_id',SESSION.user.id),8000) }catch(e){ r={error:e} }
+  if(r.error){
+    const ctx=lsGet('federalA-ctx');
+    if(isNetErr(r.error)&&ctx&&ctx.user===SESSION.user.id&&ctx.clubs&&ctx.clubs.length){ CLUBS=ctx.clubs; OFFLINE=true }
+    else { gate.hidden=false; gate.innerHTML=`<div class="gbox"><h1>Erreur</h1><p>${esc(r.error.message)}</p></div>`; return }
+  } else {
+    CLUBS=r.data.map(x=>({id:x.club_id,role:x.role,nom:x.clubs?.nom||'Club'}));
+    lsSet('federalA-ctx',{user:SESSION.user.id,clubs:CLUBS});
+  }
   if(!CLUBS.length) return showNoClub();
   let pref=null; try{ pref=localStorage.getItem('federalA-club') }catch(e){}
   const c=CLUBS.find(x=>x.id===pref)||CLUBS[0];
@@ -530,12 +571,12 @@ document.addEventListener('click',async ev=>{
   if(b.id==='bLogout'){ if(SYNC!=='ok' && !confirm('Des modifications ne sont pas encore enregistrées. Se déconnecter quand même ?')) return; sb.auth.signOut(); return }
   if(b.dataset.rmmem && confirm('Retirer ce membre du club ?')){ const r=await sb.from('membres_club').delete().eq('club_id',CLUB.id).eq('user_id',b.dataset.rmmem); if(r.error) alert(r.error.message); renderMembers() }
 });
-window.addEventListener('beforeunload',e=>{ if(SYNC==='pending'||SYNC==='saving'){ e.preventDefault(); e.returnValue='' } });
+window.addEventListener('beforeunload',e=>{ if(SYNC==='pending'||SYNC==='saving'||SYNC==='error'){ e.preventDefault(); e.returnValue='' } });
 function renderFstat(){
   const el=document.getElementById('fstat'); if(!el) return;
   if(!CLUB){ el.innerHTML=''; return }
   const st={ok:`<span class="okf">✓ Enregistré${lastSync?' '+lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</span>`,pending:'<span class="nof">● Modifications…</span>',saving:'<span class="nof">⟳ Enregistrement…</span>',error:`<span class="nof" title="${esc(SYNCERR)}">⚠ Non enregistré – nouvel essai à la prochaine modification</span>`}[SYNC];
-  el.innerHTML=`<span title="${esc(SESSION?.user?.email||'')}"><b>${esc(CLUB.nom)}</b> · ${esc(SESSION?.user?.email||'')}</span>${st}
+  el.innerHTML=`<span title="${esc(SESSION?.user?.email||'')}"><b>${esc(CLUB.nom)}</b> · ${esc(SESSION?.user?.email||'')}</span>${(OFFLINE||navigator.onLine===false)?'<span class="nof">⚡ Hors connexion</span>':''}${st}
     <button class="alt" id="bRefresh" title="Recharger les dernières données du club">↻</button>
     <button class="alt" id="bMembers">👥 Membres</button><button class="alt" id="bLogout">Déconnexion</button>`;
 }
@@ -1129,11 +1170,12 @@ function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') r
 /* ---------- barre d'onglets ---------- */
 function navBar(){
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['pres','✅ Présences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
 }
 function renderMain(){
   const m=document.getElementById('main');
   if(UI.view==='lic'){ m.innerHTML=navBar()+renderLic(); return }
+  if(UI.view==='pres'){ m.innerHTML=navBar()+renderPres(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
   if(UI.view==='summary'){ m.innerHTML=navBar()+renderSummary(); return }
   renderMain0();
@@ -1516,6 +1558,229 @@ document.addEventListener('submit',ev=>{
   if(ev.target.id!=='fLic') return; ev.preventDefault(); licSave(ev.target);
 });
 
+
+/* ================= MODULE GROUPES ET PRÉSENCES (utilisable hors connexion) ================= */
+/* Onglet « Présences » : pointage par groupe et par date, gestion des groupes, assiduité.
+   Les pointages sont d'abord enregistrés dans le téléphone (file d'attente), puis envoyés
+   à Supabase dès que le réseau est disponible. Tables : voir migration-presences.sql. */
+const PRES_JOURS=['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const PRES_STAT=[['present','Présente'],['absent','Absente'],['excuse','Excusée']];
+const PRES_SEUIL=3;      // nombre d'absences non excusées d'affilée qui déclenche l'alerte
+const PRES_FENETRE=120;  // nombre de jours d'historique chargés
+const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const isoToday=()=>isoOf(new Date());
+const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
+const presNew=()=>({loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'pointage',club:null,ts:null,msg:''});
+let PRES=presNew();
+const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
+const presOnline=()=>navigator.onLine!==false;
+const presK=(g,l,d)=>g+'|'+l+'|'+d;
+const presCK=()=>'fa-pres-cache-'+(CLUB&&CLUB.id), presQK=()=>'fa-pres-queue-'+(CLUB&&CLUB.id);
+const hhmm=t=>String(t||'').slice(0,5);
+const presGLabel=g=>`${g.nom}${g.jour?' · '+PRES_JOURS[g.jour]:''}${g.heure_debut?' '+hhmm(g.heure_debut)+(g.heure_fin?'–'+hhmm(g.heure_fin):''):''}`;
+const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom||'').localeCompare(norm(b.prenom||''));
+
+function presSave(){
+  const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,rows,ts:PRES.ts});
+  lsSet(presQK(),PRES.queue);
+}
+function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
+function presPickGroupe(){
+  PRES.groupes.sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+  if(PRES.groupe&&PRES.groupes.some(g=>g.id===PRES.groupe)) return;
+  const j=(new Date().getDay()||7), last=lsGet('fa-pres-groupe');
+  PRES.groupe=(PRES.groupes.find(g=>g.jour===j)||PRES.groupes.find(g=>g.id===last)||PRES.groupes[0]||{}).id||null;
+}
+async function presLoad(){
+  if(!CLUB||PRES.loading) return;
+  PRES.loading=true; PRES.queue=lsGet(presQK())||[];
+  try{
+    if(!presOnline()) throw new Error('hors connexion');
+    const since=addDays(isoToday(),-PRES_FENETRE);
+    const res=await withTimeout(Promise.all([
+      sb.from('groupes_entrainement').select('id,nom,jour,heure_debut,heure_fin,lieu').eq('club_id',CLUB.id).eq('saison',SAISON),
+      sb.from('groupe_licencies').select('groupe_id,licencie_id').eq('club_id',CLUB.id),
+      sb.from('presences_seances').select('groupe_id,licencie_id,date,statut').eq('club_id',CLUB.id).gte('date',since)]),10000);
+    res.forEach(chk);
+    PRES.groupes=res[0].data; PRES.membres=res[1].data; PRES.map={};
+    res[2].data.forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
+    PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
+  }catch(e){
+    const c=lsGet(presCK());
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.map={};
+      (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
+      PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
+    else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
+  }
+  presApplyQueue(); presPickGroupe(); PRES.loaded=true; PRES.loading=false;
+  if(!PRES.err){ presSave(); presFlushSoon() }
+}
+
+/* ---- file d'attente : enregistrement local immédiat, envoi dès que possible ---- */
+let presFlushing=false, presTimer=null;
+function presFlushSoon(){ clearTimeout(presTimer); presTimer=setTimeout(presFlush,400) }
+async function presFlush(){
+  if(presFlushing||!CLUB||!PRES.queue.length||!presOnline()){ presStatusRefresh(); return }
+  presFlushing=true; const batch=PRES.queue.slice();
+  try{
+    const ups=batch.filter(o=>o.s).map(o=>({groupe_id:o.g,licencie_id:o.l,date:o.d,club_id:CLUB.id,statut:o.s}));
+    if(ups.length) chk(await withTimeout(sb.from('presences_seances').upsert(ups,{onConflict:'groupe_id,licencie_id,date'}),15000));
+    for(const o of batch.filter(o=>!o.s)) chk(await withTimeout(sb.from('presences_seances').delete().eq('groupe_id',o.g).eq('licencie_id',o.l).eq('date',o.d),15000));
+    PRES.queue=PRES.queue.filter(q=>!batch.some(b=>b.k===q.k&&b.s===q.s)); // garde ce qui a changé entre-temps
+    PRES.msg=''; PRES.offline=false;
+  }catch(e){ PRES.msg=isNetErr(e)?'':'Envoi refusé : '+e.message; if(isNetErr(e)) PRES.offline=true }
+  presFlushing=false; lsSet(presQK(),PRES.queue); presStatusRefresh();
+  if(PRES.queue.length&&!PRES.msg&&presOnline()&&!PRES.offline) presFlushSoon();
+}
+function presSet(g,l,d,s){
+  const k=presK(g,l,d);
+  if(s) PRES.map[k]=s; else delete PRES.map[k];
+  PRES.queue=PRES.queue.filter(o=>o.k!==k); PRES.queue.push({k,g,l,d,s:s||null});
+  presSave(); presFlushSoon();
+}
+
+/* ---- calculs ---- */
+const presMembers=gid=>PRES.membres.filter(m=>m.groupe_id===gid).map(m=>S.gyms.find(g=>g.id===m.licencie_id)).filter(Boolean).sort(byNom);
+function presDates(gid){ const s=new Set(); for(const k in PRES.map){ const p=k.split('|'); if(p[0]===gid) s.add(p[2]) } return [...s].sort() }
+function presChain(gid,lid){ // absences non excusées d'affilée, en remontant depuis la dernière séance
+  let n=0; for(const d of presDates(gid).reverse()){ const s=PRES.map[presK(gid,lid,d)]; if(s==='absent') n++; else if(s==='present') break } return n;
+}
+
+/* ---- rendu ---- */
+function presStatusHtml(){
+  const n=PRES.queue.length, off=!presOnline()||PRES.offline, ts=PRES.ts?new Date(PRES.ts).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  if(n) return `<span class="lb warn">⏳ ${n} pointage(s) en attente d’envoi</span> <span class="hint">${off?'Hors connexion : envoi automatique au retour du réseau.':'Envoi en cours…'}${PRES.msg?' '+esc(PRES.msg):''}</span>`;
+  if(off) return `<span class="lb warn">Hors connexion</span> <span class="hint">${ts?'Données du '+ts+'.':''}</span>`;
+  return '<span class="lb ok">✓ Tout est synchronisé</span>';
+}
+function presCountHtml(){
+  const gid=PRES.groupe, ms=presMembers(gid), c={present:0,absent:0,excuse:0,'':0};
+  ms.forEach(g=>c[PRES.map[presK(gid,g.id,PRES.date)]||'']++);
+  return `<span class="cc">Présentes <b>${c.present}</b></span><span class="cc">Absentes <b>${c.absent}</b></span><span class="cc">Excusées <b>${c.excuse}</b></span><span class="cc ${c['']?'todo':''}">Non pointées <b>${c['']}</b></span>`;
+}
+function presListHtml(){
+  const gid=PRES.groupe, d=PRES.date, ms=presMembers(gid), ed=presEdit();
+  if(!ms.length) return '<div class="empty">Aucun licencié dans ce groupe.'+(ed?' Ajoutez-les dans l’onglet Groupes.':'')+'</div>';
+  return ms.map(g=>{ const s=PRES.map[presK(gid,g.id,d)]||'', ch=presChain(gid,g.id);
+    return `<div class="prow ${s}"><div class="pn"><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${ch>=PRES_SEUIL?` <span class="lb warn" title="Absences non excusées d’affilée">⚠ ${ch} absences d’affilée</span>`:''}</div>
+      <div class="pbs">${PRES_STAT.map(([k,l])=>`<button type="button" class="pb ${k} ${s===k?'on':''}" ${ed?`data-pres-set="${g.id}|${k}"`:'disabled'}>${l}</button>`).join('')}</div></div>` }).join('');
+}
+function presRefresh(){
+  const a=document.getElementById('presCount'), b=document.getElementById('presList'); if(a) a.innerHTML=presCountHtml(); if(b) b.innerHTML=presListHtml(); presStatusRefresh();
+}
+function presStatusRefresh(){ const el=document.getElementById('presStatus'); if(el) el.innerHTML=presStatusHtml() }
+const presGSelect=(id)=>`<select id="${id}">${PRES.groupes.map(x=>`<option value="${x.id}" ${x.id===PRES.groupe?'selected':''}>${esc(presGLabel(x))}</option>`).join('')}</select>`;
+const presNoGroup=()=>`<div class="card"><div class="empty">Aucun groupe pour la saison ${SAISON}. ${presEdit()?'Créez-en un dans l’onglet Groupes.':'Un administrateur ou un entraîneur doit en créer un.'}</div></div>`;
+
+function presPointageHtml(){
+  if(!PRES.groupes.length) return presNoGroup();
+  const dl=new Date(PRES.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  return `<div class="card"><div class="pctl">${presGSelect('presG')}
+    <div class="pdate"><button type="button" class="btn" data-pres-date="prev" title="Jour précédent">◀</button><input type="date" id="presD" value="${PRES.date}"><button type="button" class="btn" data-pres-date="next" title="Jour suivant">▶</button><button type="button" class="btn sm" data-pres-date="today">Aujourd’hui</button></div></div>
+    <div class="hint" style="margin:6px 0 10px">${esc(dl)}</div>
+    <div id="presCount" class="ccount">${presCountHtml()}</div>
+    ${presEdit()?'<div style="margin:6px 0 10px"><button type="button" class="btn sm" data-pres-all="1">Tout le monde présent (non pointées)</button></div>':'<div class="hint" style="margin-bottom:8px">Lecture seule avec votre rôle.</div>'}
+    <div id="presList">${presListHtml()}</div>
+    <div id="presStatus" style="margin-top:14px">${presStatusHtml()}</div></div>`;
+}
+
+function presGroupeForm(g){
+  const mem=g?new Set(PRES.membres.filter(m=>m.groupe_id===g.id).map(m=>m.licencie_id)):new Set(), ro=presEdit()?'':'disabled';
+  const gyms=S.gyms.slice().sort(byNom), v=(k)=>esc(g&&g[k]||'');
+  return `<form class="card lfiche pgrp" id="fGrp" ${g?`data-gid="${g.id}"`:''} autocomplete="off">
+    <h3>${g?esc(g.nom):'Nouveau groupe'}</h3>
+    <div class="lgrid"><label>Nom<input name="nom" value="${v('nom')}" required ${ro}></label>
+      <label>Jour<select name="jour" ${ro}><option value="">—</option>${PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${g&&g.jour===i+1?'selected':''}>${j}</option>`).join('')}</select></label>
+      <label>Début<input type="time" name="hd" value="${esc(hhmm(g&&g.heure_debut))}" ${ro}></label>
+      <label>Fin<input type="time" name="hf" value="${esc(hhmm(g&&g.heure_fin))}" ${ro}></label>
+      <label>Lieu<input name="lieu" value="${v('lieu')}" ${ro}></label></div>
+    <details ${g?'':'open'} style="margin-top:10px"><summary><b>Membres</b> (${mem.size})</summary>
+      <div class="pmem">${gyms.map(x=>`<label class="cbx"><input type="checkbox" name="m_${x.id}" ${mem.has(x.id)?'checked':''} ${ro}> ${esc(x.nom||'')} ${esc(x.prenom||'')}</label>`).join('')||'<span class="hint">Aucun licencié enregistré.</span>'}</div></details>
+    ${presEdit()?`<div class="lfoot"><button class="btn primary" type="submit">${g?'Enregistrer le groupe':'Créer le groupe'}</button>${g?` <button type="button" class="btn" data-pres-del="${g.id}">Supprimer le groupe</button>`:''}</div>`:''}
+  </form>`;
+}
+function presGroupesHtml(){
+  return (presEdit()?presGroupeForm(null):'')+PRES.groupes.map(presGroupeForm).join('')
+    +(!presEdit()&&!PRES.groupes.length?presNoGroup():'')
+    +(presOnline()?'':'<div class="hint">La modification des groupes demande une connexion.</div>');
+}
+function presAssiduiteHtml(){
+  if(!PRES.groupes.length) return presNoGroup();
+  const gid=PRES.groupe, ds=presDates(gid);
+  const rows=presMembers(gid).map(g=>{ let p=0,a=0,e=0; ds.forEach(d=>{ const s=PRES.map[presK(gid,g.id,d)]; if(s==='present')p++; else if(s==='absent')a++; else if(s==='excuse')e++ });
+    const t=p+a+e; return {g,p,a,e,taux:t?Math.round(100*p/t):null,ch:presChain(gid,g.id)} })
+    .sort((x,y)=>y.ch-x.ch||byNom(x.g,y.g));
+  return `<div class="card"><div class="pctl">${presGSelect('presGa')}</div>
+    <div class="hint" style="margin:6px 0 10px">${ds.length} séance(s) pointée(s) sur les ${PRES_FENETRE} derniers jours. Alerte à partir de ${PRES_SEUIL} absences non excusées d’affilée.</div>
+    <div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Présente</th><th>Absente</th><th>Excusée</th><th>Taux de présence</th><th>Absences d’affilée</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><b>${esc(r.g.nom||'')}</b> ${esc(r.g.prenom||'')}</td><td>${r.p}</td><td>${r.a}</td><td>${r.e}</td><td>${r.taux==null?'—':r.taux+' %'}</td><td>${r.ch>=PRES_SEUIL?`<span class="lb warn">⚠ ${r.ch}</span>`:(r.ch||'0')}</td></tr>`).join('')}
+    </tbody></table></div>${rows.length?'':'<div class="empty">Aucun licencié dans ce groupe.</div>'}</div>`;
+}
+function renderPres(){
+  if(PRES.club!==(CLUB&&CLUB.id)){ PRES=presNew(); PRES.club=CLUB&&CLUB.id }
+  if(!PRES.loaded&&!PRES.loading) presLoad().then(()=>{ if(UI.view==='pres') renderMain() });
+  const head=`<div class="gymhead"><div><h2 class="name">Présences</h2><div class="meta">Saison ${SAISON} · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
+  if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
+  if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
+  const tabs=[['pointage','Pointage'],['groupes','Groupes'],['assiduite','Assiduité']];
+  return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`
+    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():presPointageHtml());
+}
+
+/* ---- groupes : enregistrement (connexion nécessaire) ---- */
+async function presSaveGroupe(f){
+  if(!presEdit()) return;
+  if(!presOnline()){ toast('Connexion nécessaire pour modifier les groupes'); return }
+  if(SYNC!=='ok'){ toast('Les gymnastes sont en cours d’enregistrement : réessayez dans un instant'); return }
+  const v=n=>(f.elements[n]?.value||'').trim(), gid=f.dataset.gid||uid();
+  try{
+    chk(await sb.from('groupes_entrainement').upsert({id:gid,club_id:CLUB.id,saison:SAISON,nom:v('nom'),jour:+v('jour')||null,heure_debut:v('hd')||null,heure_fin:v('hf')||null,lieu:v('lieu')||null}));
+    const want=S.gyms.filter(g=>f.elements['m_'+g.id]&&f.elements['m_'+g.id].checked).map(g=>g.id);
+    const have=PRES.membres.filter(x=>x.groupe_id===gid).map(x=>x.licencie_id);
+    const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x));
+    if(add.length) chk(await sb.from('groupe_licencies').upsert(add.map(l=>({groupe_id:gid,licencie_id:l,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
+    if(rm.length) chk(await sb.from('groupe_licencies').delete().eq('groupe_id',gid).in('licencie_id',rm));
+    if(!f.dataset.gid) PRES.groupe=gid;
+    PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
+  }catch(e){ toast('Erreur : '+e.message) }
+}
+
+/* ---- événements ---- */
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-pres-set],[data-pres-date],[data-pres-all],[data-pres-tab],[data-pres-reload],[data-pres-del]'); if(!t) return; const d=t.dataset;
+  if(d.presSet){ const [lid,k]=d.presSet.split('|'), cur=PRES.map[presK(PRES.groupe,lid,PRES.date)];
+    presSet(PRES.groupe,lid,PRES.date,cur===k?null:k); presRefresh(); return }
+  if(d.presAll){ presMembers(PRES.groupe).forEach(g=>{ if(!PRES.map[presK(PRES.groupe,g.id,PRES.date)]) presSet(PRES.groupe,g.id,PRES.date,'present') }); presRefresh(); return }
+  if(d.presDate){ PRES.date=d.presDate==='today'?isoToday():addDays(PRES.date,d.presDate==='next'?1:-1); renderMain(); return }
+  if(d.presTab){ PRES.tab=d.presTab; renderMain(); return }
+  if(d.presReload!==undefined){ PRES.loaded=false; renderMain(); return }
+  if(d.presDel){ const g=PRES.groupes.find(x=>x.id===d.presDel); if(!g||!presEdit()) return;
+    if(!presOnline()){ toast('Connexion nécessaire pour supprimer un groupe'); return }
+    if(!confirm(`Supprimer le groupe « ${g.nom} » et tous ses pointages ?`)) return;
+    try{ chk(await sb.from('groupes_entrainement').delete().eq('id',g.id)); if(PRES.groupe===g.id) PRES.groupe=null; PRES.queue=PRES.queue.filter(o=>o.g!==g.id); PRES.loaded=false; await presLoad(); renderMain(); toast('Groupe supprimé') }
+    catch(e){ toast('Erreur : '+e.message) } }
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target;
+  if(t.id==='presG'||t.id==='presGa'){ PRES.groupe=t.value; lsSet('fa-pres-groupe',t.value); renderMain() }
+  else if(t.id==='presD'){ PRES.date=t.value||isoToday(); renderMain() }
+});
+document.addEventListener('submit',ev=>{
+  if(ev.target.id!=='fGrp') return; ev.preventDefault(); presSaveGroupe(ev.target);
+});
+window.addEventListener('online',async()=>{
+  await presFlush();
+  if(PRES.loaded&&!PRES.queue.length&&PRES.offline){ PRES.loaded=false; await presLoad(); if(UI.view==='pres') renderMain() }
+  if(CLUB){ if(SYNC==='error') save(); else if(OFFLINE&&SYNC==='ok') loadClub().then(render).catch(()=>{}) }
+  renderFstat();
+});
+window.addEventListener('offline',()=>{ presStatusRefresh(); if(typeof renderFstat==='function') renderFstat() });
+setInterval(()=>{ if(PRES.queue.length) presFlush() },30000);
+
+
+/* mise en cache de l'application pour l'ouvrir sans réseau */
+if('serviceWorker' in navigator && /^https?:/.test(location.protocol)) window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}) });
 
 render();
 </script>
