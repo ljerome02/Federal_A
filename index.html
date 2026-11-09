@@ -214,6 +214,20 @@ table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid va
   .paper:last-child{break-after:auto}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* ===== v5 : onglets, équipes, résumé ===== */
+.navtabs{margin-bottom:14px}
+.eqh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.eqname{font-weight:700;min-width:200px;flex:1 1 200px}
+.eqm{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.eqchip{display:inline-flex;align-items:center;gap:4px}
+.eqchip button{border:0;background:none;cursor:pointer;color:var(--muted);padding:0 2px}
+.okline{color:#2a8a49;font-size:13px;margin-top:4px}
+.tb td.kept{background:#dff3e6;font-weight:700}
+.tb td.notkept{color:var(--muted)}
+.tb td.none{color:var(--muted)}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:6px}
+span.kept{background:#dff3e6;border-radius:4px}
 </style>
 </head>
 <body>
@@ -277,6 +291,7 @@ let UI = {gym:null, team:null, tab:'barres', sec:{}, q:'', view:'gym'};
 /* ================= SUPABASE ================= */
 const SB_URL='https://bplpdhzafydubfdzolbj.supabase.co', SB_KEY='sb_publishable_C_YxlRfovhyQzbd6ulZzkQ_Rm4M72BP', SAISON='2026-2027';
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
+let HASPROG=true, NOB=false;
 let SESSION=null, CLUB=null, ROLE=null, SNAP=null, syncTimer=null, SYNC='ok', SYNCERR='', lastSync=null, CLUBS=[];
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const chk=r=>{ if(r && r.error) throw new Error(r.error.message); return r };
@@ -290,7 +305,7 @@ async function sync(){
     const oT=new Map(old.teams.map(t=>[t.id,t])), oG=new Map(old.gyms.map(g=>[g.id,g]));
     const cT=new Set(cur.teams.map(t=>t.id)), cG=new Set(cur.gyms.map(g=>g.id));
     const ut=cur.teams.filter(t=>!same(t,oT.get(t.id)));
-    if(ut.length) chk(await sb.from('equipes').upsert(ut.map(t=>({id:t.id, club_id:CLUB.id, nom:t.name, saison:SAISON}))));
+    if(ut.length) chk(await sb.from('equipes').upsert(ut.map(t=>({id:t.id, club_id:CLUB.id, nom:t.name, saison:SAISON, ...(HASPROG?{programme:t.prog||'A', categorie:t.cat||null}:{})}))));
     const ug=cur.gyms.filter(g=>!same(g,oG.get(g.id)));
     if(ug.length) chk(await sb.from('licencies').upsert(ug.map(g=>({id:g.id, club_id:CLUB.id, prenom:g.prenom||'?', nom:g.nom||null, date_naissance:g.naissance||null}))));
     for(const g of ug){ const o=oG.get(g.id);
@@ -311,15 +326,16 @@ async function sync(){
   syncing=false; renderFstat();
 }
 async function loadClub(){
-  const [e,l,eg,m]=await Promise.all([
-    sb.from('equipes').select('id,nom').eq('club_id',CLUB.id).order('nom'),
+  let e=await sb.from('equipes').select('id,nom,programme,categorie').eq('club_id',CLUB.id).order('nom');
+  HASPROG=!e.error; if(e.error) e=await sb.from('equipes').select('id,nom').eq('club_id',CLUB.id).order('nom');
+  const [l,eg,m]=await Promise.all([
     sb.from('licencies').select('id,prenom,nom,date_naissance').eq('club_id',CLUB.id).order('prenom'),
     sb.from('equipe_gymnastes').select('equipe_id,licencie_id'),
     sb.from('mouvements').select('licencie_id,agres,data').eq('saison',SAISON)]);
   [e,l,eg,m].forEach(chk);
   const tm={}; eg.data.forEach(x=>tm[x.licencie_id]=x.equipe_id);
   const ids=new Set(l.data.map(g=>g.id));
-  S={teams:e.data.map(t=>({id:t.id,name:t.nom})),
+  S={teams:e.data.map(t=>({id:t.id,name:t.nom,prog:t.programme||'A',cat:t.categorie||null})),
      gyms:l.data.map(g=>({id:g.id,prenom:g.prenom,nom:g.nom||'',naissance:g.date_naissance||'',team:tm[g.id]||null})),
      routines:{}};
   m.data.forEach(r=>{ if(ids.has(r.licencie_id)) (S.routines[r.licencie_id]??={})[r.agres]=r.data });
@@ -479,7 +495,7 @@ function autoBonifs(ag, items){
   }
   return r;
 }
-function compute(gid, ag){
+function compute0(gid, ag){
   if(ag==='saut'){
     const R=routine(gid,'saut');
     const nd = s => { if(!s) return null; const v=VAULTS.find(x=>x.id===s); return R.app==='trampo'?v.tt:v.tr };
@@ -502,6 +518,11 @@ function compute(gid, ag){
   for(const b of BONIFS[ag]){ const v = (b.k in R.ov) ? R.ov[b.k] : !!auto[b.k]; bon[b.k]=v; if(v) nb++; if(v&&auto[b.k]) contrib[b.k]=auto[b.k] }
   const bonus = Math.min(3,nb)*BONIF_VAL;
   return {nd: +(diff+bonus).toFixed(2), diff:+diff.toFixed(2), bonus, nb, bon, auto, contrib, status, nDistinct:distinct.length, empty:R.items.length===0};
+}
+function compute(gid, ag){
+  const c=compute0(gid,ag); if(!NOB||ag==='saut') return c;
+  const bon={}; BONIFS[ag].forEach(b=>bon[b.k]=false);
+  return {...c, nd:c.diff, bonus:0, nb:0, bon, auto:{}, contrib:{}};
 }
 function totalGym(gid){ return AGRES.reduce((s,a)=>s+compute(gid,a.k).nd,0) }
 
@@ -534,7 +555,7 @@ function renderSide(){
   const el=document.getElementById('side');
   el.innerHTML = `<div class="sside">
       <input class="sq" id="sideQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.sq)}" autocomplete="off">
-      <div class="sbtns"><button class="btn ${UI.view==='manage'?'on':''}" id="bManage">⚙️ Gérer gymnastes &amp; équipes</button></div>
+      <div class="sbtns"><button class="btn ${UI.view==='manage'?'on':''}" id="bManage">👥 Gérer les gymnastes</button></div>
     </div>
     <div id="sideList"></div>`;
   renderSideList();
@@ -586,9 +607,7 @@ function renderManage(){
       <div id="mTable"></div>
     </div>
     <div class="card"><h3>Équipes</h3>
-      ${S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))).map(t=>`<div class="tline"><span><b>${esc(t.name)}</b></span><span class="hint">${nb(t.id)} gym.</span>
-        <button class="btn sm" data-rteam="${t.id}">Renommer</button><button class="btn sm" data-dteam="${t.id}">Supprimer</button></div>`).join('')||'<div class="empty">Aucune équipe.</div>'}
-      <form class="add" id="fTeam" style="margin-top:10px"><div class="row"><input name="n" placeholder="Nom de la nouvelle équipe" required><button class="btn primary">Créer</button></div></form>
+      <div class="hint" style="margin-bottom:8px">${S.teams.length} équipe(s). La création et la composition des équipes se font dans l'onglet <b>🏅 Équipes</b>.</div><button class="btn primary" data-nav="teams">Ouvrir l'onglet Équipes</button>
       ${typeof SB_URL==='undefined'?`<h3 style="margin-top:18px">Données</h3><div class="hint">Avec Chrome ou Edge, ouvre le fichier de données de la clé USB (en haut à droite) : tout s'y enregistre automatiquement. <b>Sauvegarde complète</b> et <b>Importer</b> servent à faire des copies.</div>${!S.gyms.length?'<div style="margin-top:8px"><button class="btn sm" id="bDemo">Charger un exemple</button></div>':''}`
         :`<h3 style="margin-top:18px">Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div>`}
     </div>
@@ -618,7 +637,7 @@ function renderManageTable(){
 /* ================= RENDU : ZONE PRINCIPALE ================= */
 function render(){ renderSide(); renderMain(); save() }
 
-function renderMain(){
+function renderMain0(){
   const m=document.getElementById('main');
   if(UI.view==='members'){ renderMembers(); return }
   if(UI.view==='manage'){ renderManage(); return }
@@ -629,7 +648,7 @@ function renderMain(){
   m.innerHTML = `
     <div class="gymhead">
       <div><h2 class="name">${esc(gymName(g))}</h2>
-        <div class="meta">${yr(g)?'Née en '+esc(yr(g))+' · ':''}Total notes de départ : <b>${f2(totalGym(g.id))}</b></div></div>
+        <div class="meta">${yr(g)?'Née en '+esc(yr(g))+' · ':''}Total notes de départ : <b>${f2(totalGym(g.id))}</b>${gymBadge(g)}</div></div>
       <div class="sp" style="flex:1"></div>
       <label class="row">Équipe <select id="sTeam"><option value="">— Sans équipe —</option>${S.teams.map(t=>`<option value="${t.id}" ${g.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
       <button class="btn sm" id="bGymSave" title="Télécharger un fichier avec cette gymnaste et tous ses mouvements">💾 Sauvegarder la gymnaste</button>
@@ -646,8 +665,8 @@ function welcome(){
     <h3>Bienvenue 👋</h3>
     <p>Cet outil compose les mouvements <b>Fédéral A</b> à partir des grilles de la brochure FFGym 2026-2027 et calcule la <b>note de départ</b> (note D) de chaque agrès.</p>
     <ol>
-      <li>Crée une <b>équipe</b> puis ajoute tes <b>gymnastes</b> (colonne de gauche).</li>
-      <li>Choisis une gymnaste, puis un agrès : clique sur les éléments du catalogue pour les ajouter.</li>
+      <li>Onglet <b>👥 Gymnastes</b> : ajoute tes gymnastes. Onglet <b>🏅 Équipes</b> : crée les équipes (Fédéral A ou A régional) et compose-les.</li>
+      <li>Onglet <b>✏️ Mouvements</b> : choisis une gymnaste, puis un agrès : clique sur les éléments du catalogue pour les ajouter.</li>
       <li>Réorganise l'ordre par glisser-déposer (ou ▲▼) et clique sur <b>« lier »</b> entre deux éléments pour indiquer une série.</li>
       <li>La note de départ = valeur des 7 meilleurs éléments différents (7 pts max) + bonifications (3 × 0,5 pt).</li>
     </ol>
@@ -702,7 +721,7 @@ function renderApp(g, ag){
     <section>
       <div class="nd-box">
         <div><div class="k">Note de départ ${AGRES.find(a=>a.k===ag).l}</div><div class="big">${f2(C.nd)}</div></div>
-        <div class="det">Difficulté ${f2(C.diff)} / 7,00<br>Bonifications ${f2(C.bonus)} / 1,50<br>${Math.min(C.nDistinct,7)} élément(s) compté(s)</div>
+        <div class="det">Difficulté ${f2(C.diff)} / 7,00<br>Bonifications ${f2(C.bonus)} / 1,50<br>${Math.min(C.nDistinct,7)} élément(s) compté(s)${teamLine(g,ag)}</div>
       </div>
       <div class="card" style="margin-bottom:12px">
         <div class="row" style="justify-content:space-between;margin-bottom:8px">
@@ -769,6 +788,7 @@ function legend(ag){
   return `<div class="legend">${BONIFS[ag].map((b,j)=>`<span><span class="bt b${j+1}">B${j+1}</span>${esc(b.l)}</span>`).join('')}<span><b style="color:var(--head)">▬</b> éléments liés en série</span></div>`;
 }
 const nCols=(gs,ag)=>ag==='saut'?2:Math.max(8,...gs.map(g=>routine(g.id,ag).items.length));
+function sheetTeamAg(t,ag){ const p=NOB; NOB=(t.prog==='AR'); try{ return sheetTeamAg0(t,ag) } finally{ NOB=p } }
 function sheetGym(g){
   const t=S.teams.find(x=>x.id===g.team);
   return `<div class="paper" style="--lab:62px">
@@ -778,12 +798,12 @@ function sheetGym(g){
     ${AGRES.map(a=>sheetRow(g,a.k,nCols([g],a.k),a.l)+legend(a.k)).join('')}
   </div>`;
 }
-function sheetTeamAg(t, ag){
+function sheetTeamAg0(t, ag){
   const gs=S.gyms.filter(g=>g.team===t.id), n=nCols(gs,ag), lab=AGRES.find(a=>a.k===ag).l;
   return `<div class="paper" style="--lab:96px">
     <div class="paper-h"><div><div class="t">${lab} — ${esc(t.name)}</div>
-      <div class="s">Fédéral A · Saison 2026-2027 · ${gs.length} gymnaste(s)</div></div>
-      <div class="tot"><div class="s">Cumul des notes de départ</div><b>${f2(gs.reduce((s,g)=>s+compute(g.id,ag).nd,0))}</b></div></div>
+      <div class="s">${progOf(t).l} · Saison 2026-2027 · ${gs.length} gymnaste(s)${t.cat?' · '+catName(t.cat):''}</div></div>
+      <div class="tot"><div class="s">Total équipe (${progOf(t).kept} meilleures notes)</div><b>${f2(teamScores(t,ag).total)}</b></div></div>
     ${gs.map(g=>sheetRow(g,ag,n,esc(gymName(g)))).join('<div style="border-bottom:1px solid var(--line)"></div>') || '<p class="hint">Aucune gymnaste.</p>'}
     ${legend(ag)}
   </div>`;
@@ -795,14 +815,14 @@ function renderTeam(){
   const tabs=[{k:'recap',l:'Récapitulatif'},...AGRES.map(a=>({k:a.k,l:'Fiche '+a.l})),{k:'indiv',l:'Fiches individuelles'}];
   let body;
   if(tt==='recap'){
-    const rows=gs.map(g=>`<tr class="click" data-gym="${g.id}"><td>${esc(gymName(g))}</td>${AGRES.map(a=>{const c=compute(g.id,a.k);return `<td>${c.empty?'<span class="hint">—</span>':f2(c.nd)}</td>`}).join('')}<td><b>${f2(totalGym(g.id))}</b></td></tr>`).join('');
-    const sum=a=>gs.reduce((s,g)=>s+compute(g.id,a).nd,0);
+    const rows=gs.map(g=>`<tr class="click" data-gym="${g.id}"><td>${esc(gymName(g))}</td>${AGRES.map(a=>{const c=teamCompute(g,a.k);return `<td>${c.empty?'<span class="hint">—</span>':f2(c.nd)}</td>`}).join('')}<td><b>${f2(AGRES.reduce((s,a)=>s+teamCompute(g,a.k).nd,0))}</b></td></tr>`).join('');
+    const sum=a=>teamScores(t,a).total;
     body = gs.length?`<table class="tb"><thead><tr><th>Gymnaste</th>${AGRES.map(a=>`<th>${a.l}</th>`).join('')}<th>Total</th></tr></thead>
-      <tbody>${rows}</tbody><tfoot><tr><td>Cumul équipe</td>${AGRES.map(a=>`<td>${f2(sum(a.k))}</td>`).join('')}<td>${f2(gs.reduce((s,g)=>s+totalGym(g.id),0))}</td></tr></tfoot></table>
+      <tbody>${rows}</tbody><tfoot><tr><td>Total équipe (${progOf(t).kept} meilleures notes)</td>${AGRES.map(a=>`<td>${f2(sum(a.k))}</td>`).join('')}<td>${f2(AGRES.reduce((s,a)=>s+sum(a.k),0))}</td></tr></tfoot></table>
       <p class="hint">Clique sur une gymnaste pour ouvrir ses mouvements.</p>`:'<div class="card empty">Aucune gymnaste dans cette équipe. Ajoute-en depuis la colonne de gauche.</div>';
   } else if(tt==='indiv') body = gs.map(sheetGym).join('');
   else body = sheetTeamAg(t,tt);
-  return `<div class="gymhead"><div><h2 class="name">${esc(t.name)}</h2><div class="meta">${gs.length} gymnaste(s)</div></div></div>
+  return `<div class="gymhead"><div><h2 class="name">${esc(t.name)}</h2><div class="meta">${gs.length} gymnaste(s) · ${progOf(t).l}${t.cat?' · '+catName(t.cat):''} · format ${progOf(t).fmt}</div></div></div>
     <div class="tabs">${tabs.map(x=>`<button class="tab ${tt===x.k?'on':''}" data-ttab="${x.k}">${x.l}</button>`).join('')}</div>
     <div class="sheet-tools">
       ${tt!=='recap'?`<button class="btn primary" data-pdf="team-cur">📄 PDF de ${tt==='indiv'?'ces fiches':'cette fiche'}</button>`:''}
@@ -956,6 +976,161 @@ function demo(){
   set(g2,'barres',['B01','B10','B12','B20','B25','B17']);
   UI.gym=g1.id; UI.view='gym'; UI.tab='poutre'; render();
 }
+/* ================= ÉQUIPES, CATÉGORIES, RÉSUMÉ (v5) ================= */
+const SY=2027; // saison 2026-2027 : âge = 2027 - année de naissance (10 ans = née en 2017)
+const CATS_A=[['10+','10 ans et +'],['14+','14 ans et +'],['12-15','12-15 ans'],['10-13','10-13 ans'],['10-11','10-11 ans']];
+const PROGS={
+  A:{l:'Fédéral A',cats:CATS_A,max:5,min:3,per:4,kept:3,fmt:'5/4/3'},
+  AR:{l:'Fédéral A régional',cats:CATS_A.filter(c=>c[0]!=='14+'),max:5,min:3,per:5,kept:3,fmt:'5/5/3'}
+};
+const progOf=t=>PROGS[t&&t.prog]||PROGS.A;
+const catName=c=>(CATS_A.find(x=>x[0]===c)||[0,'—'])[1];
+const ageOf=g=>g.naissance?SY-(+g.naissance.slice(0,4)):null;
+const inCat=(c,a)=>({'10+':a>=10,'14+':a>=14,'12-15':a>=12&&a<=15,'10-13':a>=10&&a<=13,'10-11':a>=10&&a<=11})[c];
+const indivCat=a=>a==null?'Date de naissance manquante':a<10?'Moins de 10 ans':a<=11?'10-11 ans':a<=13?'12-13 ans':a<=15?'14-15 ans':'16 ans et +';
+const teamOf=g=>S.teams.find(t=>t.id===g.team);
+const byTeamName=(a,b)=>norm(a.name).localeCompare(norm(b.name));
+const orderedGyms=()=>[...S.gyms].sort(byName);
+
+/* contexte « équipe » : en Fédéral A régional, pas de bonifications */
+function asTeam(g,fn){ const t=teamOf(g), p=NOB; NOB=!!(t&&t.prog==='AR'); try{ return fn() } finally{ NOB=p } }
+const teamCompute=(g,ag)=>asTeam(g,()=>compute(g.id,ag));
+function teamScores(t,ag){
+  const k=progOf(t).kept;
+  const rows=S.gyms.filter(g=>g.team===t.id).map(g=>({g,c:teamCompute(g,ag)})).filter(x=>!x.c.empty).sort((a,b)=>b.c.nd-a.c.nd);
+  rows.forEach((x,i)=>x.kept=i<k);
+  return {rows, total:+rows.filter(x=>x.kept).reduce((s,x)=>s+x.c.nd,0).toFixed(2)};
+}
+function teamAlerts(t){
+  const gs=S.gyms.filter(g=>g.team===t.id), P=progOf(t), a=[];
+  if(!t.cat) a.push('Catégorie non choisie.');
+  if(gs.length<P.min) a.push(`Moins de ${P.min} gymnastes (minimum ${P.min}).`);
+  if(gs.length>P.max) a.push(`Plus de ${P.max} gymnastes (maximum ${P.max}).`);
+  gs.forEach(g=>{ const ag=ageOf(g);
+    if(ag==null) a.push(`${gymName(g)} : date de naissance manquante.`);
+    else if(ag<10) a.push(`${gymName(g)} : moins de 10 ans, pas de Fédéral A.`);
+    else if(t.cat && !inCat(t.cat,ag)) a.push(`${gymName(g)} : hors catégorie ${catName(t.cat)} (née en ${g.naissance.slice(0,4)}).`) });
+  return a;
+}
+const mvDone=g=>AGRES.filter(a=>!compute0(g.id,a.k).empty).length;
+function gymBadge(g){ const a=ageOf(g), t=teamOf(g); let s=''; if(a!=null) s+=` · Catégorie individuelle ${indivCat(a)}`; if(t) s+=` · Équipe ${esc(t.name)} (${progOf(t).l}${t.cat?', '+catName(t.cat):''})`; return s }
+function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') return ''; return `<br>En équipe (Fédéral A régional, sans bonif.) : <b>${f2(teamCompute(g,ag).nd)}</b>` }
+
+/* ---------- barre d'onglets ---------- */
+function navBar(){
+  const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+}
+function renderMain(){
+  const m=document.getElementById('main');
+  if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
+  if(UI.view==='summary'){ m.innerHTML=navBar()+renderSummary(); return }
+  renderMain0();
+  if(UI.view!=='members') m.innerHTML=navBar()+m.innerHTML;
+}
+
+/* ---------- onglet Équipes ---------- */
+const catOpts=(p,sel,blank='— Catégorie —')=>`<option value="">${blank}</option>`+progOf({prog:p}).cats.map(c=>`<option value="${c[0]}" ${sel===c[0]?'selected':''}>${c[1]}</option>`).join('');
+const progOpts=sel=>Object.entries(PROGS).map(([k,P])=>`<option value="${k}" ${(sel||'A')===k?'selected':''}>${P.l}${k==='AR'?' (sans bonifications)':''}</option>`).join('');
+function renderTeams(){
+  const teams=S.teams.slice().sort(byTeamName);
+  const free=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)).sort(byName);
+  const lab=g=>`${esc(gymName(g))}${g.naissance?' ('+esc(g.naissance.slice(0,4))+')':''}`;
+  const warn=!HASPROG?`<div class="warn" style="margin-bottom:12px">⚠ La base n'a pas encore les colonnes « programme » et « catégorie » : exécute le script <b>migration-equipes.sql</b> dans Supabase, sinon ces réglages ne seront pas enregistrés.</div>`:'';
+  return `<div class="gymhead"><div><h2 class="name">Équipes</h2><div class="meta">${teams.length} équipe(s) · ${free.length} gymnaste(s) sans équipe</div></div></div>${warn}
+  <div class="card" style="margin-bottom:16px"><h3>Créer une équipe</h3>
+    <form class="inl" id="fTeamNew">
+      <label>Nom<input name="n" required autocomplete="off" placeholder="ex. Fédéral A 12-15 ans"></label>
+      <label>Programme<select name="p" id="neProg">${progOpts('A')}</select></label>
+      <label>Catégorie<select name="c" id="neCat">${catOpts('A','')}</select></label>
+      <button class="btn primary">Créer</button></form>
+    <div class="hint" style="margin-top:6px"><b>Fédéral A</b> : 5 gymnastes au maximum, 3 au minimum, 4 passent à chaque agrès, les 3 meilleures notes comptent (5/4/3). <b>Fédéral A régional</b> : même programme sans bonifications ; 5 passent à chaque agrès, 3 notes comptent (5/5/3).</div>
+  </div>
+  ${teams.map(t=>{ const P=progOf(t), gs=S.gyms.filter(g=>g.team===t.id).sort(byName), al=teamAlerts(t);
+    return `<div class="card eqcard" style="margin-bottom:12px">
+      <div class="eqh"><input class="eqname" data-eqname="${t.id}" value="${esc(t.name)}">
+        <select data-eqprog="${t.id}">${progOpts(t.prog)}</select>
+        <select data-eqcat="${t.id}">${catOpts(t.prog||'A',t.cat)}</select>
+        <span class="hint">${P.fmt} · ${gs.length} gym.</span>
+        <button class="btn sm" data-team="${t.id}">Fiche d'équipe</button>
+        <button class="btn sm ghost" data-eqdel="${t.id}">Supprimer</button></div>
+      <div class="eqm">${gs.map(g=>`<span class="chip eqchip">${lab(g)} <button data-eqrm="${g.id}" title="Retirer de l'équipe">✕</button></span>`).join('')||'<span class="hint">Aucune gymnaste.</span>'}
+        <select data-eqadd="${t.id}"><option value="">+ Ajouter une gymnaste…</option>${S.gyms.filter(g=>g.team!==t.id).sort(byName).map(g=>`<option value="${g.id}">${lab(g)}${teamOf(g)?' — '+esc(teamOf(g).name):''}</option>`).join('')}</select></div>
+      ${al.length?`<div class="warns">${al.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}</div>`:'<div class="okline">✓ Composition conforme au règlement.</div>'}
+    </div>` }).join('')||'<div class="card empty">Aucune équipe : crée la première ci-dessus.</div>'}
+  <div class="card"><h3>Gymnastes sans équipe (${free.length})</h3>
+    ${free.length?`<table class="mtb"><thead><tr><th>Gymnaste</th><th>Naissance</th><th>Catégorie individuelle</th><th>Affecter à</th></tr></thead><tbody>
+      ${free.map(g=>`<tr><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.split('-').reverse().join('/')):'<span class="hint">—</span>'}</td><td>${indivCat(ageOf(g))}</td><td><select data-eqassign="${g.id}">${teamOpts('','— Choisir une équipe —')}</select></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Toutes les gymnastes ont une équipe.</div>'}
+  </div>`;
+}
+
+/* ---------- onglet Résumé ---------- */
+function renderSummary(){
+  const sub=UI.sum||'team';
+  return `<div class="gymhead"><div><h2 class="name">Résumé</h2><div class="meta">Notes de départ des gymnastes qui ont un mouvement</div></div></div>
+    <div class="tabs"><button class="tab ${sub==='team'?'on':''}" data-sum="team">Par équipe</button><button class="tab ${sub==='indiv'?'on':''}" data-sum="indiv">Individuelles</button></div>`
+    + (sub==='team'?sumTeams():sumIndiv());
+}
+function sumTeams(){
+  const teams=S.teams.slice().sort(byTeamName).filter(t=>S.gyms.some(g=>g.team===t.id));
+  if(!teams.length) return '<div class="card empty">Aucune équipe avec des gymnastes. Crée-les dans l\'onglet Équipes.</div>';
+  return teams.map(t=>{
+    const P=progOf(t), gs=S.gyms.filter(g=>g.team===t.id).sort(byName), al=teamAlerts(t);
+    const T={}; AGRES.forEach(a=>T[a.k]=teamScores(t,a.k));
+    const cell=(g,a)=>{ const x=T[a].rows.find(r=>r.g.id===g.id); return x?`<td class="${x.kept?'kept':'notkept'}">${f2(x.c.nd)}</td>`:'<td class="none">—</td>' };
+    const miss=gs.map(g=>({g,m:AGRES.filter(a=>compute0(g.id,a.k).empty).map(a=>a.l.toLowerCase())})).filter(x=>x.m.length);
+    return `<div class="card" style="margin-bottom:16px">
+      <div class="eqh"><h3 style="margin:0">${esc(t.name)}</h3><span class="hint">${P.l}${t.cat?' · '+catName(t.cat):''} · format ${P.fmt}</span></div>
+      <table class="tb"><thead><tr><th>Gymnaste</th><th>Naissance</th>${AGRES.map(a=>`<th>${a.l}</th>`).join('')}<th>Mouvements</th></tr></thead><tbody>
+        ${gs.map(g=>`<tr class="click" data-gym="${g.id}"><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.slice(0,4)):'—'}</td>${AGRES.map(a=>cell(g,a.k)).join('')}<td>${mvDone(g)}/4</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="2">Total équipe (${P.kept} meilleures notes par agrès)</td>${AGRES.map(a=>`<td>${f2(T[a.k].total)}</td>`).join('')}<td><b>${f2(AGRES.reduce((s,a)=>s+T[a.k].total,0))}</b></td></tr></tfoot></table>
+      <div class="hint" style="margin-top:6px"><span class="kept" style="padding:1px 6px">vert</span> = note comptée · gris = non comptée${t.prog==='AR'?' · notes sans bonifications (Fédéral A régional)':''}</div>
+      ${miss.length?`<div class="warns">${miss.map(x=>`<div class="warn">${esc(gymName(x.g))} : pas de mouvement à ${x.m.join(', ')}.</div>`).join('')}</div>`:''}
+      ${al.length?`<div class="warns">${al.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}</div>`:''}
+    </div>` }).join('');
+}
+function sumIndiv(){
+  const all=!!UI.sumAll, order=['10-11 ans','12-13 ans','14-15 ans','16 ans et +','Moins de 10 ans','Date de naissance manquante'];
+  const list=S.gyms.filter(g=>all||mvDone(g)>0);
+  const ctl=`<label class="chk"><input type="checkbox" id="sumAll" ${all?'checked':''}> Afficher aussi les gymnastes sans mouvement</label>`;
+  const groups=order.map(c=>({c,gs:list.filter(g=>indivCat(ageOf(g))===c).sort((a,b)=>totalGym(b.id)-totalGym(a.id)||byName(a,b))})).filter(x=>x.gs.length);
+  if(!groups.length) return `<div class="card">${ctl}<div class="empty">Aucune gymnaste avec un mouvement.</div></div>`;
+  return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027.</div></div>`
+    + groups.map(x=>{ const ranked=!/Moins|manquante/.test(x.c);
+      return `<div class="card" style="margin-bottom:16px"><h3>${esc(x.c)} <span class="hint">${x.gs.length} gymnaste(s)</span></h3>
+        <table class="tb"><thead><tr>${ranked?'<th>#</th>':''}<th>Gymnaste</th><th>Équipe</th>${AGRES.map(a=>`<th>${a.l}</th>`).join('')}<th>Total</th><th>Mouvements</th></tr></thead><tbody>
+        ${x.gs.map((g,i)=>`<tr class="click" data-gym="${g.id}">${ranked?`<td>${i+1}</td>`:''}<td>${esc(gymName(g))}</td><td>${teamOf(g)?esc(teamOf(g).name):'<span class="hint">—</span>'}</td>${AGRES.map(a=>{const c=compute(g.id,a.k);return `<td class="${c.empty?'none':''}">${c.empty?'—':f2(c.nd)}</td>`}).join('')}<td><b>${f2(totalGym(g.id))}</b></td><td>${mvDone(g)}/4</td></tr>`).join('')}</tbody></table></div>` }).join('');
+}
+
+/* ---------- événements des nouveaux onglets ---------- */
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-nav],[data-sum],[data-eqdel],[data-eqrm]'); if(!t) return; const d=t.dataset;
+  if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
+    UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav;
+    if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
+    render(); return }
+  if(d.sum){ UI.sum=d.sum; render(); return }
+  if(d.eqrm){ const g=S.gyms.find(x=>x.id===d.eqrm); if(g){ g.team=null; render() } return }
+  if(d.eqdel){ const tm=S.teams.find(x=>x.id===d.eqdel); if(tm && confirm(`Supprimer l'équipe « ${tm.name} » ? Les gymnastes sont conservées (sans équipe).`)){ S.teams=S.teams.filter(x=>x!==tm); S.gyms.forEach(g=>{ if(g.team===tm.id) g.team=null }); if(UI.team===tm.id){ UI.team=null; if(UI.view==='team') UI.view='teams' } render() } return }
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target, d=t.dataset;
+  if(t.id==='neProg'){ document.getElementById('neCat').innerHTML=catOpts(t.value,''); return }
+  if(t.id==='sumAll'){ UI.sumAll=t.checked; render(); return }
+  const tm=S.teams.find(x=>x.id===(d.eqname||d.eqprog||d.eqcat||d.eqadd));
+  if(d.eqname && tm){ const n=t.value.trim(); if(n){ tm.name=n; render() } else t.value=tm.name; return }
+  if(d.eqprog && tm){ tm.prog=t.value; if(tm.cat && !progOf(tm).cats.some(c=>c[0]===tm.cat)){ tm.cat=null; toast('Catégorie à rechoisir pour ce programme') } render(); return }
+  if(d.eqcat && tm){ tm.cat=t.value||null; render(); return }
+  if(d.eqadd && tm){ const g=S.gyms.find(x=>x.id===t.value); if(g){ g.team=tm.id; render() } return }
+  if(d.eqassign){ const g=S.gyms.find(x=>x.id===d.eqassign); if(g&&t.value){ g.team=t.value; render() } return }
+});
+document.addEventListener('submit',ev=>{
+  const f=ev.target; if(f.id!=='fTeamNew') return; const v=n=>(f.elements[n]?.value||'').trim();
+  const p=v('p')||'A', c=v('c')||null;
+  if(c && !PROGS[p].cats.some(x=>x[0]===c)){ toast('Cette catégorie n\'existe pas pour ce programme'); return }
+  S.teams.push({id:uid(),name:v('n'),prog:p,cat:c}); render(); toast('Équipe créée');
+});
+
 render();
 </script>
 </body>
