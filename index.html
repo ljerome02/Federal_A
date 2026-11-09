@@ -250,6 +250,14 @@ aside{display:none!important}
 .mvc.hors{border-style:dashed;opacity:.7}
 .mvl{margin:0 3px;color:var(--muted)}
 .mvb{display:inline-block;background:var(--accent-soft);border-radius:6px;padding:1px 6px;font-size:12px;margin:1px 4px 1px 0}
+
+/* ===== v5.2 : Effectif en liste ===== */
+.rtools{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.rtools .sq{max-width:320px;flex:1 1 220px}
+.rtools label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+.rtb td{vertical-align:middle}
+.rtb input[type=text],.rtb input[type=date],.rtb select{width:100%;min-width:110px}
+.rtb tr.rgrp td{background:var(--accent-soft);font-weight:700;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -1214,6 +1222,86 @@ document.addEventListener('change',ev=>{
   const t=ev.target;
   if(t.id==='pickGym'){ if(t.value){ UI.gym=t.value; UI.view='gym'; render() } return }
   if(t.id==='pickTeam'){ UI.team=t.value; UI.view='team'; render() }
+});
+
+
+/* ================= v5.2 : Effectif en liste (tri alphabétique / âge), sans tenir compte des équipes ================= */
+UI.rview=UI.rview||'list'; UI.rsort=UI.rsort||'alpha'; UI.rflt=UI.rflt||''; UI.rq=UI.rq||'';
+const renderRosterTeams=renderRoster;
+const rKey=g=>norm(g.nom||g.prenom||'');
+const rByName=(a,b)=>rKey(a).localeCompare(rKey(b))||norm(a.prenom||'').localeCompare(norm(b.prenom||''));
+function rSorted(){
+  let l=S.gyms.slice(); const q=norm(UI.rq);
+  if(q) l=l.filter(g=>norm(gymName(g)).includes(q)||norm((teamOf(g)||{}).name||'').includes(q));
+  if(UI.rflt==='free') l=l.filter(g=>!hasTeam(g));
+  if(UI.rflt==='nodate') l=l.filter(g=>!g.naissance);
+  if(UI.rsort==='alpha') l.sort(rByName);
+  else{ const dir=UI.rsort==='young'?-1:1;
+    l.sort((a,b)=>{ const x=a.naissance||'', y=b.naissance||''; if(!x&&!y) return rByName(a,b); if(!x) return 1; if(!y) return -1; return x===y?rByName(a,b):(x<y?-1:1)*dir }) }
+  return l;
+}
+function rTeamSel(g){
+  const a=ageOf(g), cur=teamOf(g);
+  if(a==null&&!cur) return '<select disabled><option>Date de naissance à renseigner</option></select>';
+  const ok=a==null?[]:S.teams.filter(t=>t.cat&&inCat(t.cat,a)&&(t.id===g.team||S.gyms.filter(x=>x.team===t.id).length<progOf(t).max));
+  const list=[...(cur&&!ok.includes(cur)?[cur]:[]),...ok].sort(byTeamName);
+  return `<select data-rlteam="${g.id}"><option value="">${list.length?'— Sans équipe —':'— Sans équipe (aucune équipe compatible) —'}</option>${list.map(t=>`<option value="${t.id}" ${g.team===t.id?'selected':''}>${esc(t.name)}${!ok.includes(t)?(t.cat?' ⚠ hors catégorie':' ⚠ catégorie à régler'):''}</option>`).join('')}</select>`;
+}
+const rAgeTxt=g=>{ const a=ageOf(g); return a==null?'<span class="hint">—</span>':`<b>${a} ans</b> · ${a<10?'trop jeune pour le Fédéral A':indivCat(a)}` };
+function rRow(g){
+  return `<tr><td><input type="text" data-rl="nom" data-gid="${g.id}" value="${esc(g.nom||'')}"></td>
+    <td><input type="text" data-rl="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}"></td>
+    <td><input type="date" data-rl="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}"></td>
+    <td data-rlage="${g.id}">${rAgeTxt(g)}</td>
+    <td data-rlcell="${g.id}">${rTeamSel(g)}</td>
+    <td>${mvDone(g)}/4</td><td class="num"><b>${f2(totalGym(g.id))}</b></td>
+    <td><button class="btn sm" data-gym="${g.id}">Ouvrir</button></td></tr>`;
+}
+function rTable(){
+  const l=rSorted(); if(!l.length) return '<div class="empty">Aucune gymnaste.</div>';
+  const yOf=g=>g.naissance?g.naissance.slice(0,4):''; let html='', last=null;
+  l.forEach(g=>{
+    if(UI.rsort!=='alpha'){ const y=yOf(g); if(y!==last){ last=y; const n=l.filter(x=>yOf(x)===y).length;
+      html+=`<tr class="rgrp"><td colspan="8">${y?`${ageOf(g)} ans · nées en ${y}`:'Date de naissance manquante'} <span class="hint">${n}</span></td></tr>` } }
+    html+=rRow(g);
+  });
+  return `<div style="overflow-x:auto"><table class="mtb rtb"><thead><tr><th>Nom</th><th>Prénom</th><th style="width:150px">Naissance</th><th>Âge · catégorie</th><th style="min-width:230px">Équipe</th><th>Mouvements</th><th class="num">Total</th><th></th></tr></thead><tbody>${html}</tbody></table></div><div class="hint" style="margin-top:8px">${l.length} gymnaste(s) affichée(s). Les modifications (nom, date de naissance, équipe) s'enregistrent automatiquement. Seules les équipes de la bonne catégorie (réglée dans l'onglet Équipes) et non complètes sont proposées.</div>`;
+}
+const rRefreshTeams=()=>document.querySelectorAll('[data-rlcell]').forEach(td=>{ const g=S.gyms.find(x=>x.id===td.dataset.rlcell); if(g) td.innerHTML=rTeamSel(g) });
+renderRoster=function(){
+  const v=UI.rview;
+  const toggle=`<div class="seg" style="margin-bottom:12px"><button data-rview="list" class="${v==='list'?'on':''}">Liste (sans équipes)</button><button data-rview="team" class="${v==='team'?'on':''}">Par équipe</button></div>`;
+  if(v==='team') return toggle+renderRosterTeams();
+  return `<div class="gymhead"><div><h2 class="name">Effectif</h2><div class="meta">${S.gyms.length} gymnaste(s) · liste complète, sans tenir compte des équipes</div></div></div>${toggle}
+  <div class="card" style="margin-bottom:12px"><h3>Ajouter une gymnaste</h3>
+    <form class="inl" id="fRoster"><label>Prénom<input name="p" required autocomplete="off"></label><label>Nom<input name="n" autocomplete="off"></label><label>Date de naissance<input name="a" type="date"></label><button class="btn primary">Ajouter</button></form>
+    <div class="hint" style="margin-top:6px">Entrée pour ajouter : le formulaire se vide pour la suivante. L'équipe se choisit ensuite dans le tableau.</div></div>
+  <div class="card"><div class="rtools">
+    <input class="sq" id="rlQ" placeholder="Rechercher une gymnaste ou une équipe" value="${esc(UI.rq)}" autocomplete="off">
+    <label>Trier par<select id="rlSort"><option value="alpha" ${UI.rsort==='alpha'?'selected':''}>Ordre alphabétique (nom)</option><option value="young" ${UI.rsort==='young'?'selected':''}>Âge : plus jeunes d'abord</option><option value="old" ${UI.rsort==='old'?'selected':''}>Âge : plus âgées d'abord</option></select></label>
+    <label>Afficher<select id="rlFlt"><option value="" ${!UI.rflt?'selected':''}>Toutes les gymnastes</option><option value="free" ${UI.rflt==='free'?'selected':''}>Sans équipe</option><option value="nodate" ${UI.rflt==='nodate'?'selected':''}>Date de naissance manquante</option></select></label>
+  </div><div id="rlTable">${rTable()}</div></div>`;
+};
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-rview]'); if(!b) return; UI.rview=b.dataset.rview; render();
+});
+document.addEventListener('input',ev=>{
+  if(ev.target.id==='rlQ'){ UI.rq=ev.target.value; const t=document.getElementById('rlTable'); if(t) t.innerHTML=rTable() }
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target, d=t.dataset;
+  if(t.id==='rlSort'||t.id==='rlFlt'){ if(t.id==='rlSort') UI.rsort=t.value; else UI.rflt=t.value; const x=document.getElementById('rlTable'); if(x) x.innerHTML=rTable(); return }
+  if(d.rl){ const g=S.gyms.find(x=>x.id===d.gid); if(!g) return; const v=t.value.trim();
+    if(d.rl==='prenom'&&!v){ t.value=g.prenom; return }
+    g[d.rl]=v; save();
+    if(d.rl==='naissance'){ const a=document.querySelector(`[data-rlage="${g.id}"]`); if(a) a.innerHTML=rAgeTxt(g); rRefreshTeams() }
+    return }
+  if(d.rlteam){ const g=S.gyms.find(x=>x.id===d.rlteam); if(!g) return; g.team=t.value||null; save(); rRefreshTeams(); toast(g.team?'Équipe : '+teamOf(g).name:'Retirée de son équipe'); }
+});
+document.addEventListener('submit',ev=>{
+  const f=ev.target; if(f.id!=='fRoster') return; const v=n=>(f.elements[n]?.value||'').trim();
+  if(!v('p')) return; S.gyms.push({id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),team:null});
+  render(); toast(v('p')+' ajoutée'); document.querySelector('#fRoster [name=p]')?.focus();
 });
 
 render();
