@@ -257,6 +257,12 @@ aside{display:none!important}
 .cc b{font-variant-numeric:tabular-nums;margin-left:2px}
 .cc.todo{border-color:#e0a030;background:#fff7e6}
 select.todo{border-color:#e0a030;background:#fff7e6}
+.cbx,.inl .cbx{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:5px;margin-right:14px;font-size:13px;white-space:nowrap;cursor:pointer}
+.cbx input{width:auto;margin:0}
+.ccell.todo{background:#fff7e6}
+.cboxes{display:block;font-size:12px;color:var(--muted)}
+.cboxes .lbl{display:block;margin-bottom:6px}
+.cboxes .cbx{color:var(--ink);font-size:13px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -632,7 +638,7 @@ function renderManage(){
       <label>Prénom<input name="p" required autocomplete="off"></label>
       <label>Nom<input name="n" autocomplete="off"></label>
       <label>Date de naissance<input name="a" type="date"></label>
-      <label>Compétition<select name="c">${compOpts(UI.lastComp||'')}</select></label>
+      <div class="cboxes"><span class="lbl">Compétition</span>${compBoxes({compet:UI.lastComp||''},'data-ccf="1"',{equipe:'ce',indiv:'ci',aucune:'ca'})}</div>
       <button class="btn primary">Ajouter</button>
     </form>
     <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour la suivante et garde la compétition choisie.</div>
@@ -656,13 +662,13 @@ function renderManageTable(){
   const cn=document.getElementById('mCounts'); if(cn) cn.innerHTML=compCounts();
   const nSel=Object.keys(UI.sel).length, allOn=list.length && list.every(g=>UI.sel[g.id]);
   el.innerHTML=`${nSel?`<div class="bulk"><b>${nSel} sélectionnée(s)</b> → compétition <select id="bulkComp">${compOpts('','— Choisir —')}</select><button class="btn sm primary" id="bBulkC">Appliquer</button><button class="btn sm" id="bBulkNone">Désélectionner</button></div>`:''}
-   <table class="mtb"><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"></th><th>Nom</th><th>Prénom</th><th style="width:140px">Naissance</th><th style="min-width:190px">Compétition</th><th class="num">Total ND</th><th></th></tr></thead>
+   <table class="mtb"><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"></th><th>Nom</th><th>Prénom</th><th style="width:140px">Naissance</th><th style="min-width:330px">Compétition</th><th class="num">Total ND</th><th></th></tr></thead>
    <tbody>${list.map(g=>`<tr>
      <td><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''}></td>
      <td><input type="text" data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}"></td>
      <td><input type="text" data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}"></td>
      <td><input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}"></td>
-     <td><select data-mcomp="${g.id}" class="${g.compet?'':'todo'}">${compOpts(g.compet)}</select></td>
+     <td class="ccell ${g.compet?'':'todo'}">${compBoxes(g,`data-ccg="${g.id}"`)}</td>
      <td class="num">${f2(totalGym(g.id))}</td>
      <td style="white-space:nowrap"><button class="btn sm" data-gym="${g.id}">Ouvrir</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer">✕</button>`:''}</td></tr>`).join('')}</tbody></table>
    ${!list.length?'<div class="empty">Aucune gymnaste.</div>':''}`;
@@ -983,7 +989,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('submit',ev=>{
   ev.preventDefault(); const f=ev.target, v=n=>(f.elements[n]?.value||'').trim();
   if(f.id==='fTeam'){ S.teams.push({id:uid(),name:v('n')}); render(); }
-  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),compet:v('c'),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
+  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),compet:compFromBox(f.elements['ce'].checked,f.elements['ci'].checked,f.elements['ca'].checked),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
     if(UI.view==='manage'){ render(); toast(gymName(g)+' ajoutée'); document.querySelector('#fGym [name=p]')?.focus(); }
     else { UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); } }
 });
@@ -1032,6 +1038,10 @@ const teamOk=g=>g.compet==='equipe'||g.compet==='equipe_indiv';
 const indOk=g=>g.compet==='indiv'||g.compet==='equipe_indiv';
 const compOpts=(sel,blank='— À choisir —')=>`<option value="">${blank}</option>`+COMPS.map(([k,l])=>`<option value="${k}" ${sel===k?'selected':''}>${l}</option>`).join('');
 const nTodo=()=>S.gyms.filter(g=>!g.compet).length;
+const compFromBox=(e,i,a)=>a?'aucune':e&&i?'equipe_indiv':e?'equipe':i?'indiv':'';
+const compBoxes=(g,attrs,name)=>{ const e=g?teamOk(g):false,i=g?indOk(g):false,a=g?g.compet==='aucune':false;
+  const b=(k,l,on)=>`<label class="cbx"><input type="checkbox" ${name?`name="${name[k]}"`:''} data-cc="${k}" ${attrs} ${on?'checked':''}> ${l}</label>`;
+  return b('equipe','Équipe',e)+b('indiv','Individuel',i)+b('aucune','Pas de compétition',a) };
 /* gymnastes sans équipe, avec date de naissance connue, dont l'âge correspond à la catégorie */
 const eligible=cat=>cat?S.gyms.filter(g=>{ const a=ageOf(g); return !hasTeam(g)&&teamOk(g)&&a!=null&&inCat(cat,a) }).sort(byName):[];
 const teamsFor=g=>{ const a=ageOf(g); if(a==null) return null; return S.teams.filter(t=>t.cat&&inCat(t.cat,a)&&S.gyms.filter(x=>x.team===t.id).length<progOf(t).max).sort(byTeamName) };
@@ -1247,8 +1257,15 @@ renderMain=function(){
 function setComp(g,v){ g.compet=v||''; if(g.team && !teamOk(g)){ const t=teamOf(g); g.team=null; return t?t.name:'équipe' } return null }
 document.addEventListener('change',ev=>{
   const t=ev.target; if(!t||!t.dataset) return;
-  if(t.dataset.mcomp){ const g=S.gyms.find(x=>x.id===t.dataset.mcomp); if(!g) return;
-    const r=setComp(g,t.value); renderManageTable(); save(); if(r) toast(`${gymName(g)} retirée de l'équipe « ${r} »`); return }
+  if(t.dataset.cc && t.dataset.ccg){ const g=S.gyms.find(x=>x.id===t.dataset.ccg); if(!g) return;
+    let e=teamOk(g), i=indOk(g), a=g.compet==='aucune'; const k=t.dataset.cc;
+    if(k==='aucune'){ a=t.checked; if(a){ e=false; i=false } }
+    else { if(k==='equipe') e=t.checked; else i=t.checked; if(t.checked) a=false }
+    const r=setComp(g,compFromBox(e,i,a)); renderManageTable(); save(); if(r) toast(`${gymName(g)} retirée de l'équipe « ${r} »`); return }
+  if(t.dataset.cc && t.dataset.ccf){ const f=t.form; const bx=k=>f.querySelector(`[data-cc=${k}]`);
+    if(t.dataset.cc==='aucune'){ if(t.checked){ bx('equipe').checked=false; bx('indiv').checked=false } }
+    else if(t.checked) bx('aucune').checked=false;
+    return }
   if(t.id==='mCompF'){ UI.mcomp=t.value; renderManageTable() }
 });
 document.addEventListener('click',ev=>{
