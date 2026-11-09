@@ -278,6 +278,17 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .tl.hors{border-style:dashed}
 .lkc{flex:none;width:8px;height:5px;margin-top:26px}
 .lkc.on{width:18px;margin:26px -2px 0;background:var(--head);border-radius:2px;position:relative;z-index:1}
+/* ===== v6.2 : résumé individuel, 4 agrès sous chaque gymnaste ===== */
+.gb{border:1px solid var(--line);border-radius:10px;margin:12px 0;background:#fff;overflow:hidden}
+.gbh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;background:var(--accent-soft);cursor:pointer}
+.gbh .rk{background:var(--head);color:#fff;border-radius:999px;min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.gbh .gn{font-weight:700;font-size:15px}
+.gbh .gt{margin-left:auto;font-size:14px}
+.al{display:grid;grid-template-columns:80px 1fr 70px;gap:10px;padding:8px 12px;border-top:1px solid var(--line);align-items:start}
+.al .an{font-weight:700;font-size:13px;padding-top:4px}
+.al .as{text-align:right;font-size:15px;padding-top:4px}
+.al .ab.none{color:var(--muted);padding-top:4px}
+.al .am{font-size:12px;color:var(--muted);margin-top:6px}
 </style>
 </head>
 <body>
@@ -1178,8 +1189,21 @@ function sumIndiv(){
   return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027.</div>${indNote()}</div>`
     + groups.map(x=>{ const ranked=!/Moins|manquante/.test(x.c);
       return `<div class="card" style="margin-bottom:16px"><h3>${esc(x.c)} <span class="hint">${x.gs.length} gymnaste(s)</span></h3>
-        <table class="tb"><thead><tr>${ranked?'<th>#</th>':''}<th>Gymnaste</th><th>Équipe</th>${AGRES.map(a=>`<th>${a.l}</th>`).join('')}<th>Total</th><th>Mouvements</th></tr></thead><tbody>
-        ${x.gs.map((g,i)=>`<tr class="click" data-gym="${g.id}">${ranked?`<td>${i+1}</td>`:''}<td>${esc(gymName(g))}</td><td>${teamOf(g)?esc(teamOf(g).name):'<span class="hint">—</span>'}</td>${AGRES.map(a=>{const c=compute(g.id,a.k);return `<td class="${c.empty?'none':''}">${c.empty?'—':f2(c.nd)}</td>`}).join('')}<td><b>${f2(totalGym(g.id))}</b></td><td>${mvDone(g)}/4</td></tr>`).join('')}</tbody></table></div>` }).join('');
+        ${x.gs.map((g,i)=>indivBlock(g,ranked?i+1:0)).join('')}</div>` }).join('');
+}
+/* une gymnaste en individuel : les 4 agrès sous son nom */
+function vaultChips(g){
+  const R=routine(g.id,'saut'), vt=id=>{ const v=VAULTS.find(x=>x.id===id); return v?`${esc(shortT(v.t,70))} <b>${f2(R.app==='trampo'?v.tt:v.tr)}</b>`:null };
+  return `<span class="hint">${R.app==='trampo'?'Trampo-tremp':'Tremplin'}</span> · `+[vt(R.s1),vt(R.s2)].filter(Boolean).map((x,i)=>`<span class="mvc">Saut ${i+1} : ${x}</span>`).join(' ');
+}
+function indivBlock(g,rank){
+  const t=teamOf(g);
+  const lines=AGRES.map(a=>{ const C=compute(g.id,a.k);
+    if(C.empty) return `<div class="al"><div class="an">${a.l}</div><div class="ab none">Pas de mouvement</div><div class="as"></div></div>`;
+    if(a.k==='saut') return `<div class="al"><div class="an">${a.l}</div><div class="ab">${vaultChips(g)}</div><div class="as"><b>${f2(C.nd)}</b></div></div>`;
+    const bons=BONIFS[a.k].filter(b=>C.bon[b.k]).map(b=>`<span class="mvb">${BSHORT[b.k]}</span>`).join('')||'<span class="hint">aucune</span>';
+    return `<div class="al"><div class="an">${a.l}</div><div class="ab">${mvChips(g,a.k,true)}<div class="am">Éléments ${Math.min(C.nDistinct,MAX_EL)}/${MAX_EL} · Difficulté ${f2(C.diff)} · Bonifications : ${bons}</div></div><div class="as"><b>${f2(C.nd)}</b></div></div>` }).join('');
+  return `<div class="gb"><div class="gbh click" data-gym="${g.id}" title="Ouvrir la fiche">${rank?`<span class="rk">${rank}</span>`:''}<span class="gn">${esc(gymName(g))}</span><span class="hint">${g.naissance?esc(g.naissance.slice(0,4)):''}${t?' · '+esc(t.name):''} · ${mvDone(g)}/4 agrès</span><span class="gt">Total <b>${f2(totalGym(g.id))}</b></span></div>${lines}</div>`;
 }
 
 /* ---------- événements des nouveaux onglets ---------- */
@@ -1228,8 +1252,8 @@ function pickerBar(){
 }
 const BSHORT={bascule:'Bascule',proche:'Tour proche',elan:'Élan',gym:'Série gym.',acro:'Série acro/mixte',dir:'Acro avant + arrière',lignes:'2 lignes acro',ligne3:'Ligne de 3',sauts:'2 sauts'};
 const shortT=(t,n=44)=>t.length>n?t.slice(0,n-1)+'…':t;
-function mvChips(g,ag){
-  const R=routine(g.id,ag), C=teamCompute(g,ag), n=R.items.length;
+function mvChips(g,ag,ind){
+  const R=routine(g.id,ag), C=ind?compute(g.id,ag):teamCompute(g,ag), n=R.items.length;
   return '<div class="mvw">'+R.items.map((it,i)=>{ const e=BY_ID[it.e], st=C.status[i], bs=bonIdx(ag,C,i);
     const cls=(st==='rep'?'rep':st==='hors'?'hors':'')+(bs.length?' bg'+(bs[0]+1):'');
     const tip=`${e.t}${st==='rep'?' (répété : non compté)':st==='hors'?' (hors des 7 meilleurs : non compté)':''}`;
