@@ -289,6 +289,17 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .al .as{text-align:right;font-size:15px;padding-top:4px}
 .al .ab.none{color:var(--muted);padding-top:4px}
 .al .am{font-size:12px;color:var(--muted);margin-top:6px}
+.gb>summary{list-style:none}
+.gb>summary::-webkit-details-marker{display:none}
+.gb>summary::before{content:"▶";font-size:11px;color:var(--accent-ink);transition:transform .15s}
+.gb[open]>summary::before{transform:rotate(90deg)}
+.gbh .hns{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 auto}
+.hn{display:inline-flex;align-items:baseline;gap:5px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:2px 8px;font-size:12px}
+.hn i{font-style:normal;color:var(--muted)}
+.hn b{font-size:13px;font-variant-numeric:tabular-nums}
+.hn small{color:var(--muted);font-size:10.5px}
+.hn.none{opacity:.55}
+.gbh .gt{margin-left:0}
 </style>
 </head>
 <body>
@@ -1183,10 +1194,10 @@ function sumTeams(){
 function sumIndiv(){
   const all=!!UI.sumAll, order=['10-11 ans','12-13 ans','14-15 ans','16 ans et +','Moins de 10 ans','Date de naissance manquante'];
   const list=S.gyms.filter(g=>indOk(g)&&(all||mvDone(g)>0));
-  const ctl=`<label class="chk"><input type="checkbox" id="sumAll" ${all?'checked':''}> Afficher aussi les gymnastes individuelles sans mouvement</label>`;
+  const ctl=`<div class="row" style="gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" id="sumAll" ${all?'checked':''}> Afficher aussi les gymnastes individuelles sans mouvement</label><span style="flex:1"></span><button class="btn sm" data-indall="1">▼ Tout développer</button><button class="btn sm" data-indall="0">▲ Tout réduire</button></div>`;
   const groups=order.map(c=>({c,gs:list.filter(g=>indivCat(ageOf(g))===c).sort((a,b)=>totalGym(b.id)-totalGym(a.id)||byName(a,b))})).filter(x=>x.gs.length);
   if(!groups.length) return `<div class="card">${ctl}<div class="empty">Aucune gymnaste inscrite en individuel${all?'':' avec un mouvement'}.</div>${indNote()}</div>`;
-  return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027.</div>${indNote()}</div>`
+  return `<div class="card" style="margin-bottom:12px">${ctl}<div class="hint">Notes individuelles : programme Fédéral A national, avec bonifications. Catégories individuelles de la région pour 2026-2027. À côté de chaque note, le petit chiffre = <b>difficulté + bonifications</b>. Clique sur la flèche pour voir le détail des mouvements.</div>${indNote()}</div>`
     + groups.map(x=>{ const ranked=!/Moins|manquante/.test(x.c);
       return `<div class="card" style="margin-bottom:16px"><h3>${esc(x.c)} <span class="hint">${x.gs.length} gymnaste(s)</span></h3>
         ${x.gs.map((g,i)=>indivBlock(g,ranked?i+1:0)).join('')}</div>` }).join('');
@@ -1203,7 +1214,11 @@ function indivBlock(g,rank){
     if(a.k==='saut') return `<div class="al"><div class="an">${a.l}</div><div class="ab">${vaultChips(g)}</div><div class="as"><b>${f2(C.nd)}</b></div></div>`;
     const bons=BONIFS[a.k].filter(b=>C.bon[b.k]).map(b=>`<span class="mvb">${BSHORT[b.k]}</span>`).join('')||'<span class="hint">aucune</span>';
     return `<div class="al"><div class="an">${a.l}</div><div class="ab">${mvChips(g,a.k,true)}<div class="am">Éléments ${Math.min(C.nDistinct,MAX_EL)}/${MAX_EL} · Difficulté ${f2(C.diff)} · Bonifications : ${bons}</div></div><div class="as"><b>${f2(C.nd)}</b></div></div>` }).join('');
-  return `<div class="gb"><div class="gbh click" data-gym="${g.id}" title="Ouvrir la fiche">${rank?`<span class="rk">${rank}</span>`:''}<span class="gn">${esc(gymName(g))}</span><span class="hint">${g.naissance?esc(g.naissance.slice(0,4)):''}${t?' · '+esc(t.name):''} · ${mvDone(g)}/4 agrès</span><span class="gt">Total <b>${f2(totalGym(g.id))}</b></span></div>${lines}</div>`;
+  const chips=AGRES.map(a=>{ const C=compute(g.id,a.k);
+    if(C.empty) return `<span class="hn none"><i>${a.l}</i><b>—</b></span>`;
+    return `<span class="hn"><i>${a.l}</i><b>${f2(C.nd)}</b>${a.k==='saut'?'':`<small>${f2(C.diff)} + ${f2(C.bonus)}</small>`}</span>` }).join('');
+  const open=(UI.indOpen||{})[g.id];
+  return `<details class="gb" data-gid="${g.id}" ${open?'open':''}><summary class="gbh">${rank?`<span class="rk">${rank}</span>`:''}<span class="gn">${esc(gymName(g))}</span><span class="hint">${g.naissance?esc(g.naissance.slice(0,4)):''}${t?' · '+esc(t.name):''}</span><span class="hns">${chips}</span><span class="gt">Total <b>${f2(totalGym(g.id))}</b></span><button class="btn sm" data-gym="${g.id}" title="Ouvrir la fiche">Fiche</button></summary>${lines}</details>`;
 }
 
 /* ---------- événements des nouveaux onglets ---------- */
@@ -1317,6 +1332,11 @@ document.addEventListener('click',ev=>{
   S.gyms.forEach(g=>{ if(UI.sel[g.id]){ if(setComp(g,v)) out++ } });
   UI.sel={}; render(); toast(`${n} gymnaste(s) : ${compLabel(v)}${out?` (${out} retirée(s) de leur équipe)`:''}`);
 });
+
+/* dépliage des gymnastes en individuel */
+document.addEventListener('toggle',ev=>{ const d=ev.target; if(d.classList&&d.classList.contains('gb')&&d.dataset.gid){ (UI.indOpen=UI.indOpen||{})[d.dataset.gid]=d.open } },true);
+document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('[data-indall]'); if(!b) return;
+  UI.indOpen={}; if(b.dataset.indall==='1') S.gyms.forEach(g=>UI.indOpen[g.id]=true); render() });
 
 render();
 </script>
