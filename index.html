@@ -228,6 +228,7 @@ table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid va
 .tb td.none{color:var(--muted)}
 .chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:6px}
 span.kept{background:#dff3e6;border-radius:4px}
+.negrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 12px}
 </style>
 </head>
 <body>
@@ -990,6 +991,10 @@ const inCat=(c,a)=>({'10+':a>=10,'14+':a>=14,'12-15':a>=12&&a<=15,'10-13':a>=10&
 const indivCat=a=>a==null?'Date de naissance manquante':a<10?'Moins de 10 ans':a<=11?'10-11 ans':a<=13?'12-13 ans':a<=15?'14-15 ans':'16 ans et +';
 const teamOf=g=>S.teams.find(t=>t.id===g.team);
 const byTeamName=(a,b)=>norm(a.name).localeCompare(norm(b.name));
+const hasTeam=g=>S.teams.some(t=>t.id===g.team);
+/* gymnastes sans équipe, avec date de naissance connue, dont l'âge correspond à la catégorie */
+const eligible=cat=>cat?S.gyms.filter(g=>{ const a=ageOf(g); return !hasTeam(g)&&a!=null&&inCat(cat,a) }).sort(byName):[];
+const teamsFor=g=>{ const a=ageOf(g); if(a==null) return null; return S.teams.filter(t=>t.cat&&inCat(t.cat,a)&&S.gyms.filter(x=>x.team===t.id).length<progOf(t).max).sort(byTeamName) };
 const orderedGyms=()=>[...S.gyms].sort(byName);
 
 /* contexte « équipe » : en Fédéral A régional, pas de bonifications */
@@ -1032,6 +1037,13 @@ function renderMain(){
 /* ---------- onglet Équipes ---------- */
 const catOpts=(p,sel,blank='— Catégorie —')=>`<option value="">${blank}</option>`+progOf({prog:p}).cats.map(c=>`<option value="${c[0]}" ${sel===c[0]?'selected':''}>${c[1]}</option>`).join('');
 const progOpts=sel=>Object.entries(PROGS).map(([k,P])=>`<option value="${k}" ${(sel||'A')===k?'selected':''}>${P.l}${k==='AR'?' (sans bonifications)':''}</option>`).join('');
+const labG=g=>`${esc(gymName(g))}${g.naissance?' ('+esc(g.naissance.slice(0,4))+')':''}`;
+function neGymsHtml(cat){
+  if(!cat) return '<div class="hint">Choisis une catégorie pour voir les gymnastes disponibles.</div>';
+  const l=eligible(cat);
+  return l.length?`<div class="hint" style="margin-bottom:4px">Gymnastes disponibles dans cette catégorie (${l.length}) : coche celles de l’équipe.</div><div class="negrid">${l.map(g=>`<label class="chk"><input type="checkbox" name="g" value="${g.id}"> ${labG(g)}</label>`).join('')}</div>`
+    :'<div class="hint">Aucune gymnaste disponible dans cette catégorie (sans équipe et avec une date de naissance).</div>';
+}
 function renderTeams(){
   const teams=S.teams.slice().sort(byTeamName);
   const free=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)).sort(byName);
@@ -1043,7 +1055,8 @@ function renderTeams(){
       <label>Nom<input name="n" required autocomplete="off" placeholder="ex. Fédéral A 12-15 ans"></label>
       <label>Programme<select name="p" id="neProg">${progOpts('A')}</select></label>
       <label>Catégorie<select name="c" id="neCat">${catOpts('A','')}</select></label>
-      <button class="btn primary">Créer</button></form>
+      <button class="btn primary">Créer</button>
+      <div id="neGyms" style="flex-basis:100%">${neGymsHtml('')}</div></form>
     <div class="hint" style="margin-top:6px"><b>Fédéral A</b> : 5 gymnastes au maximum, 3 au minimum, 4 passent à chaque agrès, les 3 meilleures notes comptent (5/4/3). <b>Fédéral A régional</b> : même programme sans bonifications ; 5 passent à chaque agrès, 3 notes comptent (5/5/3).</div>
   </div>
   ${teams.map(t=>{ const P=progOf(t), gs=S.gyms.filter(g=>g.team===t.id).sort(byName), al=teamAlerts(t);
@@ -1055,12 +1068,12 @@ function renderTeams(){
         <button class="btn sm" data-team="${t.id}">Fiche d'équipe</button>
         <button class="btn sm ghost" data-eqdel="${t.id}">Supprimer</button></div>
       <div class="eqm">${gs.map(g=>`<span class="chip eqchip">${lab(g)} <button data-eqrm="${g.id}" title="Retirer de l'équipe">✕</button></span>`).join('')||'<span class="hint">Aucune gymnaste.</span>'}
-        <select data-eqadd="${t.id}"><option value="">+ Ajouter une gymnaste…</option>${S.gyms.filter(g=>g.team!==t.id).sort(byName).map(g=>`<option value="${g.id}">${lab(g)}${teamOf(g)?' — '+esc(teamOf(g).name):''}</option>`).join('')}</select></div>
+        ${(()=>{ const room=P.max-gs.length, c=eligible(t.cat); return `<select data-eqadd="${t.id}" ${(!t.cat||room<=0)?'disabled':''}><option value="">${!t.cat?'Choisis d’abord une catégorie':room<=0?'Équipe complète ('+P.max+')':c.length?'+ Ajouter une gymnaste ('+c.length+' disponible'+(c.length>1?'s':'')+')…':'Aucune gymnaste disponible'}</option>${c.map(g=>`<option value="${g.id}">${lab(g)}</option>`).join('')}</select>` })()}</div>
       ${al.length?`<div class="warns">${al.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}</div>`:'<div class="okline">✓ Composition conforme au règlement.</div>'}
     </div>` }).join('')||'<div class="card empty">Aucune équipe : crée la première ci-dessus.</div>'}
   <div class="card"><h3>Gymnastes sans équipe (${free.length})</h3>
     ${free.length?`<table class="mtb"><thead><tr><th>Gymnaste</th><th>Naissance</th><th>Catégorie individuelle</th><th>Affecter à</th></tr></thead><tbody>
-      ${free.map(g=>`<tr><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.split('-').reverse().join('/')):'<span class="hint">—</span>'}</td><td>${indivCat(ageOf(g))}</td><td><select data-eqassign="${g.id}">${teamOpts('','— Choisir une équipe —')}</select></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Toutes les gymnastes ont une équipe.</div>'}
+      ${free.map(g=>`<tr><td>${esc(gymName(g))}</td><td>${g.naissance?esc(g.naissance.split('-').reverse().join('/')):'<span class="hint">—</span>'}</td><td>${indivCat(ageOf(g))}</td><td>${(()=>{ const l=teamsFor(g); return l===null?'<select disabled><option>Date de naissance à renseigner</option></select>':l.length?`<select data-eqassign="${g.id}"><option value="">— Choisir une équipe —</option>${l.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select>`:'<select disabled><option>Aucune équipe compatible</option></select>' })()}</td></tr>`).join('')}</tbody></table><div class="hint" style="margin-top:6px">Seules les équipes de la bonne catégorie et non complètes sont proposées. Une gymnaste ne peut être que dans une seule équipe.</div>`:'<div class="empty">Toutes les gymnastes ont une équipe.</div>'}
   </div>`;
 }
 
@@ -1115,7 +1128,8 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('change',ev=>{
   const t=ev.target, d=t.dataset;
-  if(t.id==='neProg'){ document.getElementById('neCat').innerHTML=catOpts(t.value,''); return }
+  if(t.id==='neProg'){ document.getElementById('neCat').innerHTML=catOpts(t.value,''); document.getElementById('neGyms').innerHTML=neGymsHtml(''); return }
+  if(t.id==='neCat'){ document.getElementById('neGyms').innerHTML=neGymsHtml(t.value); return }
   if(t.id==='sumAll'){ UI.sumAll=t.checked; render(); return }
   const tm=S.teams.find(x=>x.id===(d.eqname||d.eqprog||d.eqcat||d.eqadd));
   if(d.eqname && tm){ const n=t.value.trim(); if(n){ tm.name=n; render() } else t.value=tm.name; return }
@@ -1128,7 +1142,11 @@ document.addEventListener('submit',ev=>{
   const f=ev.target; if(f.id!=='fTeamNew') return; const v=n=>(f.elements[n]?.value||'').trim();
   const p=v('p')||'A', c=v('c')||null;
   if(c && !PROGS[p].cats.some(x=>x[0]===c)){ toast('Cette catégorie n\'existe pas pour ce programme'); return }
-  S.teams.push({id:uid(),name:v('n'),prog:p,cat:c}); render(); toast('Équipe créée');
+  const ids=[...f.querySelectorAll('input[name=g]:checked')].map(x=>x.value);
+  if(ids.length>PROGS[p].max){ toast('Maximum '+PROGS[p].max+' gymnastes par équipe'); return }
+  const nt={id:uid(),name:v('n'),prog:p,cat:c}; S.teams.push(nt);
+  ids.forEach(id=>{ const g=S.gyms.find(x=>x.id===id); if(g&&!hasTeam({team:g.team})) g.team=nt.id });
+  render(); toast('Équipe créée'+(ids.length?' avec '+ids.length+' gymnaste(s)':''));
 });
 
 render();
