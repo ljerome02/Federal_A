@@ -263,6 +263,21 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .cboxes{display:block;font-size:12px;color:var(--muted)}
 .cboxes .lbl{display:block;margin-bottom:6px}
 .cboxes .cbx{color:var(--ink);font-size:13px;margin-top:6px}
+/* ===== v6.1 : résumé avec images ===== */
+.mvw{display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:6px}
+.tl{position:relative;width:100px;flex:none;border:1px solid #cfd5da;border-radius:6px;background:#fff;padding:2px 3px 3px;display:flex;flex-direction:column;align-items:center}
+.tl .no{position:absolute;left:3px;top:1px;font-size:9px;font-weight:800;font-style:normal;color:var(--muted)}
+.tl img{width:90px;max-width:100%;height:auto;max-height:40px;margin:9px auto 2px;display:block;mix-blend-mode:multiply}
+.tl .tv{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.tl .tb{margin-top:2px;line-height:1}
+.tl.bg1{background:var(--b1);border-color:var(--b1i)}
+.tl.bg2{background:var(--b2);border-color:var(--b2i)}
+.tl.bg3{background:var(--b3);border-color:var(--b3i)}
+.tl.rep,.tl.hors{opacity:.5}
+.tl.rep .tv{text-decoration:line-through}
+.tl.hors{border-style:dashed}
+.lkc{flex:none;width:8px;height:5px;margin-top:26px}
+.lkc.on{width:18px;margin:26px -2px 0;background:var(--head);border-radius:2px;position:relative;z-index:1}
 </style>
 </head>
 <body>
@@ -1214,13 +1229,16 @@ function pickerBar(){
 const BSHORT={bascule:'Bascule',proche:'Tour proche',elan:'Élan',gym:'Série gym.',acro:'Série acro/mixte',dir:'Acro avant + arrière',lignes:'2 lignes acro',ligne3:'Ligne de 3',sauts:'2 sauts'};
 const shortT=(t,n=44)=>t.length>n?t.slice(0,n-1)+'…':t;
 function mvChips(g,ag){
-  const R=routine(g.id,ag), C=teamCompute(g,ag);
-  return R.items.map((it,i)=>{ const e=BY_ID[it.e], st=C.status[i], cls=st==='ok'?'':st==='rep'?'rep':'hors';
-    return `<span class="mvc ${cls}" title="${esc(e.t)}${st==='rep'?' (répété : non compté)':st==='hors'?' (hors des 7 meilleurs)':''}">${esc(shortT(e.t))} <b>${f2(e.v)}</b></span>`+(i<R.items.length-1?`<span class="mvl">${it.link?'⛓':'›'}</span>`:'') }).join('');
+  const R=routine(g.id,ag), C=teamCompute(g,ag), n=R.items.length;
+  return '<div class="mvw">'+R.items.map((it,i)=>{ const e=BY_ID[it.e], st=C.status[i], bs=bonIdx(ag,C,i);
+    const cls=(st==='rep'?'rep':st==='hors'?'hors':'')+(bs.length?' bg'+(bs[0]+1):'');
+    const tip=`${e.t}${st==='rep'?' (répété : non compté)':st==='hors'?' (hors des 7 meilleurs : non compté)':''}`;
+    return `<span class="tl ${cls}" title="${esc(tip)}"><i class="no">${i+1}</i><img src="data:image/png;base64,${e.img}" alt="${esc(shortT(e.t))}"><b class="tv">${f2(e.v)}</b>${bs.length?`<span class="tb">${bs.map(j=>`<span class="bt b${j+1}">B${j+1}</span>`).join('')}</span>`:''}</span>`
+      +(i<n-1?`<span class="lkc ${it.link?'on':''}" title="${it.link?'Éléments enchaînés (liaison)':''}"></span>`:'') }).join('')+'</div>';
 }
 function mvSummary(t){
   const gs=S.gyms.filter(g=>g.team===t.id).sort(byName);
-  return '<h4 class="mvh">Détail des mouvements</h4>'+AGRES.map(a=>{
+  return '<h4 class="mvh">Détail des mouvements</h4><div class="hint" style="margin-bottom:4px">Chaque case = un élément (dans l\'ordre) avec sa valeur · <b>trait épais</b> entre deux cases = éléments enchaînés (liaison) · case estompée = répétition ou hors des 7 meilleurs.</div>'+AGRES.map(a=>{
     const rows=gs.map(g=>{ const C=teamCompute(g,a.k), nm=esc(gymName(g));
       if(C.empty) return `<tr><td>${nm}</td><td class="none" colspan="${a.k==='saut'?2:5}">Pas de mouvement</td></tr>`;
       if(a.k==='saut'){ const R=routine(g.id,'saut'), vt=id=>{ const v=VAULTS.find(x=>x.id===id); return v?`${esc(shortT(v.t,60))} <b>${f2(R.app==='trampo'?v.tt:v.tr)}</b>`:null };
