@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3f4042">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fédéral A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Fédéral A – Club</title>
 <style>
 :root{
@@ -70,7 +77,7 @@ h2:first-child{margin-top:0}
 .mtb input:focus,.mtb select:focus{border-color:var(--accent);background:#fff;outline:none}
 .mtb .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mgrid{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);gap:18px;align-items:start}
-@media (max-width:1100px){.mgrid{grid-template-columns:1fr}}
+@media (max-width:900px){.mgrid{grid-template-columns:1fr}}
 .inl{display:grid;grid-template-columns:1fr 1fr 150px 1fr auto;gap:8px;align-items:end}
 .inl label{font-size:11.5px;color:var(--muted);display:grid;gap:3px}
 .inl input,.inl select,.bulk select,.mfilt input,.mfilt select{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;width:100%}
@@ -201,7 +208,7 @@ table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid va
 .welcome ol{padding-left:18px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--head);color:#fff;padding:8px 14px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none}
 .toast.on{opacity:1}
-@media (max-width:1100px){.work{grid-template-columns:1fr}.cat{max-height:none}}
+@media (max-width:900px){.work{grid-template-columns:1fr}.cat{max-height:none}}
 @media (max-width:760px){.app{grid-template-columns:1fr;height:auto}aside{border-right:0;border-bottom:1px solid var(--line)}}
 .print-only{display:none}
 #printArea{display:none}
@@ -334,6 +341,96 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .pb:disabled{opacity:.6;cursor:default}
 .pmem{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;margin-top:8px}
 @media (max-width:600px){.pbs{width:100%}.pb{flex:1;min-width:0}}
+
+/* ===== adaptation ordinateur / tablette / téléphone ===== */
+header.top{flex-wrap:wrap;gap:10px}
+@media (max-width:1500px){header.top h1 small{display:none}}
+.fstat .fs-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hdr-acts,.fs-acts{display:contents}
+#bMenu{display:none}
+.fs-t{display:none}
+@media (max-width:1400px){.fs-mail{display:none}}
+.navtabs .tab .nti{margin-right:6px}
+@media (min-width:1500px){ main{padding-left:calc((100% - 1400px)/2);padding-right:calc((100% - 1400px)/2)} }
+@media (max-width:1100px){ main{padding:16px 16px 40px} }
+@media (pointer:coarse){
+  .btn{min-height:38px}.btn.sm{min-height:34px;padding:5px 10px}
+  .tab{min-height:44px}.tbtn{min-height:38px}
+  input[type=checkbox]{width:20px;height:20px}
+  .cbx{min-height:34px;display:flex;align-items:center;gap:8px}
+}
+@media (max-width:1279px){
+  .fs-t{display:inline}
+  header.top{padding:8px 14px;gap:8px;position:sticky;top:0;z-index:30}
+  header.top h1{order:1;font-size:16px}
+  header.top h1 small,header.top .sp{display:none}
+  .fstat{display:contents}
+  .fstat .fs-info{order:2;flex:1;min-width:0;font-size:12px;gap:2px 8px;justify-content:flex-end}
+  #bMenu{display:inline-flex;align-items:center;order:3;font-size:18px;padding:4px 14px}
+  .hdr-acts,.fs-acts{display:none;order:4;flex:1 1 100%;flex-wrap:wrap;gap:8px}
+  .fs-acts{order:5}
+  header.top.open .hdr-acts,header.top.open .fs-acts{display:flex}
+  header.top.open .hdr-acts .tbtn,header.top.open .fs-acts button{flex:1 1 30%;min-height:40px;font-size:14px}
+}
+@media (min-width:701px) and (max-width:1000px){
+  /* liste des gymnastes : deux lignes par gymnaste sur tablette */
+  #mTable .mtb,#mTable .mtb tbody{display:block}
+  #mTable .mtb thead{display:none}
+  #mTable .mtb tr{display:grid;grid-template-columns:26px 1fr 1fr 160px auto;grid-template-areas:"sel nom prenom nais act" ". comp comp comp tot";gap:8px 10px;padding:10px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:#fff;align-items:center}
+  #mTable .mtb td{display:block;padding:0;border:0;min-width:0}
+  #mTable .mtb td:nth-child(1){grid-area:sel}#mTable .mtb td:nth-child(2){grid-area:nom}#mTable .mtb td:nth-child(3){grid-area:prenom}
+  #mTable .mtb td:nth-child(4){grid-area:nais}#mTable .mtb td:nth-child(5){grid-area:comp}
+  #mTable .mtb td:nth-child(6){grid-area:tot;text-align:right}#mTable .mtb td:nth-child(6)::before{content:'Total ND : ';color:var(--muted);font-size:12px}
+  #mTable .mtb td:nth-child(7){grid-area:act;justify-self:end}
+  #mTable .mtb input[type=text],#mTable .mtb input[type=date]{border-color:var(--line);background:#fff;padding:8px}
+}
+@media (max-width:700px){
+  body{font-size:15px}
+  input,select,textarea{font-size:16px!important}
+  .app{height:auto;min-height:100vh;min-height:100dvh}
+  header.top h1 span,header.top h1 small{display:none}
+  .fs-mail{display:none}
+  main{padding:12px 12px calc(88px + env(safe-area-inset-bottom))}
+  .toast{bottom:calc(78px + env(safe-area-inset-bottom));max-width:92vw;text-align:center}
+  /* navigation en bas de l'écran, au pouce */
+  .navtabs{position:fixed;left:0;right:0;bottom:0;z-index:40;margin:0;gap:0;flex-wrap:nowrap;background:var(--panel);border-top:1px solid var(--line);border-bottom:0;padding:0 0 env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+  .navtabs .tab{-webkit-appearance:none;appearance:none;border-radius:0;outline:0;border-left:0;border-right:0;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 1px 5px;font-size:10px;letter-spacing:-.1px;line-height:1.2;border-bottom:0;border-top:3px solid transparent;min-height:54px}
+  .navtabs .tab.on{border-top-color:var(--accent);background:var(--accent-soft)}
+  .navtabs .tab .nti{font-size:20px;margin:0}
+  .navtabs .tab .ntl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tabs:not(.navtabs){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabs:not(.navtabs) .tab{white-space:nowrap;padding:9px 12px}
+  .gymhead{gap:8px;margin-bottom:10px}.gymhead h2.name{font-size:20px}
+  .card{padding:12px}
+  .mfilt,.inl{grid-template-columns:1fr}
+  .lgrid{grid-template-columns:1fr}
+  .lfeds{flex-direction:column}.lfed{flex-wrap:wrap}.lfed input:not([type=checkbox]){flex:1 1 160px}
+  .ltb th:first-child,.ltb td:first-child{position:sticky;left:0;background:var(--panel);z-index:1;box-shadow:1px 0 0 var(--line)}
+  .ltb tr.sel td:first-child{background:var(--accent-soft)}
+  .pctl select{min-width:0;width:100%}
+  .pdate{width:100%}.pdate input{flex:1;min-width:0}
+  .pmem{grid-template-columns:1fr}
+  .ccount{flex-wrap:wrap}
+}
+
+.hs{display:none}
+@media (max-width:700px){
+  .hl{display:none}.hs{display:inline}
+  .ltb th,.ltb td{padding:6px 5px}
+  /* liste des gymnastes : une carte par gymnaste */
+  #mTable .mtb,#mTable .mtb tbody{display:block}
+  #mTable .mtb thead{display:none}
+  #mTable .mtb tr{display:grid;grid-template-columns:26px 1fr 1fr;grid-template-areas:"sel nom prenom" ". nais nais" "comp comp comp" "tot act act";gap:8px;padding:10px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  #mTable .mtb td{display:block;padding:0;border:0;min-width:0}
+  #mTable .mtb td:nth-child(1){grid-area:sel;align-self:center}
+  #mTable .mtb td:nth-child(2){grid-area:nom}#mTable .mtb td:nth-child(3){grid-area:prenom}
+  #mTable .mtb td:nth-child(4){grid-area:nais}#mTable .mtb td:nth-child(5){grid-area:comp}
+  #mTable .mtb td:nth-child(6){grid-area:tot;align-self:center;text-align:left}
+  #mTable .mtb td:nth-child(6)::before{content:'Total ND : ';color:var(--muted);font-size:12px}
+  #mTable .mtb td:nth-child(7){grid-area:act;justify-self:end}
+  #mTable .mtb input[type=text],#mTable .mtb input[type=date]{border-color:var(--line);background:#fff;padding:8px}
+  .card>.mtb{display:block;overflow-x:auto}
+}
 </style>
 </head>
 <body>
@@ -342,9 +439,12 @@ select.todo{border-color:#e0a030;background:#fff7e6}
     <h1>Fédéral A <span>· Compositeur de mouvements 2026-2027</span> <small style="font-weight:500;opacity:.6;font-size:11px">v4</small></h1>
     <div class="sp"></div>
     <span id="fstat" class="fstat"></span>
-    <button class="tbtn" id="bExport" title="Sauvegarder toutes les données (toutes les gymnastes) dans un fichier">⤓ Sauvegarde complète</button>
-    <button class="tbtn" id="bImport" title="Recharger une sauvegarde complète ou une ou plusieurs fiches gymnaste">⤒ Importer</button>
-    <button class="tbtn" id="bPrint" title="Exporter la fiche affichée en PDF">📄 PDF</button>
+    <button class="tbtn" id="bMenu" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+    <div class="hdr-acts">
+      <button class="tbtn" id="bExport" title="Sauvegarder toutes les données (toutes les gymnastes) dans un fichier">⤓ Sauvegarde complète</button>
+      <button class="tbtn" id="bImport" title="Recharger une sauvegarde complète ou une ou plusieurs fiches gymnaste">⤒ Importer</button>
+      <button class="tbtn" id="bPrint" title="Exporter la fiche affichée en PDF">📄 PDF</button>
+    </div>
     <input type="file" id="fImport" accept=".json,application/json" multiple hidden>
   </header>
   <aside id="side"></aside>
@@ -576,9 +676,9 @@ function renderFstat(){
   const el=document.getElementById('fstat'); if(!el) return;
   if(!CLUB){ el.innerHTML=''; return }
   const st={ok:`<span class="okf">✓ Enregistré${lastSync?' '+lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</span>`,pending:'<span class="nof">● Modifications…</span>',saving:'<span class="nof">⟳ Enregistrement…</span>',error:`<span class="nof" title="${esc(SYNCERR)}">⚠ Non enregistré – nouvel essai à la prochaine modification</span>`}[SYNC];
-  el.innerHTML=`<span title="${esc(SESSION?.user?.email||'')}"><b>${esc(CLUB.nom)}</b> · ${esc(SESSION?.user?.email||'')}</span>${(OFFLINE||navigator.onLine===false)?'<span class="nof">⚡ Hors connexion</span>':''}${st}
-    <button class="alt" id="bRefresh" title="Recharger les dernières données du club">↻</button>
-    <button class="alt" id="bMembers">👥 Membres</button><button class="alt" id="bLogout">Déconnexion</button>`;
+  el.innerHTML=`<span class="fs-info"><span class="fs-id" title="${esc(SESSION?.user?.email||'')}"><b>${esc(CLUB.nom)}</b><span class="fs-mail"> · ${esc(SESSION?.user?.email||'')}</span></span>${(OFFLINE||navigator.onLine===false)?'<span class="nof">⚡ Hors connexion</span>':''}${st}</span>
+    <span class="fs-acts"><button class="alt" id="bRefresh" title="Recharger les dernières données du club">↻<span class="fs-t"> Actualiser</span></button>
+    <button class="alt" id="bMembers">👥 Membres</button><button class="alt" id="bLogout">Déconnexion</button></span>`;
 }
 
 const uid = () => crypto.randomUUID();
@@ -1170,7 +1270,7 @@ function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') r
 /* ---------- barre d'onglets ---------- */
 function navBar(){
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['pres','✅ Présences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['pres','✅ Présences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>{ const [ic,...tx]=l.split(' '); return `<button class="tab ${act===k?'on':''}" data-nav="${k}"><span class="nti">${ic}</span><span class="ntl">${tx.join(' ')}</span></button>` }).join('')}</div>`;
 }
 function renderMain(){
   const m=document.getElementById('main');
@@ -1737,7 +1837,7 @@ function presAssiduiteHtml(){
     .sort((x,y)=>y.ch-x.ch||byNom(x.g,y.g));
   return `<div class="card"><div class="pctl">${presGSelect('presGa')}</div>
     <div class="hint" style="margin:6px 0 10px">${ds.length} séance(s) pointée(s) sur les ${PRES_FENETRE} derniers jours. Alerte à partir de ${PRES_SEUIL} absences non excusées d’affilée.</div>
-    <div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Présente</th><th>Absente</th><th>Excusée</th><th>Taux de présence</th><th>Absences d’affilée</th></tr></thead><tbody>
+    <div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th>${[['Présente','Prés.'],['Absente','Abs.'],['Excusée','Exc.'],['Taux de présence','Taux'],['Absences d’affilée','Série']].map(([l,c])=>`<th title="${l}"><span class="hl">${l}</span><span class="hs">${c}</span></th>`).join('')}</tr></thead><tbody>
     ${rows.map(r=>`<tr><td><b>${esc(r.g.nom||'')}</b> ${esc(r.g.prenom||'')}</td><td>${r.p}</td><td>${r.a}</td><td>${r.e}</td><td>${r.taux==null?'—':r.taux+' %'}</td><td>${r.ch>=PRES_SEUIL?`<span class="lb warn">⚠ ${r.ch}</span>`:(r.ch||'0')}</td></tr>`).join('')}
     </tbody></table></div>${rows.length?'':'<div class="empty">Aucun licencié dans ce groupe.</div>'}</div>`;
 }
@@ -1797,6 +1897,13 @@ window.addEventListener('online',async()=>{
 window.addEventListener('offline',()=>{ presStatusRefresh(); if(typeof renderFstat==='function') renderFstat() });
 setInterval(()=>{ if(PRES.queue.length) presFlush() },30000);
 
+
+/* menu de l'en-tête (téléphone) */
+document.addEventListener('click',ev=>{
+  const h=document.querySelector('header.top'); if(!h) return;
+  if(ev.target.closest('#bMenu')){ const o=h.classList.toggle('open'); document.getElementById('bMenu').setAttribute('aria-expanded',o); return }
+  if(h.classList.contains('open') && (ev.target.closest('header.top button')||!ev.target.closest('header.top'))) h.classList.remove('open');
+});
 
 /* mise en cache de l'application pour l'ouvrir sans réseau */
 if('serviceWorker' in navigator && /^https?:/.test(location.protocol)) window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}) });
