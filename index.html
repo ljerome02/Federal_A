@@ -300,6 +300,24 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .hn small{color:var(--muted);font-size:10.5px}
 .hn.none{opacity:.55}
 .gbh .gt{margin-left:0}
+/* module licences */
+.ltwrap{overflow-x:auto}
+.ltb{width:100%;border-collapse:collapse;font-size:13px}
+.ltb th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.ltb td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.ltb tr.sel td{background:var(--accent-soft)}
+.lb{display:inline-block;border-radius:10px;padding:0 8px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.lb.ok{background:var(--ok-soft);color:var(--ok)}.lb.warn{background:var(--warn-soft);color:var(--warn)}.lb.bad{background:#fdecea;color:var(--bad)}.lb.no{background:var(--bg);color:var(--muted)}
+.lfiche{margin-bottom:16px}
+.lfiche h4{margin:16px 0 8px;font-size:13px}
+.lhead{display:flex;align-items:center;justify-content:space-between;gap:10px}.lhead h3{margin:0}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.lgrid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.lfiche input:not([type=checkbox]){border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);min-width:0}
+.lfiche input:disabled{background:var(--bg)}
+.lfeds{display:flex;flex-wrap:wrap;gap:12px}
+.lfed{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.lfoot{margin-top:16px}
 </style>
 </head>
 <body>
@@ -1111,10 +1129,11 @@ function teamLine(g,ag){ const t=teamOf(g); if(!t||t.prog!=='AR'||ag==='saut') r
 /* ---------- barre d'onglets ---------- */
 function navBar(){
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>`<button class="tab ${act===k?'on':''}" data-nav="${k}">${l}</button>`).join('')}</div>`;
 }
 function renderMain(){
   const m=document.getElementById('main');
+  if(UI.view==='lic'){ m.innerHTML=navBar()+renderLic(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
   if(UI.view==='summary'){ m.innerHTML=navBar()+renderSummary(); return }
   renderMain0();
@@ -1337,6 +1356,166 @@ document.addEventListener('click',ev=>{
 document.addEventListener('toggle',ev=>{ const d=ev.target; if(d.classList&&d.classList.contains('gb')&&d.dataset.gid){ (UI.indOpen=UI.indOpen||{})[d.dataset.gid]=d.open } },true);
 document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('[data-indall]'); if(!b) return;
   UI.indOpen={}; if(b.dataset.indall==='1') S.gyms.forEach(g=>UI.indOpen[g.id]=true); render() });
+
+/* ================= MODULE LICENCES ET DOCUMENTS ================= */
+/* Onglet « Licences » : licences FFG / UFOLEP par saison, coordonnées, contact parent,
+   documents du dossier (santé, autorisation parentale, droit à l'image) et alertes.
+   Données dans les tables « licences » et « documents_licencie » (voir migration-licences.sql). */
+const LIC_FEDS=['FFG','UFOLEP'];
+const LIC_DOCS=[['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['autorisation_parentale','Autorisation parentale'],['droit_image',"Droit à l'image"]];
+const LIC_ALERTE_JOURS=60; // un document est signalé « bientôt périmé » dans les 60 jours avant sa date de validité
+const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],open:null,q:'',f:'',club:null});
+let LIC=licNew();
+const licEdit=()=>ROLE==='admin'||ROLE==='entraineur';
+const licDocs=licEdit; // les documents de santé ne sont visibles que par l'administrateur et les entraîneurs
+const licOf=(gid,fed)=>LIC.lic.find(x=>x.licencie_id===gid&&x.federation===fed);
+const docOf=(gid,t)=>LIC.docs.find(x=>x.licencie_id===gid&&x.type===t);
+function docState(d){ // ok | bientot | perime | manquant
+  if(!d||(!d.date_remise&&!d.date_validite)) return 'manquant';
+  if(d.date_validite){
+    const t0=new Date(); t0.setHours(0,0,0,0);
+    const j=Math.round((new Date(d.date_validite+'T00:00:00')-t0)/864e5);
+    if(j<0) return 'perime';
+    if(j<=LIC_ALERTE_JOURS) return 'bientot';
+  }
+  return 'ok';
+}
+const licSante=gid=>{ // meilleur état entre certificat médical et questionnaire de santé
+  const s=['certificat_medical','questionnaire_sante'].map(t=>docState(docOf(gid,t)));
+  return ['ok','bientot','perime'].find(x=>s.includes(x))||'manquant';
+};
+const ST_LABEL={ok:'À jour',bientot:'Bientôt périmé',perime:'Périmé',manquant:'Manquant'};
+const ST_CLASS={ok:'ok',bientot:'warn',perime:'bad',manquant:'no'};
+const stBadge=s=>`<span class="lb ${ST_CLASS[s]}">${ST_LABEL[s]}</span>`;
+
+/* alertes d'un dossier : tableau de [code, texte] */
+function licIssues(g){
+  const out=[], a=ageOf(g), minor=a==null||a<18, c=LIC.info[g.id]||{};
+  if(!LIC_FEDS.some(f=>licOf(g.id,f))) out.push(['lic','Aucune licence FFG ni UFOLEP']);
+  if(minor&&!(c.parent_email||c.telephone_urgence)) out.push(['contact','Contact parent manquant']);
+  else if(!minor&&!(c.email||c.telephone)) out.push(['contact','Contact manquant']);
+  if(licDocs()){
+    const s=licSante(g.id);
+    if(s!=='ok') out.push(['sante',{manquant:'Certificat ou questionnaire de santé manquant',bientot:'Santé : à renouveler bientôt',perime:'Santé : document périmé'}[s]]);
+    if(minor){ const p=docState(docOf(g.id,'autorisation_parentale'));
+      if(p!=='ok') out.push(['autor',{manquant:'Autorisation parentale manquante',bientot:'Autorisation parentale : à renouveler bientôt',perime:'Autorisation parentale périmée'}[p]]) }
+  }
+  return out;
+}
+
+async function loadLic(){
+  if(!CLUB||LIC.loading) return;
+  LIC.loading=true;
+  try{
+    const q=[
+      sb.from('licencies').select('id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email').eq('club_id',CLUB.id),
+      sb.from('licences_federales').select('id,licencie_id,federation,numero').eq('club_id',CLUB.id).eq('saison',SAISON)];
+    if(licDocs()) q.push(sb.from('documents_licencie').select('id,licencie_id,type,date_remise,date_validite').eq('club_id',CLUB.id));
+    const res=await Promise.all(q); res.forEach(chk);
+    LIC.info=Object.fromEntries(res[0].data.map(x=>[x.id,x]));
+    LIC.lic=res[1].data; LIC.docs=res[2]?res[2].data:[]; LIC.err='';
+  }catch(e){ LIC.err=e.message }
+  LIC.loaded=true; LIC.loading=false;
+}
+
+function licCountsHtml(){
+  const n=f=>S.gyms.filter(f).length, has=(g,f)=>!!licOf(g.id,f);
+  const sans=n(g=>!LIC_FEDS.some(f=>has(g,f))), td=n(g=>licIssues(g).length);
+  return `<span class="cc">Licenciés <b>${S.gyms.length}</b></span><span class="cc">FFG <b>${n(g=>has(g,'FFG'))}</b></span><span class="cc">UFOLEP <b>${n(g=>has(g,'UFOLEP'))}</b></span>`
+   +`<span class="cc">Les deux <b>${n(g=>has(g,'FFG')&&has(g,'UFOLEP'))}</b></span><span class="cc ${sans?'todo':''}">Sans licence <b>${sans}</b></span><span class="cc ${td?'todo':''}">Dossiers à traiter <b>${td}</b></span>`;
+}
+
+function licTableHtml(){
+  const q=norm(LIC.q), f=LIC.f;
+  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':!!licOf(g.id,f));
+  const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
+    .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
+  const fed=(g,fd)=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}">${esc(x.numero||'✓')}</span>`:`<span class="lb no">—</span>` };
+  const dc=licDocs();
+  const rows=list.map(g=>{
+    const is=licIssues(g), c=LIC.info[g.id]||{}, hasC=!!(c.parent_email||c.telephone_urgence||c.email||c.telephone);
+    return `<tr class="${LIC.open===g.id?'sel':''}">
+      <td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td><td>${esc(yr(g))}</td><td>${fed(g,'FFG')}</td><td>${fed(g,'UFOLEP')}</td>
+      ${dc?`<td>${stBadge(licSante(g.id))}</td><td>${stBadge(docState(docOf(g.id,'autorisation_parentale')))}</td>`:''}
+      <td>${hasC?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Manquant</span>'}</td>
+      <td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>
+      <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Ouvrir'}</button></td></tr>`}).join('');
+  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+    +(list.length?'':'<div class="empty">Aucun licencié ne correspond.</div>');
+}
+
+function licFicheHtml(){
+  const g=S.gyms.find(x=>x.id===LIC.open); if(!g) return '';
+  const c=LIC.info[g.id]||{}, ro=licEdit()?'':'disabled';
+  const inp=(n,l,t='text')=>`<label>${l}<input name="${n}" type="${t}" value="${esc(c[n]||'')}" ${ro} autocomplete="off"></label>`;
+  const feds=LIC_FEDS.map(fd=>{ const x=licOf(g.id,fd);
+    return `<div class="lfed"><label class="cbx"><input type="checkbox" name="fed_${fd}" ${x?'checked':''} ${ro}> Licence ${fd}</label><input name="num_${fd}" placeholder="N° de licence ${fd}" value="${esc(x?.numero||'')}" ${ro} autocomplete="off"></div>` }).join('');
+  const docs=licDocs()?`<h4>Documents du dossier</h4>
+    <table class="ltb ldocs"><thead><tr><th>Document</th><th>Remis le</th><th>Valable jusqu'au</th><th>État</th></tr></thead><tbody>${LIC_DOCS.map(([t,l])=>{ const d=docOf(g.id,t)||{};
+      return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td><input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}></td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td></tr>` }).join('')}</tbody></table>
+    <div class="hint">Saisissez la date de validité selon la règle de la fédération concernée. Le certificat médical et le questionnaire de santé comptent l'un pour l'autre ; un document est signalé ${LIC_ALERTE_JOURS} jours avant sa date de validité.</div>`
+    :`<div class="hint">Les documents de santé ne sont visibles que par les administrateurs et les entraîneurs.</div>`;
+  return `<form class="card lfiche" id="fLic" autocomplete="off">
+    <div class="lhead"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
+    <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
+    <h4>Coordonnées</h4><div class="lgrid">${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>
+    <h4>Contact parent</h4><div class="lgrid">${inp('responsable_legal','Responsable légal')}${inp('telephone_urgence','Téléphone du parent ou d’urgence','tel')}${inp('parent_email','Mail du parent','email')}</div>
+    ${docs}
+    <div class="lfoot">${licEdit()?'<button class="btn primary" type="submit">Enregistrer le dossier</button>':'<span class="hint">Lecture seule avec votre rôle.</span>'}</div>
+  </form>`;
+}
+
+function renderLic(){
+  if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id }
+  if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(UI.view==='lic') renderMain() });
+  const head=`<div class="gymhead"><div><h2 class="name">Licences et documents</h2><div class="meta">Saison ${SAISON} · FFG et UFOLEP · tous les licenciés ne sont pas dans les deux fédérations</div></div><div style="flex:1"></div><button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
+  if(!LIC.loaded) return head+'<div class="empty">Chargement…</div>';
+  if(LIC.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ Les données de licences ne sont pas accessibles : exécute le script <b>migration-licences.sql</b> dans Supabase (SQL Editor), puis clique sur « Actualiser ».<br><span class="hint">Détail : ${esc(LIC.err)}</span></div>`;
+  return head+`<div class="ccount" id="licCounts">${licCountsHtml()}</div>
+    <div id="licFicheBox">${licFicheHtml()}</div>
+    <div class="card"><h3>Tous les licenciés</h3>
+      <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
+        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div id="licTable">${licTableHtml()}</div></div>`;
+}
+
+async function licSave(f){
+  const gid=LIC.open; if(!gid||!licEdit()) return;
+  if(SYNC!=='ok'){ toast('Les gymnastes sont en cours d’enregistrement : réessaie dans un instant'); return }
+  const v=n=>(f.elements[n]?.value||'').trim()||null;
+  try{
+    const r=await sb.from('licencies').update({email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')}).eq('id',gid).eq('club_id',CLUB.id).select('id');
+    chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
+    for(const fd of LIC_FEDS){
+      const on=f.elements['fed_'+fd].checked, ex=licOf(gid,fd);
+      if(on) chk(await sb.from('licences_federales').upsert({club_id:CLUB.id,licencie_id:gid,saison:SAISON,federation:fd,numero:v('num_'+fd)},{onConflict:'licencie_id,saison,federation'}));
+      else if(ex) chk(await sb.from('licences_federales').delete().eq('id',ex.id));
+    }
+    if(licDocs()) for(const [t] of LIC_DOCS){
+      const dr=v('dr_'+t), dv=v('dv_'+t), ex=docOf(gid,t);
+      if(dr||dv) chk(await sb.from('documents_licencie').upsert({club_id:CLUB.id,licencie_id:gid,type:t,date_remise:dr,date_validite:dv},{onConflict:'licencie_id,type'}));
+      else if(ex) chk(await sb.from('documents_licencie').delete().eq('id',ex.id));
+    }
+    LIC.loaded=false; await loadLic(); renderMain(); toast('Dossier enregistré');
+  }catch(e){ toast('Erreur : '+e.message) }
+}
+
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-lic-open],[data-lic-close],[data-lic-reload]'); if(!t) return; const d=t.dataset;
+  if(d.licOpen){ LIC.open=LIC.open===d.licOpen?null:d.licOpen; renderMain(); if(LIC.open) document.getElementById('licFicheBox')?.scrollIntoView({block:'nearest'}); return }
+  if(d.licClose){ LIC.open=null; renderMain(); return }
+  if(d.licReload){ LIC.loaded=false; renderMain() }
+});
+document.addEventListener('input',ev=>{
+  if(ev.target.id==='licQ'){ LIC.q=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml() }
+});
+document.addEventListener('change',ev=>{
+  if(ev.target.id==='licF'){ LIC.f=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml() }
+});
+document.addEventListener('submit',ev=>{
+  if(ev.target.id!=='fLic') return; ev.preventDefault(); licSave(ev.target);
+});
+
 
 render();
 </script>
