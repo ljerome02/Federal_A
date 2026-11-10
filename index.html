@@ -342,6 +342,32 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .pmem{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 12px;margin-top:8px}
 @media (max-width:600px){.pbs{width:100%}.pb{flex:1;min-width:0}}
 
+/* dossier d'inscription : onglets de la fiche, règlements */
+.ltabs{margin:10px 0 0;overflow-x:auto;flex-wrap:nowrap}.ltabs .tab{white-space:nowrap}
+.lpanel[hidden]{display:none}
+.lcall{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}.lcall a{text-decoration:none}
+.lta textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;background:#fff;color:var(--ink);resize:vertical}
+.lta textarea:disabled{background:var(--bg)}
+.cbx.wrap{white-space:normal;align-items:flex-start;margin:4px 0}
+.lauts{display:flex;flex-direction:column;gap:2px}
+.payrow{display:grid;grid-template-columns:150px 140px 110px 1fr 130px 140px auto;gap:8px;align-items:end;padding:8px 0;border-bottom:1px dashed var(--line)}
+.payrow label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.payrow select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);min-width:0}
+.payx{align-self:end}
+.medflag{font-size:13px}
+@media (max-width:1000px){.payrow{grid-template-columns:1fr 1fr 1fr}.payrow label:nth-of-type(4){grid-column:span 2}.payx{justify-self:end}}
+@media (max-width:700px){
+  .ldocs,.ldocs tbody{display:block}.ldocs thead{display:none}
+  .ldocs tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .ldocs td{display:block;padding:0;border:0;min-width:0}
+  .ldocs td:first-child{grid-column:1/-1;font-weight:600}
+  .ldocs td:nth-child(2)::before{content:'Remise le';display:block;font-size:12px;color:var(--muted)}
+  .ldocs td:nth-child(3)::before{content:'Valable jusqu\'au';display:block;font-size:12px;color:var(--muted)}
+  .ldocs td:nth-child(4){grid-column:1/-1}
+  .ldocs input{width:100%}
+}
+@media (max-width:700px){.payrow{grid-template-columns:1fr 1fr;padding:10px;margin:8px 0;border:1px solid var(--line);border-radius:10px}.payrow label:nth-of-type(4){grid-column:span 2}.payx{grid-column:span 2}}
+
 /* ===== adaptation ordinateur / tablette / téléphone ===== */
 header.top{flex-wrap:wrap;gap:10px}
 @media (max-width:1500px){header.top h1 small{display:none}}
@@ -1504,15 +1530,35 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.clo
    documents du dossier (santé, autorisation parentale, droit à l'image) et alertes.
    Données dans les tables « licences » et « documents_licencie » (voir migration-licences.sql). */
 const LIC_FEDS=['FFG','UFOLEP'];
-const LIC_DOCS=[['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['autorisation_parentale','Autorisation parentale'],['droit_image',"Droit à l'image"]];
+/* pièces du dossier : annexe 1, annexe 2 et cadre « réservé au club » (3e valeur : pièce simple, sans date de validité) */
+const LIC_DOCS=[['fiche_inscription','Annexe 1 – Fiche d’inscription',1],['autorisation_parentale','Annexe 2 – Autorisations signées'],['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['photo','Photo d’identité',1],['caution','Caution',1]];
+/* liste d'avant migration-inscriptions.sql */
+const LIC_DOCS_V1=[['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['autorisation_parentale','Autorisation parentale'],['droit_image',"Droit à l'image"]];
 const LIC_ALERTE_JOURS=60; // un document est signalé « bientôt périmé » dans les 60 jours avant sa date de validité
-const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],open:null,q:'',f:'',club:null});
+/* modèle de la fiche comptable (annexe 3) : 10 chèques, encaissés le 10 de chaque mois de septembre à juin */
+const LIC_ECHEANCIER=[75,21,18,18,18,18,18,18,18,18];
+const LIC_MODES=[['cheque','Chèque'],['cheques_vacances','Chèques vacances'],['pass_sport','Pass’Sport'],['especes','Espèces'],['virement','Virement']];
+const LIC_COLS='id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email';
+const LIC_COLS_EXT=LIC_COLS+',sexe,responsable_lien,urgence1_nom,urgence1_tel,urgence1_lien,urgence2_nom,urgence2_tel,urgence2_lien';
+const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],ext:true,insc:null,cot:null,pay:[],open:null,ftab:'id',q:'',f:'',club:null});
 let LIC=licNew();
 const licEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const licDocs=licEdit; // les documents de santé ne sont visibles que par l'administrateur et les entraîneurs
+const licPay=()=>ROLE==='admin'||ROLE==='tresorier'; // les cotisations : administrateur et trésorier
+const licDocList=()=>LIC.ext?LIC_DOCS:LIC_DOCS_V1;
 const licOf=(gid,fed)=>LIC.lic.find(x=>x.licencie_id===gid&&x.federation===fed);
 const docOf=(gid,t)=>LIC.docs.find(x=>x.licencie_id===gid&&x.type===t);
 const licGroupes=gid=>LIC.grp?LIC.grp.filter(x=>LIC.mem.some(m=>m.licencie_id===gid&&m.groupe_id===x.id)):[];
+const inscOf=gid=>LIC.insc&&LIC.insc.find(x=>x.licencie_id===gid);
+const cotOf=gid=>LIC.cot&&LIC.cot.find(x=>x.licencie_id===gid);
+const paysOf=gid=>LIC.pay.filter(x=>x.licencie_id===gid);
+const eur=n=>(Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const payState=(du,prevu,enc)=>({du,prevu,enc,reste:Math.max(0,du-enc),manque:Math.max(0,du-prevu),
+  st:du<=0?'nr':enc>=du-.005?'paye':prevu>=du-.005?'encours':'incomplet'});
+const licSolde=gid=>{ const c=cotOf(gid), ps=paysOf(gid);
+  return payState(Number(c&&c.montant_du)||0,ps.reduce((a,p)=>a+(Number(p.montant)||0),0),ps.filter(p=>p.encaisse_le).reduce((a,p)=>a+(Number(p.montant)||0),0)) };
+const PAY_TXT=s=>({nr:'Non renseignée',paye:'Payée',encours:`Reste ${eur(s.reste)}`,incomplet:`Manque ${eur(s.manque)}`}[s.st]);
+const PAY_CLASS={nr:'no',paye:'ok',encours:'warn',incomplet:'bad'};
 function docState(d){ // ok | bientot | perime | manquant
   if(!d||(!d.date_remise&&!d.date_validite)) return 'manquant';
   if(d.date_validite){
@@ -1542,7 +1588,13 @@ function licIssues(g){
     if(s!=='ok') out.push(['sante',{manquant:'Certificat ou questionnaire de santé manquant',bientot:'Santé : à renouveler bientôt',perime:'Santé : document périmé'}[s]]);
     if(minor){ const p=docState(docOf(g.id,'autorisation_parentale'));
       if(p!=='ok') out.push(['autor',{manquant:'Autorisation parentale manquante',bientot:'Autorisation parentale : à renouveler bientôt',perime:'Autorisation parentale périmée'}[p]]) }
+    if(LIC.ext){
+      if(docState(docOf(g.id,'fiche_inscription'))==='manquant') out.push(['fiche','Fiche d’inscription (annexe 1) non remise']);
+      if(docState(docOf(g.id,'photo'))==='manquant') out.push(['photo','Photo manquante']);
+    }
   }
+  if(licPay()&&LIC.cot!==null){ const s=licSolde(g.id).st;
+    if(s==='nr') out.push(['pay','Cotisation non renseignée']); else if(s==='incomplet') out.push(['pay','Échéancier de paiement incomplet']) }
   return out;
 }
 
@@ -1550,16 +1602,22 @@ async function loadLic(){
   if(!CLUB||LIC.loading) return;
   LIC.loading=true;
   try{
-    const q=[
-      sb.from('licencies').select('id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email').eq('club_id',CLUB.id),
-      sb.from('licences_federales').select('id,licencie_id,federation,numero').eq('club_id',CLUB.id).eq('saison',SAISON)];
+    let r0=await sb.from('licencies').select(LIC_COLS_EXT).eq('club_id',CLUB.id), ext=true;
+    if(r0.error){ ext=false; r0=await sb.from('licencies').select(LIC_COLS).eq('club_id',CLUB.id) } // script migration-inscriptions.sql pas encore exécuté
+    const q=[sb.from('licences_federales').select('id,licencie_id,federation,numero').eq('club_id',CLUB.id).eq('saison',SAISON)];
     if(licDocs()) q.push(sb.from('documents_licencie').select('id,licencie_id,type,date_remise,date_validite').eq('club_id',CLUB.id));
     const qg=Promise.all([
       sb.from('groupes_entrainement').select('id,nom,jour,heure_debut,heure_fin,lieu').eq('club_id',CLUB.id).eq('saison',SAISON),
       sb.from('groupe_licencies').select('groupe_id,licencie_id').eq('club_id',CLUB.id)]);
-    const res=await Promise.all(q); res.forEach(chk);
-    LIC.info=Object.fromEntries(res[0].data.map(x=>[x.id,x]));
-    LIC.lic=res[1].data; LIC.docs=res[2]?res[2].data:[]; LIC.err='';
+    const qi=licEdit()?sb.from('inscriptions').select('*').eq('club_id',CLUB.id).eq('saison',SAISON):null;
+    const qc=licPay()?Promise.all([sb.from('cotisations_saison').select('*').eq('club_id',CLUB.id).eq('saison',SAISON),sb.from('paiements_licencie').select('*').eq('club_id',CLUB.id).eq('saison',SAISON)]):null;
+    const res=await Promise.all(q); chk(r0); res.forEach(chk);
+    LIC.info=Object.fromEntries(r0.data.map(x=>[x.id,x]));
+    LIC.lic=res[0].data; LIC.docs=res[1]?res[1].data:[]; LIC.err='';
+    LIC.insc=null; LIC.cot=null; LIC.pay=[];
+    if(qi){ const ri=await qi; if(ri.error) ext=false; else LIC.insc=ri.data }
+    if(qc){ const [rc,rp]=await qc; if(!rc.error&&!rp.error){ LIC.cot=rc.data; LIC.pay=rp.data } else if(!licEdit()) ext=false }
+    LIC.ext=ext;
     // groupes d'entraînement : facultatif (script migration-presences.sql), n'empêche pas l'affichage des licences
     try{ const rg=await qg; if(rg[0].error||rg[1].error) throw new Error('groupes indisponibles');
       LIC.grp=rg[0].data.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
@@ -1570,28 +1628,33 @@ async function loadLic(){
 
 function licCountsHtml(){
   const n=f=>S.gyms.filter(f).length, has=(g,f)=>!!licOf(g.id,f);
-  const sans=n(g=>!LIC_FEDS.some(f=>has(g,f))), td=n(g=>licIssues(g).length);
+  const sans=n(g=>!LIC_FEDS.some(f=>has(g,f))), td=n(g=>licIssues(g).length), ar=licPay()&&LIC.cot!==null?n(g=>licSolde(g.id).st!=='paye'):0;
   return `<span class="cc">Licenciés <b>${S.gyms.length}</b></span><span class="cc">FFG <b>${n(g=>has(g,'FFG'))}</b></span><span class="cc">UFOLEP <b>${n(g=>has(g,'UFOLEP'))}</b></span>`
-   +`<span class="cc">Les deux <b>${n(g=>has(g,'FFG')&&has(g,'UFOLEP'))}</b></span><span class="cc ${sans?'todo':''}">Sans licence <b>${sans}</b></span><span class="cc ${td?'todo':''}">Dossiers à traiter <b>${td}</b></span>`;
+   +`<span class="cc">Les deux <b>${n(g=>has(g,'FFG')&&has(g,'UFOLEP'))}</b></span><span class="cc ${sans?'todo':''}">Sans licence <b>${sans}</b></span>`
+   +(licPay()&&LIC.cot!==null?`<span class="cc ${ar?'todo':''}">Cotisation à régler <b>${ar}</b></span>`:'')
+   +`<span class="cc ${td?'todo':''}">Dossiers à traiter <b>${td}</b></span>`;
 }
 
 function licTableHtml(){
   const q=norm(LIC.q), f=LIC.f;
-  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
+  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
   const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
   const fed=(g,fd)=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}">${esc(x.numero||'✓')}</span>`:`<span class="lb no">—</span>` };
-  const dc=licDocs();
+  const dc=licDocs(), pc=licPay()&&LIC.cot!==null;
   const rows=list.map(g=>{
-    const is=licIssues(g), c=LIC.info[g.id]||{}, hasC=!!(c.parent_email||c.telephone_urgence||c.email||c.telephone);
+    const is=licIssues(g), c=LIC.info[g.id]||{}, hasC=!!(c.parent_email||c.telephone_urgence||c.email||c.telephone), ins=inscOf(g.id);
+    const med=ins&&(ins.infos_medicales||ins.mdph)?' <span class="medflag" title="Renseignements médicaux ou dossier MDPH dans la fiche">🩺</span>':'';
+    const s=pc?licSolde(g.id):null;
     return `<tr class="${LIC.open===g.id?'sel':''}">
-      <td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td><td>${esc(yr(g))}</td><td>${fed(g,'FFG')}</td><td>${fed(g,'UFOLEP')}</td>
+      <td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}</td><td>${esc(yr(g))}</td><td>${fed(g,'FFG')}</td><td>${fed(g,'UFOLEP')}</td>
       ${LIC.grp?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
       ${dc?`<td>${stBadge(licSante(g.id))}</td><td>${stBadge(docState(docOf(g.id,'autorisation_parentale')))}</td>`:''}
+      ${pc?`<td><span class="lb ${PAY_CLASS[s.st]}" title="Dû ${eur(s.du)} · prévu ${eur(s.prevu)} · encaissé ${eur(s.enc)}">${PAY_TXT(s)}</span></td>`:''}
       <td>${hasC?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Manquant</span>'}</td>
       <td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>
       <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Ouvrir'}</button></td></tr>`}).join('');
-  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${LIC.grp?'<th>Groupes</th>':''}${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${LIC.grp?'<th>Groupes</th>':''}${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}${pc?'<th>Cotisation</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
     +(list.length?'':'<div class="empty">Aucun licencié ne correspond.</div>');
 }
 
@@ -1601,87 +1664,177 @@ function groupesFiche(g,ro){
   return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem">${LIC.grp.map(x=>`<label class="cbx"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> ${esc(presGLabel(x))}</label>`).join('')}</div>`;
 }
 
+const licNoExt=()=>`<div class="hint">Disponible après l’exécution du script <b>migration-inscriptions.sql</b> dans Supabase (SQL Editor).</div>`;
+const licPaySum=s=>`<span class="cc">Dû <b>${eur(s.du)}</b></span><span class="cc">Prévu <b>${eur(s.prevu)}</b></span><span class="cc">Encaissé <b>${eur(s.enc)}</b></span><span class="lb ${PAY_CLASS[s.st]}">${s.st==='paye'?'PAYÉ':PAY_TXT(s)}</span>`;
+const payRowHtml=(p,dis)=>`<div class="payrow" data-id="${esc(p.id||'')}">
+  <label><span>Mode</span><select name="pm" ${dis}>${LIC_MODES.map(([k,l])=>`<option value="${k}" ${(p.mode||'cheque')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>Date prévue</span><input type="date" name="pd" value="${esc(p.date_prevue||'')}" ${dis}></label>
+  <label><span>Montant (€)</span><input type="number" name="pa" step="0.01" min="0" inputmode="decimal" value="${p.montant!=null&&p.montant!==''?esc(String(p.montant)):''}" ${dis}></label>
+  <label><span>Banque / nature</span><input name="pb" value="${esc(p.banque||'')}" ${dis} autocomplete="off"></label>
+  <label><span>N° de chèque</span><input name="pn" value="${esc(p.numero||'')}" ${dis} autocomplete="off"></label>
+  <label><span>Encaissé le</span><input type="date" name="pe" value="${esc(p.encaisse_le||'')}" ${dis}></label>
+  ${dis?'':'<button type="button" class="btn sm payx" data-pay-del="1" aria-label="Supprimer ce règlement">✕</button>'}</div>`;
+
 function licFicheHtml(){
   const g=S.gyms.find(x=>x.id===LIC.open); if(!g) return '';
-  const c=LIC.info[g.id]||{}, ro=licEdit()?'':'disabled';
+  const c=LIC.info[g.id]||{}, ro=licEdit()?'':'disabled', rp=licPay()?'':'disabled', ins=inscOf(g.id)||{}, ct=cotOf(g.id)||{};
+  const tabs=[['id','Identité'],...(licEdit()?[['insc','Inscription']]:[]),...(licDocs()?[['piece','Pièces']]:[]),...(licPay()?[['cot','Cotisation']]:[])];
+  if(!tabs.some(t=>t[0]===LIC.ftab)) LIC.ftab='id';
+  const pn=t=>({id:'',insc:'',piece:'',cot:''}[t]||'')+(LIC.ftab===t?'':' hidden');
   const inp=(n,l,t='text')=>`<label>${l}<input name="${n}" type="${t}" value="${esc(c[n]||'')}" ${ro} autocomplete="off"></label>`;
+  const sel=(n,l,opts)=>{ const cur=c[n]||'', o=opts.slice(); if(cur&&!o.some(x=>x[0]===cur)) o.push([cur,cur]);
+    return `<label>${l}<select name="${n}" ${ro}><option value=""></option>${o.map(([k,t])=>`<option value="${esc(k)}" ${cur===k?'selected':''}>${esc(t)}</option>`).join('')}</select></label>` };
   const feds=LIC_FEDS.map(fd=>{ const x=licOf(g.id,fd);
     return `<div class="lfed"><label class="cbx"><input type="checkbox" name="fed_${fd}" ${x?'checked':''} ${ro}> Licence ${fd}</label><input name="num_${fd}" placeholder="N° de licence ${fd}" value="${esc(x?.numero||'')}" ${ro} autocomplete="off"></div>` }).join('');
-  const docs=licDocs()?`<h4>Documents du dossier</h4>
-    <table class="ltb ldocs"><thead><tr><th>Document</th><th>Remis le</th><th>Valable jusqu'au</th><th>État</th></tr></thead><tbody>${LIC_DOCS.map(([t,l])=>{ const d=docOf(g.id,t)||{};
-      return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td><input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}></td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td></tr>` }).join('')}</tbody></table>
-    <div class="hint">Saisissez la date de validité selon la règle de la fédération concernée. Le certificat médical et le questionnaire de santé comptent l'un pour l'autre ; un document est signalé ${LIC_ALERTE_JOURS} jours avant sa date de validité.</div>`
-    :`<div class="hint">Les documents de santé ne sont visibles que par les administrateurs et les entraîneurs.</div>`;
-  return `<form class="card lfiche" id="fLic" autocomplete="off">
-    <div class="lhead"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
+  const calls=[['Responsable',c.telephone_urgence],['Contact 1',c.urgence1_tel],['Contact 2',c.urgence2_tel],['Licencié',c.telephone]].filter(x=>x[1]);
+  const call=calls.length?`<div class="lcall">${calls.map(([l,n])=>`<a class="btn sm" href="tel:${esc(String(n).replace(/[^+\d]/g,''))}">📞 ${l} · ${esc(n)}</a>`).join('')}</div>`:'';
+  const urg=k=>`${inp('urgence'+k+'_nom','Nom et prénom')}${inp('urgence'+k+'_tel','Téléphone','tel')}${inp('urgence'+k+'_lien','Lien avec l’enfant')}`;
+  const panId=`${call}
     <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
     ${groupesFiche(g,ro)}
-    <h4>Coordonnées</h4><div class="lgrid">${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>
-    <h4>Contact parent</h4><div class="lgrid">${inp('responsable_legal','Responsable légal')}${inp('telephone_urgence','Téléphone du parent ou d’urgence','tel')}${inp('parent_email','Mail du parent','email')}</div>
-    ${docs}
-    <div class="lfoot">${licEdit()?'<button class="btn primary" type="submit">Enregistrer le dossier</button>':'<span class="hint">Lecture seule avec votre rôle.</span>'}</div>
+    <h4>Identité et coordonnées</h4><div class="lgrid">${LIC.ext?sel('sexe','Sexe',[['F','Féminin'],['M','Masculin']]):''}${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>
+    <h4>Autorité parentale</h4><div class="lgrid">${LIC.ext?sel('responsable_lien','Le responsable est',[['pere','Père'],['mere','Mère'],['tuteur','Tuteur ou tutrice']]):''}${inp('responsable_legal','Nom et prénom du responsable')}${inp('telephone_urgence','Téléphone du responsable','tel')}${inp('parent_email','Mail du responsable','email')}</div>
+    <h4>Autres personnes à contacter en cas d’urgence</h4>${LIC.ext?`<div class="lgrid">${urg(1)}</div><div class="lgrid" style="margin-top:8px">${urg(2)}</div>`:licNoExt()}`;
+  const ck=(n,t)=>`<label class="cbx wrap"><input type="checkbox" name="${n}" ${ins[n]?'checked':''} ${ro}> ${t}</label>`;
+  const panIns=!LIC.ext||LIC.insc===null?licNoExt():`<div class="lgrid"><label>Date d’inscription<input type="date" name="date_inscription" value="${esc(ins.date_inscription||'')}" ${ro}></label></div>
+    <h4>Renseignements médicaux (annexe 1)</h4>
+    <label class="lta"><textarea name="infos_medicales" rows="3" placeholder="Allergies, asthme, traitement… tout ce que le club et les entraîneurs doivent savoir" ${ro}>${esc(ins.infos_medicales||'')}</textarea></label>
+    ${ck('mdph','Dossier M.D.P.H.')}
+    <div class="hint">Ces informations ne sont visibles que par les administrateurs et les entraîneurs. Le signe 🩺 apparaît dans la liste des licenciés lorsqu’elles sont renseignées.</div>
+    <h4>Autorisations (annexe 2)</h4><div class="lauts">
+      ${ck('aut_urgence','J’autorise les responsables du club à prendre toutes les mesures d’urgence nécessaires (premiers soins, appel des pompiers…).')}
+      ${ck('aut_hopital','Je souhaite que mon enfant soit conduit à l’hôpital par les services de secours.')}
+      ${ck('aut_droit_image','J’accepte que mon enfant soit inclus sur les photos et vidéos réalisées et publiées par le club (droit à l’image).')}
+      ${ck('aut_depart_seul','J’autorise mon enfant à partir non accompagné à la fin des activités.')}
+      ${ck('reglement_lu','Je reconnais avoir pris connaissance du règlement intérieur.')}</div>
+    <div class="lgrid" style="margin-top:8px"><label>Fait à<input name="lieu_signature" value="${esc(ins.lieu_signature||'')}" ${ro} autocomplete="off"></label><label>Le<input type="date" name="date_signature" value="${esc(ins.date_signature||'')}" ${ro}></label></div>
+    ${ins.id&&!ins.aut_droit_image?'<div class="warn" style="margin-top:8px">Droit à l’image non accordé : ne pas publier de photo ni de vidéo où figure ce licencié.</div>':''}`;
+  const panPiece=licDocs()?`<table class="ltb ldocs"><thead><tr><th>Pièce</th><th>Remise le</th><th>Valable jusqu'au</th><th>État</th></tr></thead><tbody>${licDocList().map(([t,l,simple])=>{ const d=docOf(g.id,t)||{};
+      return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td>${simple?'<span class="hint">—</span>':`<input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}>`}</td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td></tr>` }).join('')}</tbody></table>
+    <div class="hint">Cadre « réservé au club » de la fiche d’inscription : une pièce remise est comptée dès que sa date est saisie. Le certificat médical et le questionnaire de santé comptent l'un pour l'autre ; un document est signalé ${LIC_ALERTE_JOURS} jours avant sa date de validité.</div>`:'';
+  const ps=paysOf(g.id).slice().sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
+  const panCot=!licPay()?'':(LIC.cot===null?licNoExt():`<div class="lgrid"><label>Montant de la cotisation (€)<input type="number" name="montant_du" step="0.01" min="0" inputmode="decimal" value="${ct.montant_du!=null?esc(String(ct.montant_du)):''}" ${rp}></label>
+      <label>Code Pass’Sport<input name="pass_sport" value="${esc(ct.pass_sport||'')}" ${rp} autocomplete="off"></label></div>
+    <label class="cbx wrap" style="margin-top:8px"><input type="checkbox" name="recu_remis" ${ct.recu_remis?'checked':''} ${rp}> Reçu remis à la famille (preuve de paiement)</label>
+    <div class="ccount" id="paySum" style="margin-top:10px">${licPaySum(licSolde(g.id))}</div>
+    <h4>Règlements (annexe 3 – fiche comptable)</h4>
+    <div id="payRows">${ps.map(p=>payRowHtml(p,rp)).join('')}</div>
+    ${licPay()?`<div class="lfoot" style="margin-top:8px"><button type="button" class="btn sm" data-pay-add="1">+ Ajouter un règlement</button> <button type="button" class="btn sm" data-pay-model="modele" title="10 chèques : ${LIC_ECHEANCIER.join(' + ')} €, le 10 de chaque mois">Échéancier du club (10 chèques)</button> <button type="button" class="btn sm" data-pay-model="once">Paiement en une fois</button></div>`:''}
+    <div class="hint">Chèques, chèques vacances (nature : ANCV, Sport…), Pass’Sport ou espèces. Un règlement est « encaissé » dès que sa date d’encaissement est saisie ; la cotisation est payée quand le total encaissé atteint le montant dû.</div>`);
+  return `<form class="card lfiche" id="fLic" autocomplete="off">
+    <div class="lhead"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
+    <div class="tabs ltabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${LIC.ftab===k?'on':''}" data-lic-ftab="${k}">${l}</button>`).join('')}</div>
+    <div class="lpanel" data-p="id"${pn('id')}>${panId}</div>
+    ${licEdit()?`<div class="lpanel" data-p="insc"${pn('insc')}>${panIns}</div>`:''}
+    ${licDocs()?`<div class="lpanel" data-p="piece"${pn('piece')}>${panPiece}</div>`:''}
+    ${licPay()?`<div class="lpanel" data-p="cot"${pn('cot')}>${panCot}</div>`:''}
+    <div class="lfoot">${licEdit()||licPay()?'<button class="btn primary" type="submit">Enregistrer le dossier</button>':'<span class="hint">Lecture seule avec votre rôle.</span>'}</div>
   </form>`;
 }
 
 function renderLic(){
   if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id }
   if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(UI.view==='lic') renderMain() });
-  const head=`<div class="gymhead"><div><h2 class="name">Licences et documents</h2><div class="meta">Saison ${SAISON} · FFG et UFOLEP · tous les licenciés ne sont pas dans les deux fédérations</div></div><div style="flex:1"></div><button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
+  const head=`<div class="gymhead"><div><h2 class="name">Licences et dossiers d’inscription</h2><div class="meta">Saison ${SAISON} · FFG et UFOLEP · tous les licenciés ne sont pas dans les deux fédérations</div></div><div style="flex:1"></div><button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
   if(!LIC.loaded) return head+'<div class="empty">Chargement…</div>';
   if(LIC.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ Les données de licences ne sont pas accessibles : exécute le script <b>migration-licences.sql</b> dans Supabase (SQL Editor), puis clique sur « Actualiser ».<br><span class="hint">Détail : ${esc(LIC.err)}</span></div>`;
-  return head+`<div class="ccount" id="licCounts">${licCountsHtml()}</div>
+  const ext=!LIC.ext?`<div class="warn" style="margin-bottom:12px">Les annexes du club (inscription, autorisations, cotisation) seront disponibles après l’exécution du script <b>migration-inscriptions.sql</b> dans Supabase.</div>`:'';
+  return head+ext+`<div class="ccount" id="licCounts">${licCountsHtml()}</div>
     <div id="licFicheBox">${licFicheHtml()}</div>
     <div class="card"><h3>Tous les licenciés</h3>
       <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
-        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div id="licTable">${licTableHtml()}</div></div>`;
 }
 
+/* résumé des règlements recalculé pendant la saisie */
+function licPayLive(){
+  const f=document.getElementById('fLic'), el=document.getElementById('paySum'); if(!f||!el||!f.elements.montant_du) return;
+  const rows=[...f.querySelectorAll('#payRows .payrow')], num=r=>parseFloat(r.querySelector('[name=pa]').value)||0;
+  el.innerHTML=licPaySum(payState(parseFloat(f.elements.montant_du.value)||0,rows.reduce((a,r)=>a+num(r),0),rows.filter(r=>r.querySelector('[name=pe]').value).reduce((a,r)=>a+num(r),0)));
+}
+/* génère l'échéancier : 'modele' = 10 chèques du club, 'once' = un seul règlement */
+function licEcheancier(kind){
+  const f=document.getElementById('fLic'), box=document.getElementById('payRows'); if(!f||!box) return;
+  const sum=LIC_ECHEANCIER.reduce((a,b)=>a+b,0); let du=parseFloat(f.elements.montant_du.value)||0;
+  if(du<=0){ du=sum; f.elements.montant_du.value=du }
+  if(box.children.length&&!confirm('Remplacer les règlements déjà saisis ?')) return;
+  const r2=x=>Math.round(x*100)/100;
+  const am=kind==='once'?[du]:LIC_ECHEANCIER.map(x=>r2(x*du/sum));
+  am[0]=r2(am[0]+du-am.reduce((a,b)=>a+b,0)); // l'écart d'arrondi est reporté sur le premier règlement
+  const y=parseInt(SAISON)||new Date().getFullYear();
+  box.innerHTML=am.map((m,i)=>payRowHtml({mode:'cheque',date_prevue:new Date(Date.UTC(y,8+(kind==='once'?0:i),10)).toISOString().slice(0,10),montant:m},'')).join('');
+  licPayLive();
+}
+
 async function licSave(f){
-  const gid=LIC.open; if(!gid||!licEdit()) return;
+  const gid=LIC.open; if(!gid||!(licEdit()||licPay())) return;
   if(SYNC!=='ok'){ toast('Les gymnastes sont en cours d’enregistrement : réessaie dans un instant'); return }
-  const v=n=>(f.elements[n]?.value||'').trim()||null;
+  const v=n=>(f.elements[n]?.value||'').trim()||null, ck=n=>!!(f.elements[n]&&f.elements[n].checked);
   try{
-    const r=await sb.from('licencies').update({email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')}).eq('id',gid).eq('club_id',CLUB.id).select('id');
-    chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
-    for(const fd of LIC_FEDS){
-      const on=f.elements['fed_'+fd].checked, ex=licOf(gid,fd);
-      if(on) chk(await sb.from('licences_federales').upsert({club_id:CLUB.id,licencie_id:gid,saison:SAISON,federation:fd,numero:v('num_'+fd)},{onConflict:'licencie_id,saison,federation'}));
-      else if(ex) chk(await sb.from('licences_federales').delete().eq('id',ex.id));
+    if(licEdit()){
+      const upd={email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')};
+      if(LIC.ext) for(const n of ['sexe','responsable_lien','urgence1_nom','urgence1_tel','urgence1_lien','urgence2_nom','urgence2_tel','urgence2_lien']) upd[n]=v(n);
+      const r=await sb.from('licencies').update(upd).eq('id',gid).eq('club_id',CLUB.id).select('id');
+      chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
+      for(const fd of LIC_FEDS){
+        const on=f.elements['fed_'+fd].checked, ex=licOf(gid,fd);
+        if(on) chk(await sb.from('licences_federales').upsert({club_id:CLUB.id,licencie_id:gid,saison:SAISON,federation:fd,numero:v('num_'+fd)},{onConflict:'licencie_id,saison,federation'}));
+        else if(ex) chk(await sb.from('licences_federales').delete().eq('id',ex.id));
+      }
+      for(const [t] of licDocList()){
+        const dr=v('dr_'+t), dv=v('dv_'+t), ex=docOf(gid,t);
+        if(dr||dv) chk(await sb.from('documents_licencie').upsert({club_id:CLUB.id,licencie_id:gid,type:t,date_remise:dr,date_validite:dv},{onConflict:'licencie_id,type'}));
+        else if(ex) chk(await sb.from('documents_licencie').delete().eq('id',ex.id));
+      }
+      if(LIC.grp&&LIC.grp.length){
+        const want=LIC.grp.filter(x=>f.elements['grp_'+x.id]&&f.elements['grp_'+x.id].checked).map(x=>x.id);
+        const have=LIC.mem.filter(m=>m.licencie_id===gid).map(m=>m.groupe_id);
+        const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x)&&LIC.grp.some(y=>y.id===x));
+        if(add.length) chk(await sb.from('groupe_licencies').upsert(add.map(x=>({groupe_id:x,licencie_id:gid,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
+        if(rm.length) chk(await sb.from('groupe_licencies').delete().eq('licencie_id',gid).in('groupe_id',rm));
+        if(add.length||rm.length) PRES.loaded=false; // la liste des groupes est rechargée dans Présences
+      }
+      if(LIC.ext&&LIC.insc!==null) chk(await sb.from('inscriptions').upsert({club_id:CLUB.id,licencie_id:gid,saison:SAISON,date_inscription:v('date_inscription'),infos_medicales:v('infos_medicales'),mdph:ck('mdph'),
+        aut_urgence:ck('aut_urgence'),aut_hopital:ck('aut_hopital'),aut_droit_image:ck('aut_droit_image'),aut_depart_seul:ck('aut_depart_seul'),reglement_lu:ck('reglement_lu'),
+        lieu_signature:v('lieu_signature'),date_signature:v('date_signature'),updated_at:new Date().toISOString()},{onConflict:'licencie_id,saison'}));
     }
-    if(licDocs()) for(const [t] of LIC_DOCS){
-      const dr=v('dr_'+t), dv=v('dv_'+t), ex=docOf(gid,t);
-      if(dr||dv) chk(await sb.from('documents_licencie').upsert({club_id:CLUB.id,licencie_id:gid,type:t,date_remise:dr,date_validite:dv},{onConflict:'licencie_id,type'}));
-      else if(ex) chk(await sb.from('documents_licencie').delete().eq('id',ex.id));
-    }
-    if(LIC.grp&&LIC.grp.length){
-      const want=LIC.grp.filter(x=>f.elements['grp_'+x.id]&&f.elements['grp_'+x.id].checked).map(x=>x.id);
-      const have=LIC.mem.filter(m=>m.licencie_id===gid).map(m=>m.groupe_id);
-      const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x)&&LIC.grp.some(y=>y.id===x));
-      if(add.length) chk(await sb.from('groupe_licencies').upsert(add.map(x=>({groupe_id:x,licencie_id:gid,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
-      if(rm.length) chk(await sb.from('groupe_licencies').delete().eq('licencie_id',gid).in('groupe_id',rm));
-      if(add.length||rm.length) PRES.loaded=false; // la liste des groupes est rechargée dans Présences
+    if(licPay()&&LIC.cot!==null&&f.elements.montant_du){
+      const du=parseFloat(f.elements.montant_du.value)||0, ex=cotOf(gid);
+      const rows=[...f.querySelectorAll('#payRows .payrow')].map(r=>{ const q=n=>r.querySelector(`[name=${n}]`).value.trim()||null;
+        return {id:r.dataset.id||uid(),mode:q('pm')||'cheque',date_prevue:q('pd'),montant:parseFloat(q('pa'))||0,banque:q('pb'),numero:q('pn'),encaisse_le:q('pe')} });
+      if(ex||du>0||v('pass_sport')||ck('recu_remis')||rows.length) chk(await sb.from('cotisations_saison').upsert({club_id:CLUB.id,licencie_id:gid,saison:SAISON,montant_du:du,pass_sport:v('pass_sport'),recu_remis:ck('recu_remis')},{onConflict:'licencie_id,saison'}));
+      const rm=paysOf(gid).filter(p=>!rows.some(r=>r.id===p.id)).map(p=>p.id);
+      if(rm.length) chk(await sb.from('paiements_licencie').delete().in('id',rm));
+      if(rows.length) chk(await sb.from('paiements_licencie').upsert(rows.map(r=>({...r,club_id:CLUB.id,licencie_id:gid,saison:SAISON})),{onConflict:'id'}));
     }
     LIC.loaded=false; await loadLic(); renderMain(); toast('Dossier enregistré');
   }catch(e){ toast('Erreur : '+e.message) }
 }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-lic-open],[data-lic-close],[data-lic-reload]'); if(!t) return; const d=t.dataset;
+  const t=ev.target.closest&&ev.target.closest('[data-lic-open],[data-lic-close],[data-lic-reload],[data-lic-ftab],[data-pay-add],[data-pay-del],[data-pay-model]'); if(!t) return; const d=t.dataset;
   if(d.licOpen){ LIC.open=LIC.open===d.licOpen?null:d.licOpen; renderMain(); if(LIC.open) document.getElementById('licFicheBox')?.scrollIntoView({block:'nearest'}); return }
   if(d.licClose){ LIC.open=null; renderMain(); return }
-  if(d.licReload){ LIC.loaded=false; renderMain() }
+  if(d.licReload){ LIC.loaded=false; renderMain(); return }
+  if(d.licFtab){ LIC.ftab=d.licFtab;
+    document.querySelectorAll('#fLic .lpanel').forEach(p=>{ p.hidden=p.dataset.p!==LIC.ftab });
+    document.querySelectorAll('#fLic [data-lic-ftab]').forEach(b=>b.classList.toggle('on',b.dataset.licFtab===LIC.ftab)); return }
+  if(d.payAdd!==undefined){ const box=document.getElementById('payRows'); if(box){ box.insertAdjacentHTML('beforeend',payRowHtml({mode:'cheque'},'')); licPayLive() } return }
+  if(d.payDel!==undefined){ t.closest('.payrow')?.remove(); licPayLive(); return }
+  if(d.payModel) licEcheancier(d.payModel);
 });
 document.addEventListener('input',ev=>{
   if(ev.target.id==='licQ'){ LIC.q=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml() }
+  else if(ev.target.closest&&ev.target.closest('#fLic')&&/^(montant_du|pa|pe)$/.test(ev.target.name||'')) licPayLive();
 });
 document.addEventListener('change',ev=>{
   if(ev.target.id==='licF'){ LIC.f=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml() }
+  else if(ev.target.closest&&ev.target.closest('#fLic')&&ev.target.name==='pe') licPayLive();
 });
 document.addEventListener('submit',ev=>{
   if(ev.target.id!=='fLic') return; ev.preventDefault(); licSave(ev.target);
 });
-
 
 /* ================= MODULE GROUPES ET PRÉSENCES (utilisable hors connexion) ================= */
 /* Onglet « Présences » : pointage par groupe et par date, gestion des groupes, assiduité.
