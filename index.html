@@ -612,6 +612,7 @@ input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crs{margin:4px 0 8px}.crlieu{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}.crt{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:2px}.cri{font-size:13.5px}
 .crow,.vrow{display:grid;grid-template-columns:150px 110px 110px minmax(160px,260px) 34px;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
 .crow.nol{grid-template-columns:150px 110px 110px 34px}
+.crow[data-type=ponctuel]:has(.crn){grid-template-columns:150px minmax(150px,1fr) 100px 100px minmax(140px,220px) 34px}
 .crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .crow .dck input{width:auto;padding:0;margin:0;border:0}
 .dckl{font-weight:600}
@@ -634,7 +635,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .vzone{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.vzone select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff}
 .psess{margin:8px 0 10px;padding:8px 12px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink)}
 .pnos{margin:8px 0 6px;padding:10px 12px;border-radius:10px;background:var(--bg)}
-@media (max-width:700px){.crow,.crow[data-type=vacances],.vrow{grid-template-columns:1fr 1fr;padding:10px 40px 10px 10px;margin:6px 0;border:1px solid var(--line);border-radius:10px;position:relative}.crow[data-type=vacances] label:first-child,.crow .crl,.vrow label:first-child{grid-column:span 2}.crx{position:absolute;top:6px;right:4px}}
+@media (max-width:700px){.crow .crn{grid-column:span 2}.crow,.crow[data-type=vacances],.crow[data-type=ponctuel],.crow[data-type=ponctuel]:has(.crn),.vrow{grid-template-columns:1fr 1fr;padding:10px 40px 10px 10px;margin:6px 0;border:1px solid var(--line);border-radius:10px;position:relative}.crow[data-type=vacances] label:first-child,.crow .crl,.vrow label:first-child{grid-column:span 2}.crx{position:absolute;top:6px;right:4px}}
 .lgrid label.wide{grid-column:span 2}@media (max-width:700px){.lgrid label.wide{grid-column:auto}}
 .lb.fct{font-weight:600}.fctl{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .fcts{display:flex;flex-wrap:wrap;gap:6px 16px}.fctck{min-width:180px}
@@ -2204,7 +2205,7 @@ const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom
 
 function presSave(){
   const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
-  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,rows,ts:PRES.ts});
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,lb:PRES.lb,rows,ts:PRES.ts});
   lsSet(presQK(),PRES.queue);
 }
 function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
@@ -2228,10 +2229,10 @@ async function presLoad(){
     PRES.groupes=res[0].data; PRES.membres=res[1].data; PRES.map={};
     // entraînements et vacances scolaires : facultatif (script migration-creneaux.sql)
     // séances ponctuelles et annulées : facultatif (script migration-seances.sql)
-    PRES.sx=false; PRES.annul=[];
-    try{ const [ra,rd]=await Promise.all([sb.from('seances_annulees').select('id,groupe_id,creneau_id,date').eq('club_id',CLUB.id),sb.from('groupe_creneaux').select('id,date').eq('club_id',CLUB.id).limit(1)]);
-      if(!ra.error&&!rd.error){ PRES.annul=ra.data; PRES.sx=true } }catch(e){ if(isNetErr(e)) throw e }
-    try{ const [rc,rv]=await Promise.all([sb.from('groupe_creneaux').select('id,groupe_id,type,vacance_id,jour,heure_debut,heure_fin,lieu'+(PRES.sx?',date':'')).eq('club_id',CLUB.id),
+    PRES.sx=false; PRES.lb=false; PRES.annul=[];
+    try{ const [ra,rd,rl]=await Promise.all([sb.from('seances_annulees').select('id,groupe_id,creneau_id,date').eq('club_id',CLUB.id),sb.from('groupe_creneaux').select('id,date').eq('club_id',CLUB.id).limit(1),sb.from('groupe_creneaux').select('id,libelle').eq('club_id',CLUB.id).limit(1)]);
+      if(!ra.error&&!rd.error){ PRES.annul=ra.data; PRES.sx=true; PRES.lb=!rl.error } }catch(e){ if(isNetErr(e)) throw e }
+    try{ const [rc,rv]=await Promise.all([sb.from('groupe_creneaux').select('id,groupe_id,type,vacance_id,jour,heure_debut,heure_fin,lieu'+(PRES.sx?',date':'')+(PRES.lb?',libelle':'')).eq('club_id',CLUB.id),
         sb.from('periodes_vacances').select('id,nom,debut,fin').eq('club_id',CLUB.id).eq('saison',SAISON)]);
       if(rc.error||rv.error) throw new Error('créneaux indisponibles'); PRES.creneaux=rc.data; PRES.vacances=rv.data; PRES.cr=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.creneaux=[]; PRES.vacances=[]; PRES.cr=false }
@@ -2242,7 +2243,7 @@ async function presLoad(){
     PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
   }catch(e){
     const c=lsGet(presCK());
-    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.map={};
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.lb=c.lb||false; PRES.map={};
       (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
       PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
     else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
@@ -2384,9 +2385,13 @@ const longDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekda
 const VAC_ZONE='B'; // académie d'Amiens
 /* lieux d'entraînement proposés (on peut en saisir un autre) ; le premier est le lieu par défaut d'un nouveau groupe */
 const LIEUX=['Chauny','Saint-Quentin','Hirson'], LIEU_DEF=LIEUX[0];
+const LIBELLES=['Stage','Fête du club','Gala','Compétition','Séance de rattrapage','Portes ouvertes','Entraînement commun'];
+const libDatalist=()=>`<datalist id="libList">${[...new Set([...LIBELLES,...(PRES.creneaux||[]).map(c=>c.libelle).filter(Boolean)])].map(l=>`<option value="${esc(l)}"></option>`).join('')}</datalist>`;
+/* nom affiché d'une séance : intitulé (séance ponctuelle) */
+const crLib=c=>c&&c.type==='ponctuel'&&c.libelle?String(c.libelle):'';
 function lieuxDatalist(){
   const all=[...LIEUX,...PRES.groupes.map(g=>g.lieu),...(PRES.creneaux||[]).map(c=>c.lieu)].filter(Boolean).map(x=>String(x).trim());
-  return `<datalist id="lieuxList">${[...new Set(all)].map(l=>`<option value="${esc(l)}"></option>`).join('')}</datalist>`;
+  return `<datalist id="lieuxList">${[...new Set(all)].map(l=>`<option value="${esc(l)}"></option>`).join('')}</datalist>`+libDatalist();
 }
 /* périodes de vacances utilisées : celles enregistrées par le club, sinon le calendrier officiel de la zone du club */
 const vacList=()=>(PRES.vacances||[]).length?PRES.vacances:(PRES.cr&&VAC_OFFICIEL[SAISON]?VAC_OFFICIEL[SAISON][VAC_ZONE].map(([nom,debut,fin],i)=>({id:'off-'+i,nom,debut,fin,off:true})):[]);
@@ -2464,7 +2469,7 @@ document.addEventListener('change',ev=>{
 
 function presSessionHtml(gid,iso){
   const g=PRES.groupes.find(x=>x.id===gid), cs=presSessionOn(gid,iso), v=vacOf(iso);
-  return cs.map(c=>`<div class="psess">🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
+  return cs.map(c=>`<div class="psess">${crLib(c)?`★ <b>${esc(crLib(c))}</b> · `:''}🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
 }
 function presNoSessionHtml(gid,iso){
   const has=presCrOf(gid).length, prev=presNextSession(gid,iso,-1), next=presNextSession(gid,iso,1), v=vacOf(iso);
@@ -2478,7 +2483,7 @@ function presCrSummaryHtml(g){
   const sa=presCrOf(g.id,'saison'), va=PRES.cr?presCrOf(g.id,'vacances'):[], po=PRES.sx?presCrOf(g.id,'ponctuel').filter(c=>c.date>=isoToday()).sort((a,b)=>a.date.localeCompare(b.date)):[];
   const vn=c=>c.vacance_id?((vacList().find(v=>v.id===c.vacance_id)||{}).nom||'Vacances'):'Toutes les vacances';
   return `<div class="crs"><div class="crt">Saison, hors vacances${g.lieu?` <span class="crlieu">· 📍 ${esc(g.lieu)}</span>`:''}</div>${sa.map(c=>`<div class="cri"><b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${c.lieu&&c.lieu!==g.lieu?` · 📍 ${esc(c.lieu)}`:''}</div>`).join('')||'<div class="hint">Aucun horaire défini.</div>'}</div>`
-    +(po.length?`<details class="crs crsec" data-crsec="lpon" ${UI.secOpen&&UI.secOpen.lpon?'open':''}><summary class="crt">Séances ponctuelles à venir <span class="secn">${po.length}</span></summary>${po.map(c=>`<div class="cri"><b>${esc(longDate(c.date))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')}</details>`:'')
+    +(po.length?`<details class="crs crsec" data-crsec="lpon" ${UI.secOpen&&UI.secOpen.lpon?'open':''}><summary class="crt">Séances ponctuelles à venir <span class="secn">${po.length}</span></summary>${po.map(c=>`<div class="cri">${crLib(c)?`<b>${esc(crLib(c))}</b> · `:''}<b>${esc(longDate(c.date))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')}</details>`:'')
     +(PRES.cr?`<details class="crs crsec" data-crsec="lvac" ${UI.secOpen&&UI.secOpen.lvac?'open':''}><summary class="crt">Vacances scolaires <span class="secn">${va.length||'aucun'}</span></summary>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${UI.listDates?`<div class="crd">${crDatesHtml(c)}</div>`:''}</div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</details>`:'');
 }
 
@@ -2488,7 +2493,7 @@ function crRowHtml(c,ro){
   const vac=c.type==='vacances', pon=c.type==='ponctuel';
   return `<div class="crow ${PRES.sx||vac?'':'nol'}" data-type="${c.type}" data-id="${esc(c.id||'')}">
     ${vac?`<label><span>Vacances</span><select name="cv" ${ro}><option value="">Toutes les vacances</option>${(PRES.vacances||[]).slice().sort((a,b)=>a.debut.localeCompare(b.debut)).map(v=>`<option value="${v.id}" ${c.vacance_id===v.id?'selected':''}>${esc(v.nom)}</option>`).join('')}</select></label>`:''}
-    ${pon?`<label><span>Date</span><input type="date" name="cd" value="${esc(c.date||'')}" min="${SAISON_DEB}" max="${SAISON_FIN}" ${ro}></label>`:`<label><span>Jour</span><select name="cj" ${ro}>${jourOpts(c.jour)}</select></label>`}
+    ${pon?`<label><span>Date</span><input type="date" name="cd" value="${esc(c.date||'')}" min="${SAISON_DEB}" max="${SAISON_FIN}" ${ro}></label>${PRES.lb?`<label class="crn"><span>Intitulé</span><input name="cn" list="libList" value="${esc(c.libelle||'')}" placeholder="Stage, fête du club…" ${ro} autocomplete="off"></label>`:''}`:`<label><span>Jour</span><select name="cj" ${ro}>${jourOpts(c.jour)}</select></label>`}
     <label><span>Début</span><input type="time" name="ch" value="${esc(hhmm(c.heure_debut))}" ${ro}></label>
     <label><span>Fin</span><input type="time" name="cf" value="${esc(hhmm(c.heure_fin))}" ${ro}></label>
     ${PRES.sx||vac?`<label class="crl"><span>Lieu</span><input name="cl" list="lieuxList" value="${esc(c.lieu||'')}" placeholder="Lieu habituel si vide" ${ro} autocomplete="off"></label>`:''}
@@ -2506,7 +2511,7 @@ function presCrFormHtml(g,ro){
     <details class="crsec" data-crsec="vac" ${UI.secOpen&&UI.secOpen.vac?'open':''}><summary><h4>Pendant les vacances scolaires <span class="secn">${va.length?va.length+' créneau'+(va.length>1?'x':''):'aucun créneau'}</span></h4></summary><div class="hint" style="margin-bottom:4px">Jours, horaires et lieu pendant les vacances. Sans créneau ici, le groupe ne s’entraîne pas pendant les vacances.${PRES.vacances.length?'':' Renseigne d’abord le calendrier des vacances en haut de cette page.'}</div>
     <div class="crows" data-box="vacances">${va.map(c=>crRowHtml(c,ro)).join('')}</div>
     ${ro?'':'<button type="button" class="btn sm" data-cr-add="vacances">+ Ajouter un créneau de vacances</button>'}</details>
-    ${PRES.sx?`<details class="crsec" data-crsec="pon" ${UI.secOpen&&UI.secOpen.pon?'open':''}><summary><h4>Séances ponctuelles (stage, séance exceptionnelle…) <span class="secn">${po.length?po.length+' séance'+(po.length>1?'s':''):'aucune séance'}</span></h4></summary><div class="hint" style="margin-bottom:4px">Une séance à une date précise, pendant les vacances ou non. Elle s’ajoute aux entraînements habituels de ce jour-là.</div>
+    ${PRES.sx?`<details class="crsec" data-crsec="pon" ${UI.secOpen&&UI.secOpen.pon?'open':''}><summary><h4>Séances ponctuelles (stage, séance exceptionnelle…) <span class="secn">${po.length?po.length+' séance'+(po.length>1?'s':''):'aucune séance'}</span></h4></summary><div class="hint" style="margin-bottom:4px">Une séance à une date précise, pendant les vacances ou non. Elle s’ajoute aux entraînements habituels de ce jour-là.${PRES.lb?'':' Pour lui donner un intitulé (stage, fête du club…), relance le script <b>migration-seances.sql</b> dans Supabase.'}</div>
     <div class="crows" data-box="ponctuel">${po.map(c=>crRowHtml(c,ro)).join('')}</div>
     ${ro?'':'<button type="button" class="btn sm" data-cr-add="ponctuel">+ Ajouter une séance à une date</button>'}</details>`:'<div class="hint" style="margin-top:8px">Pour ajouter des séances à une date précise et annuler une séance, exécute le script <b>migration-seances.sql</b> dans Supabase.</div>'}`;
 }
@@ -2610,7 +2615,7 @@ function popOpen(html,anchor){
 function wkMenu(gid,iso,cid,anchor){
   const g=PRES.groupes.find(x=>x.id===gid), c=PRES.creneaux.find(x=>x.id===cid)||presSlotsOn(gid,iso).find(x=>x.id===cid); if(!g||!c) return;
   const an=presAnnulOf(cid,iso), ed=presEdit(), lieu=crLieu(c,g), v=vacOf(iso), co=presCoachs(gid);
-  popOpen(`<div class="wph"><b>${esc(g.nom)}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
+  popOpen(`<div class="wph"><b>${crLib(c)?esc(crLib(c))+' · ':''}${esc(g.nom)}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
     <div>${esc(longDate(iso))}${crHours(c)?' · '+esc(crHours(c)):''}</div>${lieu?`<div>📍 ${esc(lieu)}</div>`:''}${co.length?`<div>👤 ${esc(co.map(gymName).join(', '))}</div>`:''}
     <div class="hint">${c.type==='ponctuel'?'Séance ponctuelle':c.type==='vacances'?'Créneau de vacances'+(v?' ('+esc(v.nom)+')':''):'Entraînement de la saison'}${an?' · <b style="color:var(--bad)">annulée ce jour-là</b>':''}</div>
     <div class="quick" style="margin-top:10px">${an?'':`<button type="button" class="btn sm primary" data-week-go="${gid}|${iso}">✅ Pointer</button>`}
@@ -2624,10 +2629,11 @@ function wkAddForm(anchor){
   popOpen(`<form id="fWkAdd" autocomplete="off"><div class="wph"><b>Ajouter une séance</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
     <div class="hint" style="margin-bottom:6px">Séance à une date précise (stage, vacances, séance exceptionnelle).</div>
     <div class="wpf"><label>Groupe<select name="g">${gs.map(g=>`<option value="${g.id}" ${g.id===PRES.groupe?'selected':''}>${esc(g.nom)}</option>`).join('')}</select></label>
+      ${PRES.lb?'<label class="full">Intitulé<input name="n" list="libList" placeholder="Stage, fête du club… (facultatif)"></label>':''}
       <label>Date<input type="date" name="d" value="${d0}" min="${SAISON_DEB}" max="${SAISON_FIN}" required></label>
       <label>Début<input type="time" name="h" value="10:00" required></label><label>Fin<input type="time" name="f" value="12:00" required></label>
       <label class="full">Lieu<input name="l" list="lieuxList" placeholder="Lieu habituel du groupe si vide"></label></div>
-    ${document.getElementById('lieuxList')?'':lieuxDatalist()}<div class="quick" style="margin-top:10px"><button class="btn primary" type="submit">Ajouter</button><button type="button" class="btn" data-wp="close">Annuler</button></div></form>`,anchor);
+    ${document.getElementById('lieuxList')?(document.getElementById('libList')?'':libDatalist()):lieuxDatalist()}<div class="quick" style="margin-top:10px"><button class="btn primary" type="submit">Ajouter</button><button type="button" class="btn" data-wp="close">Annuler</button></div></form>`,anchor);
 }
 async function wkAct(act,k){
   const [gid,iso,cid]=k.split('|');
@@ -2653,11 +2659,11 @@ document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') popClose() });
 document.addEventListener('change',ev=>{ if(ev.target.id==='wkShowAnnul'){ UI.showAnnul=ev.target.checked; renderMain() } if(ev.target.id==='listDates'){ UI.listDates=ev.target.checked; renderMain() } });
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fWkAdd') return; ev.preventDefault();
-  const f=ev.target, v=n=>(f.elements[n].value||'').trim(), dt=v('d');
+  const f=ev.target, v=n=>(f.elements[n]?f.elements[n].value||'':'').trim(), dt=v('d');
   if(v('f')<=v('h')){ toast('L’heure de fin doit être après l’heure de début'); return }
   if(dt<SAISON_DEB||dt>SAISON_FIN){ toast('La date doit être dans la saison '+SAISON); return }
   if(!presOnline()){ toast('Connexion nécessaire'); return }
-  try{ chk(await sb.from('groupe_creneaux').insert({id:uid(),club_id:CLUB.id,groupe_id:v('g'),type:'ponctuel',date:dt,jour:isoDow(dt),heure_debut:v('h'),heure_fin:v('f'),lieu:v('l')||null}));
+  try{ chk(await sb.from('groupe_creneaux').insert({id:uid(),club_id:CLUB.id,groupe_id:v('g'),type:'ponctuel',date:dt,jour:isoDow(dt),heure_debut:v('h'),heure_fin:v('f'),lieu:v('l')||null,...(PRES.lb?{libelle:(f.elements.n&&v('n'))||null}:{})}));
     popClose(); PRES.week=mondayOf(dt); PRES.loaded=false; await presLoad(); renderMain(); toast('Séance ajoutée') }
   catch(e){ toast('Erreur : '+e.message) }
 });
@@ -2686,8 +2692,8 @@ function presWeekHtml(){
     const blk=x=>{ const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g), n=presMembers(x.g.id).length;
       const rgt=x.a>t0+span*0.55;
       return `<button type="button" class="wblk ${rgt?'wr':''} ${x.off?'woff':''} ${x.c.type==='ponctuel'?'wpon':''}" data-wk="${x.g.id}|${d}|${x.c.id}" style="${rgt?`--rgt:${(100-(e-t0)/span*100).toFixed(3)}%;`:''}left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
-        title="${esc(`${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
-        <span class="wl1">${x.off?'🚫 ':x.c.type==='ponctuel'?'★ ':''}<b>${esc(x.g.nom)}</b> · ${esc(crHours(x.c))}${lieu?` · 📍 ${esc(lieu)}`:''}</span>${x.off?'<span class="wl2">Séance annulée</span>':co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
+        title="${esc(`${crLib(x.c)?crLib(x.c)+' · ':''}${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
+        <span class="wl1">${x.off?'🚫 ':x.c.type==='ponctuel'?'★ ':''}${crLib(x.c)?`<b>${esc(crLib(x.c))}</b> · ${esc(x.g.nom)}`:`<b>${esc(x.g.nom)}</b>`} · ${esc(crHours(x.c))}${lieu?` · 📍 ${esc(lieu)}`:''}</span>${x.off?'<span class="wl2">Séance annulée</span>':co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
     return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
       <div class="wtrack" style="--n:${nl}">${hours.map(h=>`<i class="wline" style="left:${pc(h)}"></i>`).join('')}${tl.map(blk).join('')}
         ${!list.length?`<span class="wnone">${v?'Vacances : pas d’entraînement':'—'}</span>`:''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
@@ -2769,7 +2775,7 @@ async function presSaveGroupe(f){
   const cr=PRES.cr?[...f.querySelectorAll('.crow')].map(r=>{ const q=n=>(r.querySelector(`[name=${n}]`)?.value||'').trim();
     const ty=r.dataset.type, dt=ty==='ponctuel'?(q('cd')||null):null;
     if(!r.dataset.id) r.dataset.id=uid();
-    return {id:r.dataset.id,type:ty,jour:dt?isoDow(dt):(+q('cj')||null),heure_debut:q('ch')||null,heure_fin:q('cf')||null,lieu:q('cl')||null,vacance_id:ty==='vacances'?(q('cv')||null):null,...(PRES.sx?{date:dt}:{})} })
+    return {id:r.dataset.id,type:ty,jour:dt?isoDow(dt):(+q('cj')||null),heure_debut:q('ch')||null,heure_fin:q('cf')||null,lieu:q('cl')||null,vacance_id:ty==='vacances'?(q('cv')||null):null,...(PRES.sx?{date:dt}:{}),...(PRES.lb?{libelle:ty==='ponctuel'?(q('cn')||null):null}:{})} })
     .filter(c=>c.jour||c.heure_debut||c.heure_fin||c.lieu||c.date):null;
   if(cr&&cr.some(c=>c.type==='ponctuel'&&!c.date)){ toast('Choisis la date de chaque séance ponctuelle'); return }
   if(cr&&cr.some(c=>!c.jour)){ toast('Choisis le jour de chaque entraînement'); return }

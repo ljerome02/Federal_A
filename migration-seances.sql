@@ -6,6 +6,7 @@
 -- 1. « groupe_creneaux » accepte un 3e type, 'ponctuel' : une séance à une date
 --    précise (stage pendant les vacances, séance exceptionnelle…), colonne « date ».
 --    Le lieu peut aussi être précisé pour les entraînements de la saison.
+--    Colonne « libelle » : intitulé d'une séance ponctuelle (Stage, Fête du club…).
 -- 2. « seances_annulees » : une séance prévue qui n'a pas lieu à une date donnée
 --    (elle disparaît du planning et du pointage ce jour-là).
 -- Lecture : membres du club. Modification : administrateur et entraîneur.
@@ -13,6 +14,7 @@
 
 -- 1) Séances ponctuelles
 alter table public.groupe_creneaux add column if not exists date date;
+alter table public.groupe_creneaux add column if not exists libelle text;
 
 do $$
 declare c record;
