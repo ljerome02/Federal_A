@@ -2203,7 +2203,9 @@ async function licSave(f){
       if(rm.length) chk(await sb.from('paiements_licencie').delete().in('id',rm));
       if(rows.length) chk(await sb.from('paiements_licencie').upsert(rows.map(r=>({...r,club_id:CLUB.id,licencie_id:gid,saison:SAISON})),{onConflict:'id'}));
     }
-    LIC.loaded=false; await loadLic(); renderMain(); toast('Dossier enregistré');
+    const nm=gymName(S.gyms.find(x=>x.id===gid)||{});
+    LIC.open=null; LIC.loaded=false; await loadLic(); renderMain(); toast(`Dossier de ${nm} enregistré`);
+    document.querySelector(`#licTable [data-lic-open="${gid}"]`)?.closest('tr')?.scrollIntoView({block:'center'});
   }catch(e){ toast('Erreur : '+e.message) }
 }
 
