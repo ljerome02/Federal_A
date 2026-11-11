@@ -614,7 +614,10 @@ input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crow.nol{grid-template-columns:150px 110px 110px 34px}
 .crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .crow .dck input{width:auto;padding:0;margin:0;border:0}
-.dckl{font-weight:600}.dck{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #cfe9ee;border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
+.dckl{font-weight:600}
+details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:4px}
+.dcks{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;font-weight:600}.dcks::-webkit-details-marker{display:none}
+.dcks .dckn{font-weight:600}.dcks .dckt::after{content:'· afficher ▸';font-weight:400;color:var(--muted)}details[open] > .dcks .dckt::after{content:'· masquer ▾'}.dck{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #cfe9ee;border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
 .dck:has(input:not(:checked)){color:var(--muted);background:var(--bg)}.dckh{margin-left:4px}.crdates s{color:var(--muted)}.crd{font-size:12px;color:var(--accent-ink)}
 .crow[data-type=vacances]{grid-template-columns:170px 140px 100px 100px minmax(160px,260px) 34px}
 .vrow{grid-template-columns:minmax(140px,1fr) 160px 160px 34px}
@@ -2426,7 +2429,8 @@ function crDatesPick(c,ro){
   if(!PRES.sx) return crDatesHtml(c);
   const ds=crVacDates(c); if(!ds.length) return '<span class="hint">Aucune date : vérifie le calendrier des vacances.</span>';
   const jr=PRES_JOURS[c.jour].slice(0,3).toLowerCase()+'.';
-  return `<span class="dckl">📅 Dates :</span>${ds.map(d=>`<label class="dck"><input type="checkbox" name="cdt" value="${d}" ${c.id&&presAnnulOf(c.id,d)?'':'checked'} ${ro}> ${jr} ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}${ro?'':'<span class="hint dckh">Décoche les dates sans entraînement.</span>'}`;
+  const n=ds.filter(d=>!(c.id&&presAnnulOf(c.id,d))).length;
+  return `<summary class="dcks">📅 Dates : <b class="dckn">${n} sur ${ds.length}</b> <span class="dckt"></span></summary><div class="dckbox">${ds.map(d=>`<label class="dck"><input type="checkbox" name="cdt" value="${d}" ${c.id&&presAnnulOf(c.id,d)?'':'checked'} ${ro}> ${jr} ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}${ro?'':'<span class="hint dckh">Décoche les dates sans entraînement.</span>'}</div>`;
 }
 const crHours=c=>c.heure_debut?`${hhmm(c.heure_debut)}${c.heure_fin?' – '+hhmm(c.heure_fin):''}`:'';
 const crLieu=(c,g)=>c.lieu||(g&&g.lieu)||'';
@@ -2470,7 +2474,7 @@ function presCrSummaryHtml(g){
   const vn=c=>c.vacance_id?((vacList().find(v=>v.id===c.vacance_id)||{}).nom||'Vacances'):'Toutes les vacances';
   return `<div class="crs"><div class="crt">Saison, hors vacances${g.lieu?` <span class="crlieu">· 📍 ${esc(g.lieu)}</span>`:''}</div>${sa.map(c=>`<div class="cri"><b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${c.lieu&&c.lieu!==g.lieu?` · 📍 ${esc(c.lieu)}`:''}</div>`).join('')||'<div class="hint">Aucun horaire défini.</div>'}</div>`
     +(po.length?`<div class="crs"><div class="crt">Séances ponctuelles à venir</div>${po.map(c=>`<div class="cri"><b>${esc(longDate(c.date))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')}</div>`:'')
-    +(PRES.cr?`<div class="crs"><div class="crt">Vacances scolaires</div>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}<div class="crd">${crDatesHtml(c)}</div></div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</div>`:'');
+    +(PRES.cr?`<div class="crs"><div class="crt">Vacances scolaires</div>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${UI.listDates?`<div class="crd">${crDatesHtml(c)}</div>`:''}</div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</div>`:'');
 }
 
 /* ---- formulaire : lignes d'entraînement ---- */
@@ -2484,7 +2488,7 @@ function crRowHtml(c,ro){
     <label><span>Fin</span><input type="time" name="cf" value="${esc(hhmm(c.heure_fin))}" ${ro}></label>
     ${PRES.sx||vac?`<label class="crl"><span>Lieu</span><input name="cl" list="lieuxList" value="${esc(c.lieu||'')}" placeholder="Lieu habituel si vide" ${ro} autocomplete="off"></label>`:''}
     ${ro?'':'<button type="button" class="btn sm ghost crx" data-cr-del="1" aria-label="Supprimer cet entraînement">✕</button>'}
-    ${vac?`<div class="crdates">${crDatesPick(c,ro)}</div>`:''}</div>`;
+    ${vac?(PRES.sx?`<details class="crdates" ${UI.crDatesOpen?'open':''}>${crDatesPick(c,ro)}</details>`:`<div class="crdates">${crDatesPick(c,ro)}</div>`):''}</div>`;
 }
 function presCrFormHtml(g,ro){
   if(!PRES.cr) return `<div class="lgrid"><label>Jour<select name="jour" ${ro}><option value="">—</option>${PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${g&&g.jour===i+1?'selected':''}>${j}</option>`).join('')}</select></label>
@@ -2579,6 +2583,11 @@ document.addEventListener('change',ev=>{
   const r=ev.target.closest&&ev.target.closest('.crow[data-type=vacances]'); if(!r||!/^(cj|cv)$/.test(ev.target.name||'')) return;
   const el=r.querySelector('.crdates'); if(el) el.innerHTML=crDatesPick({type:'vacances',id:r.dataset.id,jour:+r.querySelector('[name=cj]').value||null,vacance_id:r.querySelector('[name=cv]').value||null},'');
 });
+document.addEventListener('change',ev=>{
+  if(ev.target.name!=='cdt') return; const d=ev.target.closest('.crdates'); if(!d) return;
+  const bx=[...d.querySelectorAll('[name=cdt]')], n=d.querySelector('.dckn'); if(n) n.textContent=`${bx.filter(b=>b.checked).length} sur ${bx.length}`;
+});
+document.addEventListener('toggle',ev=>{ if(ev.target.classList&&ev.target.classList.contains('crdates')) UI.crDatesOpen=ev.target.open },true);
 document.addEventListener('submit',ev=>{ if(ev.target.id!=='fVac') return; ev.preventDefault(); presSaveVac(ev.target) });
 
 /* ---- planning : horaires, lieux, adhérents et présences de chaque groupe ---- */
@@ -2635,7 +2644,7 @@ document.addEventListener('click',ev=>{
   if(d.wp) wkAct(d.wp,d.k);
 });
 document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') popClose() });
-document.addEventListener('change',ev=>{ if(ev.target.id==='wkShowAnnul'){ UI.showAnnul=ev.target.checked; renderMain() } });
+document.addEventListener('change',ev=>{ if(ev.target.id==='wkShowAnnul'){ UI.showAnnul=ev.target.checked; renderMain() } if(ev.target.id==='listDates'){ UI.listDates=ev.target.checked; renderMain() } });
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fWkAdd') return; ev.preventDefault();
   const f=ev.target, v=n=>(f.elements[n].value||'').trim(), dt=v('d');
@@ -2710,7 +2719,8 @@ function presPlanningHtml(){
       <div class="quick">${presCrOf(x.id).length?`<button type="button" class="btn sm primary" data-pres-go="${x.id}">✅ ${now?'Pointer aujourd’hui':'Pointer la dernière séance'}</button>`:''}${presEdit()?`<button type="button" class="btn sm" data-pres-edit="${x.id}">Modifier</button>`:''}</div></div>` };
   const sans=S.gyms.filter(g=>needsGroup(g)&&!PRES.membres.some(m=>m.licencie_id===g.id)&&!(PRES.ent||[]).some(e=>e.licencie_id===g.id&&!fctHas(g.id,'gymnaste'))).sort(byName);
   const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
-  return `<div class="gplan">${ord.map(card).join('')}</div>`
+  const hasVac=PRES.cr&&PRES.creneaux.some(c=>c.type==='vacances');
+  return (hasVac?`<label class="cbx wann" style="margin:0 0 10px"><input type="checkbox" id="listDates" ${UI.listDates?'checked':''}> Afficher les dates des créneaux de vacances</label>`:'')+`<div class="gplan">${ord.map(card).join('')}</div>`
     +(sans.length?`<h2 class="dayh" style="margin-top:22px">Gymnastes sans groupe (${sans.length})</h2><div class="card"><div class="gmem">${sans.map(chip).join(' ')}</div><div class="hint" style="margin-top:8px">Pour les inscrire : ouvre leur fiche (onglet « Groupes »), ou sélectionne-en plusieurs dans l’onglet Adhérents puis « Inscrire ».</div></div>`:'');
 }
 document.addEventListener('click',ev=>{
