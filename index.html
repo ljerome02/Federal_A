@@ -574,6 +574,16 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.gman{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;align-items:start}
+.glist{position:sticky;top:12px;padding:10px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}
+.glhd{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.glhd .btn{flex:1 1 auto}.glhd input{flex:1 1 100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:6px 9px;font-size:13.5px}
+.gitems{overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
+.gli{display:flex;flex-direction:column;gap:1px;text-align:left;border:1px solid transparent;border-radius:10px;background:transparent;padding:5px 10px;cursor:pointer}
+.gli:hover{background:var(--bg)}.gli.on{background:var(--accent-soft);border-color:#bfe3ea}
+.gln{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.gln b{font-size:14px}
+.glc{font-size:11.5px;color:var(--muted);white-space:nowrap}.glh{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gform .pgrp{margin-top:0}
+@media (max-width:900px){.glist{position:static;max-height:none}}
 .wchg{color:var(--bad)}
 .flieu{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.flieu>label{font-size:12.5px;color:var(--muted)}
 .flieu input[name=l]{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-top:2px;font-size:14px;color:var(--ink)}
@@ -2398,11 +2408,46 @@ function presGroupeForm(g){
     ${presEdit()?`<div class="lfoot"><button class="btn primary" type="submit">${g?'Enregistrer le groupe':'Créer le groupe'}</button>${g?` <button type="button" class="btn" data-pres-del="${g.id}">Supprimer le groupe</button>`:''}</div>`:''}
   </form>`;
 }
-function presGroupesHtml(){
-  return lieuxDatalist()+presVacCardHtml()+(presEdit()?presGroupeForm(null):'')+PRES.groupes.map(presGroupeForm).join('')
-    +(!presEdit()&&!PRES.groupes.length?presNoGroup():'')
-    +(presOnline()?'':'<div class="hint">La modification des groupes demande une connexion.</div>');
+/* « Gérer les groupes » : liste compacte des groupes à gauche, formulaire du groupe choisi à droite
+   (sur téléphone : la liste, puis le formulaire avec un retour à la liste) */
+function gItemsHtml(){
+  const q=norm(PRES.gq||'');
+  const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+  const item=g=>{ const cs=presCrOf(g.id,'saison'), co=presCoachs(g.id), n=presMembers(g.id).length;
+    return `<button type="button" class="gli ${PRES.gsel===g.id?'on':''}" data-gsel="${g.id}"><span class="gln"><b>${esc(g.nom)}</b><span class="glc">${n} adh.</span></span>
+      <span class="glh">${cs.length?cs.map(c=>`${PRES_JOURS[c.jour].slice(0,3)}. ${hhmm(c.heure_debut)}`).join(' · '):'Horaire à définir'}${g.lieu?' · '+esc(g.lieu):''}</span>
+      ${co.length?`<span class="glh">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
+  const list=ord.filter(g=>!q||norm(g.nom).includes(q)||presCoachs(g.id).some(c=>norm(gymName(c)).includes(q)));
+  return list.map(item).join('')||'<div class="empty">Aucun groupe ne correspond.</div>';
 }
+function presGroupesHtml(){
+  const wide=window.innerWidth>900, ed=presEdit();
+  const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+  if(PRES.gsel&&PRES.gsel!=='new'&&!PRES.groupes.some(g=>g.id===PRES.gsel)) PRES.gsel=null;
+  if(wide&&!PRES.gsel&&ord.length) PRES.gsel=ord[0].id;
+  if(wide&&!PRES.gsel&&!ord.length&&ed) PRES.gsel='new';
+  if(!ed&&PRES.gsel==='new') PRES.gsel=null;
+  const listHtml=`<div class="card glist"><div class="glhd"><input type="search" id="gQ" placeholder="Rechercher un groupe ou un entraîneur…" value="${esc(PRES.gq||'')}" autocomplete="off">
+      ${ed?`<button type="button" class="btn sm primary" data-gsel="new">+ Nouveau groupe</button>`:''}</div>
+    <div class="gitems" id="gItems">${gItemsHtml()}</div>
+    <div class="hint" style="margin-top:6px">${PRES.groupes.length} groupe(s)</div></div>`;
+  const sel=PRES.gsel==='new'?null:PRES.groupes.find(g=>g.id===PRES.gsel);
+  const back=wide?'':`<button type="button" class="btn sm" data-gsel="" style="margin-bottom:10px">← Tous les groupes</button>`;
+  const formHtml=PRES.gsel==='new'?back+presGroupeForm(null):sel?back+presGroupeForm(sel):`<div class="card"><div class="empty">Choisis un groupe dans la liste${ed?' ou crée-en un nouveau':''}.</div></div>`;
+  const body=!PRES.groupes.length&&!ed?presNoGroup()
+    :wide?`<div class="gman">${listHtml}<div class="gform">${formHtml}</div></div>`
+    :(PRES.gsel?formHtml:listHtml);
+  return lieuxDatalist()+presVacCardHtml()+body+(presOnline()?'':'<div class="hint">La modification des groupes demande une connexion.</div>');
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-gsel]'); if(!t) return;
+  PRES.gsel=t.dataset.gsel||null; renderMain();
+  if(window.innerWidth<=900) window.scrollTo(0,0); else document.querySelector('.gform')?.scrollIntoView({block:'nearest'});
+});
+document.addEventListener('input',ev=>{
+  if(ev.target.id!=='gQ') return; PRES.gq=ev.target.value;
+  const el=document.getElementById('gItems'); if(el) el.innerHTML=gItemsHtml();
+});
 function presAssiduiteHtml(){
   if(!PRES.groupes.length) return presNoGroup();
   const gid=PRES.groupe, ds=presDates(gid);
@@ -2953,7 +2998,7 @@ function presPlanningHtml(){
 document.addEventListener('click',ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-pres-go],[data-pres-edit],[data-lic-fiche],[data-lic-bulkgrp]'); if(!t) return; const d=t.dataset;
   if(d.presGo){ PRES.groupe=d.presGo; lsSet('fa-pres-groupe',d.presGo); PRES.date=isoToday(); presAutoDate(); PRES.tab='pointage'; renderMain(); window.scrollTo(0,0); return }
-  if(d.presEdit){ PRES.tab='groupes'; renderMain(); const f=document.querySelector(`#fGrp[data-gid="${d.presEdit}"]`); if(f) f.scrollIntoView({block:'start'}); return }
+  if(d.presEdit){ PRES.tab='groupes'; PRES.gsel=d.presEdit; renderMain(); window.scrollTo(0,0); return }
   if(d.licFiche){ if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id } LIC.open=d.licFiche; LIC.ftab=d.ftab||'grp'; UI.view='lic'; render(); window.scrollTo(0,0); return }
   if(d.licBulkgrp) licBulkGroup(d.licBulkgrp);
 });
@@ -3020,6 +3065,7 @@ async function presSaveGroupe(f){
       if(add.length) chk(await sb.from('groupe_entraineurs').upsert(add.map(l=>({groupe_id:gid,licencie_id:l,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
     }
     if(!f.dataset.gid) PRES.groupe=gid;
+    PRES.gsel=gid;
     LIC.loaded=false; PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
   }catch(e){ toast('Erreur : '+e.message) }
 }
