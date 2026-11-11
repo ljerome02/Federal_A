@@ -574,6 +574,20 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
+.crs{margin:4px 0 8px}.crlieu{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}.crt{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:2px}.cri{font-size:13.5px}
+.crow,.vrow{display:grid;grid-template-columns:150px 110px 110px 34px;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
+.crow[data-type=vacances]{grid-template-columns:170px 140px 100px 100px minmax(140px,1fr) 34px}
+.vrow{grid-template-columns:minmax(140px,1fr) 160px 160px 34px}
+.crow label span,.vrow label span{display:block;font-size:12px;color:var(--muted)}
+.crow select,.crow input,.vrow input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff}
+.crows{margin-bottom:8px}.crx{align-self:end}
+.crow label,.vrow label,.crow input,.crow select,.vrow input{min-width:0}
+.vacd{margin-bottom:16px}.vacd summary{cursor:pointer;list-style:none}.vacd summary::-webkit-details-marker{display:none}.vacd summary::before{content:'▸ ';color:var(--muted)}.vacd[open] summary::before{content:'▾ '}
+.vzone{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.vzone select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff}
+.psess{margin:8px 0 10px;padding:8px 12px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink)}
+.pnos{margin:8px 0 6px;padding:10px 12px;border-radius:10px;background:var(--bg)}
+@media (max-width:700px){.crow,.crow[data-type=vacances],.vrow{grid-template-columns:1fr 1fr;padding:10px 40px 10px 10px;margin:6px 0;border:1px solid var(--line);border-radius:10px;position:relative}.crow[data-type=vacances] label:first-child,.crow .crl,.vrow label:first-child{grid-column:span 2}.crx{position:absolute;top:6px;right:4px}}
 .lgrid label.wide{grid-column:span 2}@media (max-width:700px){.lgrid label.wide{grid-column:auto}}
 .lb.fct{font-weight:600}.fctl{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .fcts{display:flex;flex-wrap:wrap;gap:6px 16px}.fctck{min-width:180px}
@@ -693,7 +707,7 @@ async function sync(){
     const ut=cur.teams.filter(t=>!same(t,oT.get(t.id)));
     if(ut.length) chk(await sb.from('equipes').upsert(ut.map(t=>({id:t.id, club_id:CLUB.id, nom:t.name, saison:SAISON, ...(HASPROG?{programme:t.prog||'A', categorie:t.cat||null}:{})}))));
     const ug=cur.gyms.filter(g=>!same(g,oG.get(g.id)));
-    if(ug.length) chk(await sb.from('licencies').upsert(ug.map(g=>({id:g.id, club_id:CLUB.id, prenom:g.prenom||'?', nom:g.nom||null, date_naissance:g.naissance||null, ...(HASCOMP?{competition:g.compet||null}:{})}))));
+    if(ug.length) chk(await sb.from('licencies').upsert(ug.map(g=>({id:g.id, club_id:CLUB.id, prenom:g.prenom||'?', nom:upNom(g.nom)||null, date_naissance:g.naissance||null, ...(HASCOMP?{competition:g.compet||null}:{})}))));
     for(const g of ug){ const o=oG.get(g.id);
       if(!o || o.team!==g.team){
         if(o) chk(await sb.from('equipe_gymnastes').delete().eq('licencie_id',g.id));
@@ -723,7 +737,7 @@ async function loadClubNet(){
   const tm={}; eg.data.forEach(x=>tm[x.licencie_id]=x.equipe_id);
   const ids=new Set(l.data.map(g=>g.id));
   S={teams:e.data.map(t=>({id:t.id,name:t.nom,prog:t.programme||'A',cat:t.categorie||null})),
-     gyms:l.data.map(g=>({id:g.id,prenom:g.prenom,nom:g.nom||'',naissance:g.date_naissance||'',compet:g.competition||'',team:tm[g.id]||null})),
+     gyms:l.data.map(g=>({id:g.id,prenom:g.prenom,nom:upNom(g.nom),naissance:g.date_naissance||'',compet:g.competition||'',team:tm[g.id]||null})),
      routines:{}};
   m.data.forEach(r=>{ if(ids.has(r.licencie_id)) (S.routines[r.licencie_id]??={})[r.agres]=r.data });
   SNAP=JSON.parse(JSON.stringify(S)); lastSync=new Date(); SYNC='ok';
@@ -951,6 +965,7 @@ function warnings(ag, R){
 /* ================= RENDU : BARRE LATÉRALE ================= */
 const yr=g=>g.naissance?g.naissance.slice(0,4):(g.annee||'');
 function gymName(g){ return `${g.prenom||''} ${g.nom||''}`.trim() || 'Sans nom' }
+const upNom=s=>String(s||'').trim().toLocaleUpperCase('fr-FR');
 const norm=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 function hl(text,q){ if(!q) return esc(text); const n=norm(text); const i=n.indexOf(q); if(i<0) return esc(text); return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length)) }
 const byName=(a,b)=>norm(gymName(a)).localeCompare(norm(gymName(b)));
@@ -1330,7 +1345,7 @@ document.addEventListener('change',ev=>{
   const t=ev.target;
   if(t.dataset.bon){ routine(UI.gym,UI.tab).ov[t.dataset.bon]=t.checked; render(); return }
   if(t.dataset.vault){ routine(UI.gym,'saut')[t.dataset.vault]=t.value||null; render(); return }
-  if(t.dataset.mf){ const g=S.gyms.find(x=>x.id===t.dataset.gid); const v=t.value.trim(); if(t.dataset.mf==='prenom'&&!v){ t.value=g.prenom; return } g[t.dataset.mf]=v; renderSideList(); save(); renderManageTable(); return }
+  if(t.dataset.mf){ const g=S.gyms.find(x=>x.id===t.dataset.gid); let v=t.value.trim(); if(t.dataset.mf==='nom'){ v=upNom(v); t.value=v } if(t.dataset.mf==='prenom'&&!v){ t.value=g.prenom; return } g[t.dataset.mf]=v; renderSideList(); save(); renderManageTable(); return }
   if(t.dataset.mteam){ S.gyms.find(x=>x.id===t.dataset.mteam).team=t.value||null; renderSideList(); renderManageTable(); save(); return }
   if(t.dataset.selg){ if(t.checked) UI.sel[t.dataset.selg]=1; else delete UI.sel[t.dataset.selg]; renderManageTable(); return }
   if(t.id==='selAll'){ document.querySelectorAll('[data-selg]').forEach(c=>{ if(t.checked) UI.sel[c.dataset.selg]=1; else delete UI.sel[c.dataset.selg] }); renderManageTable(); return }
@@ -1359,7 +1374,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('submit',ev=>{
   ev.preventDefault(); const f=ev.target, v=n=>(f.elements[n]?.value||'').trim();
   if(f.id==='fTeam'){ S.teams.push({id:uid(),name:v('n')}); render(); }
-  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),compet:compFromBox(f.elements['ce'].checked,f.elements['ci'].checked,f.elements['ca'].checked),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
+  if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:upNom(v('n')),naissance:v('a'),compet:compFromBox(f.elements['ce'].checked,f.elements['ci'].checked,f.elements['ca'].checked),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
     if(UI.view==='manage'||UI.view==='lic'){ render(); toast(gymName(g)+' ajouté'); document.querySelector('#fGym [name=p]')?.focus(); }
     else { UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); } }
 });
@@ -2118,25 +2133,28 @@ document.addEventListener('submit',ev=>{
    Les pointages sont d'abord enregistrés dans le téléphone (file d'attente), puis envoyés
    à Supabase dès que le réseau est disponible. Tables : voir migration-presences.sql. */
 const PRES_JOURS=['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-const PRES_STAT=[['present','Présente'],['absent','Absente'],['excuse','Excusée']];
+const PRES_STAT=[['present','Présente'],['absent','Absente'],['excuse','Excusée ou blessée']];
 const PRES_SEUIL=3;      // nombre d'absences non excusées d'affilée qui déclenche l'alerte
 const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
 const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
-const presNew=()=>({loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
+const presNew=()=>({creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
 let PRES=presNew();
 const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const presOnline=()=>navigator.onLine!==false;
 const presK=(g,l,d)=>g+'|'+l+'|'+d;
 const presCK=()=>'fa-pres-cache-'+(CLUB&&CLUB.id), presQK=()=>'fa-pres-queue-'+(CLUB&&CLUB.id);
 const hhmm=t=>String(t||'').slice(0,5);
-const presGLabel=g=>`${g.nom}${g.jour?' · '+PRES_JOURS[g.jour]:''}${g.heure_debut?' '+hhmm(g.heure_debut)+(g.heure_fin?'–'+hhmm(g.heure_fin):''):''}`;
+const presGLabel=g=>{ const cs=PRES.cr&&PRES.club===(CLUB&&CLUB.id)?presCrOf(g.id,'saison'):null;
+  if(cs&&cs.length) return `${g.nom} · ${cs.map(c=>PRES_JOURS[c.jour]+(c.heure_debut?' '+hhmm(c.heure_debut):'')).join(', ')}`;
+  return presGLabelOld(g) };
+const presGLabelOld=g=>`${g.nom}${g.jour?' · '+PRES_JOURS[g.jour]:''}${g.heure_debut?' '+hhmm(g.heure_debut)+(g.heure_fin?'–'+hhmm(g.heure_fin):''):''}`;
 const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom||'').localeCompare(norm(b.prenom||''));
 
 function presSave(){
   const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
-  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,rows,ts:PRES.ts});
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,rows,ts:PRES.ts});
   lsSet(presQK(),PRES.queue);
 }
 function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
@@ -2144,7 +2162,7 @@ function presPickGroupe(){
   PRES.groupes.sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
   if(PRES.groupe&&PRES.groupes.some(g=>g.id===PRES.groupe)) return;
   const j=(new Date().getDay()||7), last=lsGet('fa-pres-groupe');
-  PRES.groupe=(PRES.groupes.find(g=>g.jour===j)||PRES.groupes.find(g=>g.id===last)||PRES.groupes[0]||{}).id||null;
+  PRES.groupe=(PRES.groupes.find(g=>presSessionOn(g.id,isoToday()).length)||PRES.groupes.find(g=>g.jour===j)||PRES.groupes.find(g=>g.id===last)||PRES.groupes[0]||{}).id||null;
 }
 async function presLoad(){
   if(!CLUB||PRES.loading) return;
@@ -2158,16 +2176,21 @@ async function presLoad(){
       sb.from('presences_seances').select('groupe_id,licencie_id,date,statut').eq('club_id',CLUB.id).gte('date',since)]),10000);
     res.forEach(chk);
     PRES.groupes=res[0].data; PRES.membres=res[1].data; PRES.map={};
+    // entraînements et vacances scolaires : facultatif (script migration-creneaux.sql)
+    try{ const [rc,rv]=await Promise.all([sb.from('groupe_creneaux').select('id,groupe_id,type,vacance_id,jour,heure_debut,heure_fin,lieu').eq('club_id',CLUB.id),
+        sb.from('periodes_vacances').select('id,nom,debut,fin').eq('club_id',CLUB.id).eq('saison',SAISON)]);
+      if(rc.error||rv.error) throw new Error('créneaux indisponibles'); PRES.creneaux=rc.data; PRES.vacances=rv.data; PRES.cr=true }
+    catch(e){ if(isNetErr(e)) throw e; PRES.creneaux=[]; PRES.vacances=[]; PRES.cr=false }
     res[2].data.forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
     PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
   }catch(e){
     const c=lsGet(presCK());
-    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.map={};
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.map={};
       (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
       PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
     else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
   }
-  presApplyQueue(); presPickGroupe(); PRES.loaded=true; PRES.loading=false;
+  presApplyQueue(); presDerive(); presPickGroupe(); presAutoDate(); PRES.loaded=true; PRES.loading=false;
   if(!PRES.err){ presSave(); presFlushSoon() }
 }
 
@@ -2211,7 +2234,7 @@ function presStatusHtml(){
 function presCountHtml(){
   const gid=PRES.groupe, ms=presMembers(gid), c={present:0,absent:0,excuse:0,'':0};
   ms.forEach(g=>c[PRES.map[presK(gid,g.id,PRES.date)]||'']++);
-  return `<span class="cc">Présentes <b>${c.present}</b></span><span class="cc">Absentes <b>${c.absent}</b></span><span class="cc">Excusées <b>${c.excuse}</b></span><span class="cc ${c['']?'todo':''}">Non pointées <b>${c['']}</b></span>`;
+  return `<span class="cc">Présentes <b>${c.present}</b></span><span class="cc">Absentes <b>${c.absent}</b></span><span class="cc">Excusées ou blessées <b>${c.excuse}</b></span><span class="cc ${c['']?'todo':''}">Non pointées <b>${c['']}</b></span>`;
 }
 function presListHtml(){
   const gid=PRES.groupe, d=PRES.date, ms=presMembers(gid), ed=presEdit();
@@ -2231,11 +2254,12 @@ function presPointageHtml(){
   if(!PRES.groupes.length) return presNoGroup();
   const dl=new Date(PRES.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   return `<div class="card"><div class="pctl">${presGSelect('presG')}
-    <div class="pdate"><button type="button" class="btn" data-pres-date="prev" title="Jour précédent">◀</button><input type="date" id="presD" value="${PRES.date}"><button type="button" class="btn" data-pres-date="next" title="Jour suivant">▶</button><button type="button" class="btn sm" data-pres-date="today">Aujourd’hui</button></div></div>
-    <div class="hint" style="margin:6px 0 10px">${esc(dl)}</div>
+    <div class="pdate"><button type="button" class="btn" data-pres-date="prev" title="Séance précédente">◀</button><input type="date" id="presD" value="${PRES.date}"><button type="button" class="btn" data-pres-date="next" title="Séance suivante">▶</button><button type="button" class="btn sm" data-pres-date="today">Aujourd’hui</button></div></div>
+    ${presSessionOn(PRES.groupe,PRES.date).length?presSessionHtml(PRES.groupe,PRES.date):`<div class="hint" style="margin:6px 0 4px">${esc(dl)}</div>${presNoSessionHtml(PRES.groupe,PRES.date)}`}
+    ${presSessionOn(PRES.groupe,PRES.date).length||presMembers(PRES.groupe).some(g=>PRES.map[presK(PRES.groupe,g.id,PRES.date)])?`${presSessionOn(PRES.groupe,PRES.date).length?'':'<div class="hint" style="margin:8px 0">Des pointages existent déjà pour ce jour : tu peux les corriger.</div>'}
     <div id="presCount" class="ccount">${presCountHtml()}</div>
     ${presEdit()?'<div style="margin:6px 0 10px"><button type="button" class="btn sm" data-pres-all="1">Tout le monde présent (non pointées)</button></div>':'<div class="hint" style="margin-bottom:8px">Lecture seule avec votre rôle.</div>'}
-    <div id="presList">${presListHtml()}</div>
+    <div id="presList">${presListHtml()}</div>`:''}
     <div id="presStatus" style="margin-top:14px">${presStatusHtml()}</div></div>`;
 }
 
@@ -2245,20 +2269,18 @@ function presGroupeForm(g){
   return `<form class="card lfiche pgrp" id="fGrp" ${g?`data-gid="${g.id}"`:''} autocomplete="off">
     <h3>${g?esc(g.nom):'Nouveau groupe'}</h3>
     <div class="lgrid"><label>Nom<input name="nom" value="${v('nom')}" required ${ro}></label>
-      <label>Jour<select name="jour" ${ro}><option value="">—</option>${PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${g&&g.jour===i+1?'selected':''}>${j}</option>`).join('')}</select></label>
-      <label>Début<input type="time" name="hd" value="${esc(hhmm(g&&g.heure_debut))}" ${ro}></label>
-      <label>Fin<input type="time" name="hf" value="${esc(hhmm(g&&g.heure_fin))}" ${ro}></label>
-      <label>Lieu<input name="lieu" value="${v('lieu')}" ${ro}></label>
+      <label>Lieu ${PRES.cr?'fixe de la saison':''}<input name="lieu" value="${v('lieu')}" placeholder="ex. Gymnase municipal" ${ro}></label>
       <label>Lien du groupe WhatsApp<input name="wa" type="url" inputmode="url" placeholder="https://chat.whatsapp.com/…" value="${v('lien_whatsapp')}" ${ro||WA.ok===false?'disabled':''}></label></div>
     ${WA.ok===false?'<div class="hint">Le lien WhatsApp sera disponible après l’exécution du script <b>migration-communication.sql</b> dans Supabase.</div>':''}
     ${g&&g.lien_whatsapp?`<div style="margin-top:8px"><a class="btn wa" href="${v('lien_whatsapp')}" target="_blank" rel="noopener">💬 Ouvrir le groupe WhatsApp</a></div>`:''}
+    ${presCrFormHtml(g,ro)}
     <div style="margin-top:10px"><b>Membres</b> (${mem.length})${mem.length?`<div class="pmem">${mem.map(x=>`<span class="lb ok">${esc(x.nom||'')} ${esc(x.prenom||'')}</span>`).join(' ')}</div>`:''}
       <div class="hint">${g?'Pour inscrire ou retirer un adhérent, ouvrez sa fiche dans l’onglet Adhérents (onglet « Groupes »), ou sélectionnez-en plusieurs dans la liste.':'Une fois le groupe créé, inscrivez-y les adhérents depuis l’onglet Adhérents.'}</div></div>
     ${presEdit()?`<div class="lfoot"><button class="btn primary" type="submit">${g?'Enregistrer le groupe':'Créer le groupe'}</button>${g?` <button type="button" class="btn" data-pres-del="${g.id}">Supprimer le groupe</button>`:''}</div>`:''}
   </form>`;
 }
 function presGroupesHtml(){
-  return (presEdit()?presGroupeForm(null):'')+PRES.groupes.map(presGroupeForm).join('')
+  return presVacCardHtml()+(presEdit()?presGroupeForm(null):'')+PRES.groupes.map(presGroupeForm).join('')
     +(!presEdit()&&!PRES.groupes.length?presNoGroup():'')
     +(presOnline()?'':'<div class="hint">La modification des groupes demande une connexion.</div>');
 }
@@ -2270,7 +2292,7 @@ function presAssiduiteHtml(){
     .sort((x,y)=>y.ch-x.ch||byNom(x.g,y.g));
   return `<div class="card"><div class="pctl">${presGSelect('presGa')}</div>
     <div class="hint" style="margin:6px 0 10px">${ds.length} séance(s) pointée(s) sur les ${PRES_FENETRE} derniers jours. Alerte à partir de ${PRES_SEUIL} absences non excusées d’affilée.</div>
-    <div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th>${[['Présente','Prés.'],['Absente','Abs.'],['Excusée','Exc.'],['Taux de présence','Taux'],['Absences d’affilée','Série']].map(([l,c])=>`<th title="${l}"><span class="hl">${l}</span><span class="hs">${c}</span></th>`).join('')}</tr></thead><tbody>
+    <div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th>${[['Présente','Prés.'],['Absente','Abs.'],['Excusée ou blessée','Exc./bl.'],['Taux de présence','Taux'],['Absences d’affilée','Série']].map(([l,c])=>`<th title="${l}"><span class="hl">${l}</span><span class="hs">${c}</span></th>`).join('')}</tr></thead><tbody>
     ${rows.map(r=>`<tr><td><b>${esc(r.g.nom||'')}</b> ${esc(r.g.prenom||'')}</td><td>${r.p}</td><td>${r.a}</td><td>${r.e}</td><td>${r.taux==null?'—':r.taux+' %'}</td><td>${r.ch>=PRES_SEUIL?`<span class="lb warn">⚠ ${r.ch}</span>`:(r.ch||'0')}</td></tr>`).join('')}
     </tbody></table></div>${rows.length?'':'<div class="empty">Aucun licencié dans ce groupe.</div>'}</div>`;
 }
@@ -2286,6 +2308,137 @@ function renderPres(){
 }
 
 
+
+/* ================= ENTRAÎNEMENTS (CRÉNEAUX) ET VACANCES SCOLAIRES ================= */
+/* Un groupe a des entraînements « saison » (jour + horaires, au lieu fixe du groupe, hors vacances)
+   et des entraînements « vacances » (jour, horaires et lieu, pour une période de vacances ou pour toutes).
+   Le pointage n'est proposé que les jours où le groupe a un entraînement. */
+const SAISON_DEB=SAISON.slice(0,4)+'-09-01', SAISON_FIN=(+SAISON.slice(0,4)+1)+'-08-31';
+/* calendrier officiel (arrêté du 22 octobre 2025) : premier et dernier jour de vacances (veille de la reprise) */
+const VAC_OFFICIEL={'2026-2027':{
+  A:[['Toussaint','2026-10-17','2026-11-01'],['Noël','2026-12-19','2027-01-03'],['Hiver','2027-02-13','2027-02-28'],['Printemps','2027-04-10','2027-04-25'],['Été','2027-07-03','2027-08-31']],
+  B:[['Toussaint','2026-10-17','2026-11-01'],['Noël','2026-12-19','2027-01-03'],['Hiver','2027-02-20','2027-03-07'],['Printemps','2027-04-17','2027-05-02'],['Été','2027-07-03','2027-08-31']],
+  C:[['Toussaint','2026-10-17','2026-11-01'],['Noël','2026-12-19','2027-01-03'],['Hiver','2027-02-06','2027-02-21'],['Printemps','2027-04-03','2027-04-18'],['Été','2027-07-03','2027-08-31']]}};
+const isoDow=iso=>new Date(iso+'T12:00:00').getDay()||7;
+const longDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+const vacOf=iso=>(PRES.vacances||[]).find(v=>v.debut<=iso&&iso<=v.fin)||null;
+const crSort=(a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut));
+function presCrOf(gid,type){
+  if(!PRES.cr){ const g=PRES.groupes.find(x=>x.id===gid); return g&&g.jour&&type!=='vacances'?[{id:'legacy-'+gid,groupe_id:gid,type:'saison',jour:g.jour,heure_debut:g.heure_debut,heure_fin:g.heure_fin,lieu:null}]:[] }
+  return PRES.creneaux.filter(c=>c.groupe_id===gid&&(!type||c.type===type)).sort(crSort);
+}
+/* entraînements prévus pour un groupe à une date donnée */
+function presSessionOn(gid,iso){
+  if(!gid||iso<SAISON_DEB||iso>SAISON_FIN) return [];
+  const v=vacOf(iso), d=isoDow(iso);
+  return v?presCrOf(gid,'vacances').filter(c=>c.jour===d&&(!c.vacance_id||c.vacance_id===v.id)):presCrOf(gid,'saison').filter(c=>c.jour===d);
+}
+function presNextSession(gid,iso,dir){ let d=iso;
+  for(let i=0;i<370;i++){ d=addDays(d,dir); if((dir<0&&d<SAISON_DEB)||(dir>0&&d>SAISON_FIN)) return null; if(presSessionOn(gid,d).length) return d }
+  return null }
+/* place la date du pointage sur un jour d'entraînement : aujourd'hui, sinon la dernière séance passée, sinon la prochaine */
+function presAutoDate(){
+  const g=PRES.groupe; if(!g||presSessionOn(g,PRES.date).length) return;
+  PRES.date=presNextSession(g,PRES.date,-1)||presNextSession(g,PRES.date,1)||PRES.date;
+}
+/* jour et heure du premier entraînement de la saison : servent au tri des groupes */
+function presDerive(){
+  if(!PRES.cr) return;
+  PRES.groupes.forEach(g=>{ const c=presCrOf(g.id,'saison')[0]; g.jour=c?c.jour:null; g.heure_debut=c?c.heure_debut:null; g.heure_fin=c?c.heure_fin:null });
+}
+const crHours=c=>c.heure_debut?`${hhmm(c.heure_debut)}${c.heure_fin?' – '+hhmm(c.heure_fin):''}`:'';
+const crLieu=(c,g)=>(c.type==='vacances'&&c.lieu)||(g&&g.lieu)||'';
+function presSessionHtml(gid,iso){
+  const g=PRES.groupes.find(x=>x.id===gid), cs=presSessionOn(gid,iso), v=vacOf(iso);
+  return cs.map(c=>`<div class="psess">🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
+}
+function presNoSessionHtml(gid,iso){
+  const has=presCrOf(gid).length, prev=presNextSession(gid,iso,-1), next=presNextSession(gid,iso,1), v=vacOf(iso);
+  if(!has) return `<div class="pnos">Aucun entraînement n’est défini pour ce groupe.${presEdit()?' Ajoute ses jours et horaires dans « Gérer les groupes ».':''}</div>`;
+  return `<div class="pnos">Pas d’entraînement prévu pour ce groupe le ${esc(longDate(iso))}${v?` (vacances : ${esc(v.nom)})`:''}.
+    <div class="quick" style="margin-top:8px">${prev?`<button type="button" class="btn sm" data-pres-jump="${prev}">◀ Séance du ${esc(longDate(prev))}</button>`:''}${next?`<button type="button" class="btn sm" data-pres-jump="${next}">Séance du ${esc(longDate(next))} ▶</button>`:''}</div></div>`;
+}
+/* résumé des entraînements d'un groupe (planning) */
+function presCrSummaryHtml(g){
+  const sa=presCrOf(g.id,'saison'), va=PRES.cr?presCrOf(g.id,'vacances'):[];
+  const vn=c=>c.vacance_id?((PRES.vacances.find(v=>v.id===c.vacance_id)||{}).nom||'Vacances'):'Toutes les vacances';
+  return `<div class="crs"><div class="crt">Saison, hors vacances${g.lieu?` <span class="crlieu">· 📍 ${esc(g.lieu)}</span>`:''}</div>${sa.map(c=>`<div class="cri"><b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}</div>`).join('')||'<div class="hint">Aucun horaire défini.</div>'}</div>`
+    +(PRES.cr?`<div class="crs"><div class="crt">Vacances scolaires</div>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</div>`:'');
+}
+
+/* ---- formulaire : lignes d'entraînement ---- */
+const jourOpts=sel=>`<option value="">Jour…</option>`+PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${+sel===i+1?'selected':''}>${j}</option>`).join('');
+function crRowHtml(c,ro){
+  const vac=c.type==='vacances';
+  return `<div class="crow" data-type="${c.type}" data-id="${esc(c.id||'')}">
+    ${vac?`<label><span>Vacances</span><select name="cv" ${ro}><option value="">Toutes les vacances</option>${(PRES.vacances||[]).slice().sort((a,b)=>a.debut.localeCompare(b.debut)).map(v=>`<option value="${v.id}" ${c.vacance_id===v.id?'selected':''}>${esc(v.nom)}</option>`).join('')}</select></label>`:''}
+    <label><span>Jour</span><select name="cj" ${ro}>${jourOpts(c.jour)}</select></label>
+    <label><span>Début</span><input type="time" name="ch" value="${esc(hhmm(c.heure_debut))}" ${ro}></label>
+    <label><span>Fin</span><input type="time" name="cf" value="${esc(hhmm(c.heure_fin))}" ${ro}></label>
+    ${vac?`<label class="crl"><span>Lieu</span><input name="cl" value="${esc(c.lieu||'')}" placeholder="Lieu habituel si vide" ${ro} autocomplete="off"></label>`:''}
+    ${ro?'':'<button type="button" class="btn sm ghost crx" data-cr-del="1" aria-label="Supprimer cet entraînement">✕</button>'}</div>`;
+}
+function presCrFormHtml(g,ro){
+  if(!PRES.cr) return `<div class="lgrid"><label>Jour<select name="jour" ${ro}><option value="">—</option>${PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${g&&g.jour===i+1?'selected':''}>${j}</option>`).join('')}</select></label>
+      <label>Début<input type="time" name="hd" value="${esc(hhmm(g&&g.heure_debut))}" ${ro}></label><label>Fin<input type="time" name="hf" value="${esc(hhmm(g&&g.heure_fin))}" ${ro}></label></div>
+    <div class="hint">Pour définir plusieurs entraînements par semaine et les horaires des vacances, exécute le script <b>migration-creneaux.sql</b> dans Supabase.</div>`;
+  const cs=g?presCrOf(g.id):[], sa=cs.filter(c=>c.type==='saison'), va=cs.filter(c=>c.type==='vacances');
+  return `<h4>Entraînements de la saison (hors vacances scolaires)</h4><div class="hint" style="margin-bottom:4px">Au lieu fixe du groupe indiqué ci-dessus.</div>
+    <div class="crows" data-box="saison">${(sa.length||ro?sa:[{type:'saison'}]).map(c=>crRowHtml(c,ro)).join('')}</div>
+    ${ro?'':'<button type="button" class="btn sm" data-cr-add="saison">+ Ajouter un entraînement</button>'}
+    <h4>Pendant les vacances scolaires</h4><div class="hint" style="margin-bottom:4px">Jours, horaires et lieu pendant les vacances. Sans créneau ici, le groupe ne s’entraîne pas pendant les vacances.${PRES.vacances.length?'':' Renseigne d’abord le calendrier des vacances en haut de cette page.'}</div>
+    <div class="crows" data-box="vacances">${va.map(c=>crRowHtml(c,ro)).join('')}</div>
+    ${ro?'':'<button type="button" class="btn sm" data-cr-add="vacances">+ Ajouter un créneau de vacances</button>'}`;
+}
+
+/* ---- calendrier des vacances scolaires ---- */
+function vacRowHtml(v,ro){ return `<div class="vrow" data-id="${esc(v.id||'')}"><label><span>Vacances</span><input name="vn" value="${esc(v.nom||'')}" ${ro} autocomplete="off"></label>
+  <label><span>Premier jour</span><input type="date" name="vd" value="${esc(v.debut||'')}" ${ro}></label><label><span>Dernier jour</span><input type="date" name="vf" value="${esc(v.fin||'')}" ${ro}></label>
+  ${ro?'':'<button type="button" class="btn sm ghost crx" data-vac-del="1" aria-label="Supprimer">✕</button>'}</div>` }
+function presVacCardHtml(){
+  if(!PRES.cr) return '';
+  const ro=presEdit()?'':'disabled', vs=PRES.vacances.slice().sort((a,b)=>a.debut.localeCompare(b.debut)), off=VAC_OFFICIEL[SAISON];
+  const sd=iso=>iso?iso.slice(8,10)+'/'+iso.slice(5,7):'';
+  return `<details class="card vacd" id="vacD" ${vs.length&&!UI.vacOpen?'':'open'}><summary><b>Vacances scolaires ${SAISON}</b> <span class="hint">${vs.length?vs.map(v=>`${esc(v.nom)} ${sd(v.debut)} → ${sd(v.fin)}`).join(' · '):'à renseigner'}</span></summary>
+    <form class="lfiche" id="fVac" autocomplete="off" style="margin-top:10px">
+    <div class="hint" style="margin-bottom:8px">Pendant ces périodes, les entraînements de la saison sont remplacés par les créneaux « vacances » de chaque groupe. Le pointage n’est proposé que les jours d’entraînement.</div>
+    <div id="vacRows">${vs.map(v=>vacRowHtml(v,ro)).join('')||'<div class="hint" id="vacEmpty">Aucune période saisie.</div>'}</div>
+    ${ro?'':`<div class="lfoot quick" style="margin-top:8px"><button type="button" class="btn sm" data-vac-add="1">+ Ajouter une période</button>
+      ${off?`<span class="vzone">Calendrier officiel : <select id="vacZone"><option value="A">Zone A</option><option value="B" selected>Zone B (Amiens, Lille, Reims…)</option><option value="C">Zone C</option></select><button type="button" class="btn sm" data-vac-fill="1">Remplir</button></span>`:''}
+      <button class="btn primary" type="submit">Enregistrer les vacances</button></div>`}</form></details>`;
+}
+async function presSaveVac(f){
+  if(!presEdit()) return;
+  if(!presOnline()){ toast('Connexion nécessaire pour modifier les vacances'); return }
+  const rows=[...f.querySelectorAll('.vrow')].map(r=>({id:r.dataset.id||uid(),nom:r.querySelector('[name=vn]').value.trim(),debut:r.querySelector('[name=vd]').value,fin:r.querySelector('[name=vf]').value}));
+  if(rows.some(r=>!r.nom||!r.debut||!r.fin)){ toast('Chaque période doit avoir un nom, un premier et un dernier jour'); return }
+  if(rows.some(r=>r.fin<r.debut)){ toast('Le dernier jour doit être après le premier jour'); return }
+  const rm=PRES.vacances.filter(v=>!rows.some(r=>r.id===v.id)), lost=PRES.creneaux.filter(c=>rm.some(v=>v.id===c.vacance_id)).length;
+  if(lost&&!confirm(`${lost} créneau(x) de vacances sont liés aux périodes supprimées et seront supprimés aussi. Continuer ?`)) return;
+  try{
+    if(rm.length) chk(await sb.from('periodes_vacances').delete().in('id',rm.map(v=>v.id)));
+    if(rows.length) chk(await sb.from('periodes_vacances').upsert(rows.map(r=>({...r,club_id:CLUB.id,saison:SAISON}))));
+    PRES.loaded=false; await presLoad(); renderMain(); toast('Vacances enregistrées');
+  }catch(e){ toast('Erreur : '+e.message) }
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-cr-add],[data-cr-del],[data-vac-add],[data-vac-del],[data-vac-fill],[data-pres-jump]'); if(!t) return; const d=t.dataset;
+  if(d.crAdd){ const box=t.closest('form').querySelector(`.crows[data-box=${d.crAdd}]`); if(box) box.insertAdjacentHTML('beforeend',crRowHtml({type:d.crAdd},'')); return }
+  if(d.crDel!==undefined){ t.closest('.crow')?.remove(); return }
+  if(d.vacAdd){ document.getElementById('vacEmpty')?.remove(); document.getElementById('vacRows').insertAdjacentHTML('beforeend',vacRowHtml({},'')); return }
+  if(d.vacDel!==undefined){ t.closest('.vrow')?.remove(); return }
+  if(d.vacFill){ const z=document.getElementById('vacZone').value, box=document.getElementById('vacRows'), off=(VAC_OFFICIEL[SAISON]||{})[z]; if(!off) return;
+    const cur=[...box.querySelectorAll('.vrow')];
+    if(cur.length&&!confirm('Remplacer les dates déjà saisies par le calendrier officiel ?')) return;
+    // on garde l'identifiant des périodes de même nom pour ne pas perdre les créneaux qui y sont liés
+    const ids={}; cur.forEach(r=>{ ids[norm(r.querySelector('[name=vn]').value)]=r.dataset.id });
+    box.innerHTML=off.map(([n,a,b])=>vacRowHtml({id:ids[norm(n)]||'',nom:n,debut:a,fin:b},'')).join('');
+    toast(`Calendrier zone ${z} chargé : clique sur « Enregistrer les vacances »`); return }
+  if(d.presJump){ PRES.date=d.presJump; renderMain(); return }
+});
+document.addEventListener('toggle',ev=>{ if(ev.target.id==='vacD') UI.vacOpen=ev.target.open },true);
+document.addEventListener('submit',ev=>{ if(ev.target.id!=='fVac') return; ev.preventDefault(); presSaveVac(ev.target) });
+
 /* ---- planning : horaires, lieux, adhérents et présences de chaque groupe ---- */
 function presPlanningHtml(){
   if(!PRES.groupes.length) return presNoGroup();
@@ -2293,13 +2446,14 @@ function presPlanningHtml(){
     presMembers(gid).forEach(g=>ds.forEach(d=>{ const s=PRES.map[presK(gid,g.id,d)]; if(s){ t++; if(s==='present') p++ } }));
     return {last:ds[ds.length-1]||null,taux:t?Math.round(100*p/t):null} };
   const chip=g=>`<button type="button" class="lb ok gchip" data-lic-fiche="${g.id}" title="Ouvrir la fiche">${esc(gymName(g))}</button>`;
-  const card=x=>{ const ms=presMembers(x.id), st=stat(x.id);
-    const hrs=x.heure_debut?`${hhmm(x.heure_debut)}${x.heure_fin?' – '+hhmm(x.heure_fin):''}`:'';
-    return `<div class="card gcard"><div class="gch"><div style="min-width:0"><h3>${esc(x.nom)}</h3><div class="gwhen"><b>${esc(x.jour?PRES_JOURS[x.jour]:'Jour à définir')}</b>${hrs?` · ${esc(hrs)}`:''}</div>${x.lieu?`<div class="hint">📍 ${esc(x.lieu)}</div>`:''}</div>
+  const card=x=>{ const ms=presMembers(x.id), st=stat(x.id), td=isoToday(), now=presSessionOn(x.id,td).length, nx=now?td:presNextSession(x.id,td,1);
+    const nc=nx?presSessionOn(x.id,nx)[0]:null;
+    return `<div class="card gcard"><div class="gch"><div style="min-width:0"><h3>${esc(x.nom)}</h3>${nx?`<div class="gwhen">${now?'<b>Aujourd’hui</b>':'Prochaine séance : <b>'+esc(longDate(nx))+'</b>'}${nc&&crHours(nc)?' · '+esc(crHours(nc)):''}${vacOf(nx)?' · vacances':''}</div>`:''}</div>
         ${x.lien_whatsapp?`<a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:''}</div>
-      <div class="ccount"><span class="cc">Adhérents <b>${ms.length}</b></span>${st.taux!=null?`<span class="cc">Présence <b>${st.taux} %</b></span>`:''}${st.last?`<span class="cc">Dernière séance <b>${esc(payDate(st.last))}</b></span>`:''}</div>
+      ${presCrSummaryHtml(x)}
+      <div class="ccount"><span class="cc">Adhérents <b>${ms.length}</b></span>${st.taux!=null?`<span class="cc">Présence <b>${st.taux} %</b></span>`:''}${st.last?`<span class="cc">Dernière séance pointée <b>${esc(payDate(st.last))}</b></span>`:''}</div>
       <div class="gmem">${ms.map(chip).join(' ')||'<span class="hint">Aucun adhérent : inscris-les depuis l’onglet Adhérents.</span>'}</div>
-      <div class="quick"><button type="button" class="btn sm primary" data-pres-go="${x.id}">✅ Pointer aujourd’hui</button>${presEdit()?`<button type="button" class="btn sm" data-pres-edit="${x.id}">Modifier</button>`:''}</div></div>` };
+      <div class="quick">${presCrOf(x.id).length?`<button type="button" class="btn sm primary" data-pres-go="${x.id}">✅ ${now?'Pointer aujourd’hui':'Pointer la dernière séance'}</button>`:''}${presEdit()?`<button type="button" class="btn sm" data-pres-edit="${x.id}">Modifier</button>`:''}</div></div>` };
   const sans=S.gyms.filter(g=>!PRES.membres.some(m=>m.licencie_id===g.id)).sort(byName);
   const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
   return `<div class="gplan">${ord.map(card).join('')}</div>`
@@ -2307,7 +2461,7 @@ function presPlanningHtml(){
 }
 document.addEventListener('click',ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-pres-go],[data-pres-edit],[data-lic-fiche],[data-lic-bulkgrp]'); if(!t) return; const d=t.dataset;
-  if(d.presGo){ PRES.groupe=d.presGo; lsSet('fa-pres-groupe',d.presGo); PRES.date=isoToday(); PRES.tab='pointage'; renderMain(); window.scrollTo(0,0); return }
+  if(d.presGo){ PRES.groupe=d.presGo; lsSet('fa-pres-groupe',d.presGo); PRES.date=isoToday(); presAutoDate(); PRES.tab='pointage'; renderMain(); window.scrollTo(0,0); return }
   if(d.presEdit){ PRES.tab='groupes'; renderMain(); const f=document.querySelector(`#fGrp[data-gid="${d.presEdit}"]`); if(f) f.scrollIntoView({block:'start'}); return }
   if(d.licFiche){ if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id } LIC.open=d.licFiche; LIC.ftab=d.ftab||'grp'; UI.view='lic'; render(); window.scrollTo(0,0); return }
   if(d.licBulkgrp) licBulkGroup(d.licBulkgrp);
@@ -2340,12 +2494,24 @@ document.addEventListener('change',ev=>{
 async function presSaveGroupe(f){
   if(!presEdit()) return;
   if(!presOnline()){ toast('Connexion nécessaire pour modifier les groupes'); return }
-  if(SYNC!=='ok'){ toast('Les gymnastes sont en cours d’enregistrement : réessayez dans un instant'); return }
+  if(SYNC!=='ok'){ toast('Les adhérents sont en cours d’enregistrement : réessayez dans un instant'); return }
   const v=n=>(f.elements[n]?.value||'').trim(), gid=f.dataset.gid||uid();
+  const cr=PRES.cr?[...f.querySelectorAll('.crow')].map(r=>{ const q=n=>(r.querySelector(`[name=${n}]`)?.value||'').trim();
+    return {id:r.dataset.id||uid(),type:r.dataset.type,jour:+q('cj')||null,heure_debut:q('ch')||null,heure_fin:q('cf')||null,lieu:r.dataset.type==='vacances'?(q('cl')||null):null,vacance_id:r.dataset.type==='vacances'?(q('cv')||null):null} })
+    .filter(c=>c.jour||c.heure_debut||c.heure_fin||c.lieu):null;
+  if(cr&&cr.some(c=>!c.jour)){ toast('Choisis le jour de chaque entraînement'); return }
+  if(cr&&cr.some(c=>c.heure_debut&&c.heure_fin&&c.heure_fin<=c.heure_debut)){ toast('L’heure de fin doit être après l’heure de début'); return }
+  const first=cr?cr.filter(c=>c.type==='saison').sort(crSort)[0]:null;
+  const row={id:gid,club_id:CLUB.id,saison:SAISON,nom:v('nom'),lieu:v('lieu')||null,
+    ...(cr?{jour:first?first.jour:null,heure_debut:first?first.heure_debut:null,heure_fin:first?first.heure_fin:null}:{jour:+v('jour')||null,heure_debut:v('hd')||null,heure_fin:v('hf')||null})};
+  if(WA.ok){ const w=v('wa'); if(w&&!/^https:\/\/(chat\.whatsapp\.com|wa\.me|whatsapp\.com)\//i.test(w)){ toast('Le lien WhatsApp doit commencer par https://chat.whatsapp.com/'); return } row.lien_whatsapp=w||null }
   try{
-    const row={id:gid,club_id:CLUB.id,saison:SAISON,nom:v('nom'),jour:+v('jour')||null,heure_debut:v('hd')||null,heure_fin:v('hf')||null,lieu:v('lieu')||null};
-    if(WA.ok){ const w=v('wa'); if(w&&!/^https:\/\/(chat\.whatsapp\.com|wa\.me|whatsapp\.com)\//i.test(w)){ toast('Le lien WhatsApp doit commencer par https://chat.whatsapp.com/'); return } row.lien_whatsapp=w||null }
     chk(await sb.from('groupes_entrainement').upsert(row));
+    if(cr){
+      const rm=PRES.creneaux.filter(c=>c.groupe_id===gid&&!cr.some(x=>x.id===c.id)).map(c=>c.id);
+      if(rm.length) chk(await sb.from('groupe_creneaux').delete().in('id',rm));
+      if(cr.length) chk(await sb.from('groupe_creneaux').upsert(cr.map(c=>({...c,club_id:CLUB.id,groupe_id:gid}))));
+    }
     if(!f.dataset.gid) PRES.groupe=gid;
     LIC.loaded=false; PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
   }catch(e){ toast('Erreur : '+e.message) }
@@ -2357,7 +2523,9 @@ document.addEventListener('click',async ev=>{
   if(d.presSet){ const [lid,k]=d.presSet.split('|'), cur=PRES.map[presK(PRES.groupe,lid,PRES.date)];
     presSet(PRES.groupe,lid,PRES.date,cur===k?null:k); presRefresh(); return }
   if(d.presAll){ presMembers(PRES.groupe).forEach(g=>{ if(!PRES.map[presK(PRES.groupe,g.id,PRES.date)]) presSet(PRES.groupe,g.id,PRES.date,'present') }); presRefresh(); return }
-  if(d.presDate){ PRES.date=d.presDate==='today'?isoToday():addDays(PRES.date,d.presDate==='next'?1:-1); renderMain(); return }
+  if(d.presDate){ if(d.presDate==='today'){ PRES.date=isoToday(); presAutoDate() }
+    else { const n=presNextSession(PRES.groupe,PRES.date,d.presDate==='next'?1:-1); if(n) PRES.date=n; else { toast(d.presDate==='next'?'Pas de séance suivante cette saison':'Pas de séance précédente cette saison'); return } }
+    renderMain(); return }
   if(d.presTab){ PRES.tab=d.presTab; renderMain(); return }
   if(d.presReload!==undefined){ PRES.loaded=false; renderMain(); return }
   if(d.presDel){ const g=PRES.groupes.find(x=>x.id===d.presDel); if(!g||!presEdit()) return;
@@ -2368,7 +2536,7 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('change',ev=>{
   const t=ev.target;
-  if(t.id==='presG'||t.id==='presGa'){ PRES.groupe=t.value; lsSet('fa-pres-groupe',t.value); renderMain() }
+  if(t.id==='presG'||t.id==='presGa'){ PRES.groupe=t.value; lsSet('fa-pres-groupe',t.value); if(t.id==='presG') presAutoDate(); renderMain() }
   else if(t.id==='presD'){ PRES.date=t.value||isoToday(); renderMain() }
 });
 document.addEventListener('submit',ev=>{
@@ -2589,7 +2757,7 @@ function assidInner(gid){
   const rows=licGroupes(gid).map(gr=>{ const ds=presDates(gr.id); let p=0,a=0,e=0;
     ds.forEach(d=>{ const s=PRES.map[presK(gr.id,gid,d)]; if(s==='present')p++; else if(s==='absent')a++; else if(s==='excuse')e++ });
     const t=p+a+e; return {gr,p,a,e,taux:t?Math.round(100*p/t):null,ch:presChain(gr.id,gid)} });
-  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Groupe</th><th>Présent</th><th>Absent</th><th>Excusé</th><th>Taux</th><th>Absences d’affilée</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.gr.nom)}</td><td>${r.p}</td><td>${r.a}</td><td>${r.e}</td><td>${r.taux==null?'—':r.taux+' %'}</td><td>${r.ch>=PRES_SEUIL?`<span class="lb warn">⚠ ${r.ch}</span>`:(r.ch||'0')}</td></tr>`).join('')}</tbody></table></div><div class="hint">Séances pointées sur les ${PRES_FENETRE} derniers jours.</div>`;
+  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Groupe</th><th>Présent</th><th>Absent</th><th>Excusé ou blessé</th><th>Taux</th><th>Absences d’affilée</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.gr.nom)}</td><td>${r.p}</td><td>${r.a}</td><td>${r.e}</td><td>${r.taux==null?'—':r.taux+' %'}</td><td>${r.ch>=PRES_SEUIL?`<span class="lb warn">⚠ ${r.ch}</span>`:(r.ch||'0')}</td></tr>`).join('')}</tbody></table></div><div class="hint">Séances pointées sur les ${PRES_FENETRE} derniers jours.</div>`;
 }
 function assidFiche(gid){
   if(!LIC.grp||!licGroupes(gid).length) return '';
