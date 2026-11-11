@@ -574,6 +574,7 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.coachl{font-size:13.5px;margin:2px 0 6px}.entadd{margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff;max-width:100%}
 input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crs{margin:4px 0 8px}.crlieu{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}.crt{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:2px}.cri{font-size:13.5px}
 .crow,.vrow{display:grid;grid-template-columns:150px 110px 110px 34px;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -1700,6 +1701,8 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.clo
    documents du dossier (santé, autorisation parentale, droit à l'image) et alertes.
    Données dans les tables « licences » et « documents_licencie » (voir migration-licences.sql). */
 const LIC_FEDS=['FFG','UFOLEP'];
+/* un adhérent doit être dans un groupe s'il est gymnaste (ou si les rôles ne sont pas encore en place) */
+const needsGroup=g=>!LIC.fct||fctHas(g.id,'gymnaste');
 /* rôles dans l'association (cumulables) : [clé, libellé, couleur de fond, couleur du texte, fait partie du bureau] */
 const FCT=[['gymnaste','Gymnaste','#eaeeff','#3b3fa8'],['president','Président(e)','#fde8f1','#a1245f',1],['vice_president','Vice-président(e)','#fde8f1','#a1245f',1],
   ['secretaire','Secrétaire','#fde8f1','#a1245f',1],['tresorier','Trésorier(e)','#fde8f1','#a1245f',1],['dirigeant','Membre du comité directeur','#fdeef6','#8f2e63'],
@@ -1831,7 +1834,7 @@ function licTableHtml(){
   const q=norm(LIC.q), f=LIC.f, full=LIC.loaded&&!LIC.err;
   for(const id in UI.sel) if(!S.gyms.some(g=>g.id===id)) delete UI.sel[id];
   const m=g=>!f||(f.startsWith('r:')?fctHas(g.id,f.slice(2)):f==='ctodo'?!g.compet:f==='cteam'?teamOk(g):f==='cind'?indOk(g):f==='cnone'?g.compet==='aucune':!full?true:
-    f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
+    f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?needsGroup(g)&&licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
   const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
   const dc=full&&licDocs(), pc=full&&licPay()&&LIC.cot!==null, gc=full&&LIC.grp;
@@ -1857,7 +1860,8 @@ function licTableHtml(){
     +(list.length?'':'<div class="empty">Aucun adhérent ne correspond.</div>');
 }
 
-function groupesFiche(g,ro){
+function groupesFiche(g,ro){ return groupesFiche0(g,ro)+(PRES.ge&&PRES.club===(CLUB&&CLUB.id)&&coachGroups(g.id).length?`<h4>Entraîne</h4><div class="pmem">${coachGroups(g.id).map(x=>`<span class="lb ok">👤 ${esc(presGLabel(x))}</span>`).join(' ')}</div>`:'') }
+function groupesFiche0(g,ro){
   if(!LIC.grp) return `<h4>Groupes d’entraînement</h4><div class="hint">Disponible après l’exécution du script <b>migration-presences.sql</b> dans Supabase.</div>`;
   if(!LIC.grp.length) return `<h4>Groupes d’entraînement</h4><div class="hint">Aucun groupe pour la saison ${SAISON} : créez-les dans l’onglet Groupes, puis inscrivez ici chaque adhérent.</div>`;
   return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem">${LIC.grp.map(x=>`<label class="cbx"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> ${esc(presGLabel(x))}</label>${x.lien_whatsapp&&LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?` <a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 Groupe WhatsApp</a>`:''}`).join('')}</div>`;
@@ -2139,7 +2143,7 @@ const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
 const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
-const presNew=()=>({creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
+const presNew=()=>({ent:[],ge:null,creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
 let PRES=presNew();
 const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const presOnline=()=>navigator.onLine!==false;
@@ -2154,7 +2158,7 @@ const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom
 
 function presSave(){
   const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
-  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,rows,ts:PRES.ts});
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,rows,ts:PRES.ts});
   lsSet(presQK(),PRES.queue);
 }
 function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
@@ -2181,11 +2185,14 @@ async function presLoad(){
         sb.from('periodes_vacances').select('id,nom,debut,fin').eq('club_id',CLUB.id).eq('saison',SAISON)]);
       if(rc.error||rv.error) throw new Error('créneaux indisponibles'); PRES.creneaux=rc.data; PRES.vacances=rv.data; PRES.cr=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.creneaux=[]; PRES.vacances=[]; PRES.cr=false }
+    // entraîneurs des groupes : facultatif (script migration-entraineurs.sql)
+    try{ const re=await sb.from('groupe_entraineurs').select('groupe_id,licencie_id').eq('club_id',CLUB.id); if(re.error) throw new Error('entraîneurs indisponibles'); PRES.ent=re.data; PRES.ge=true }
+    catch(e){ if(isNetErr(e)) throw e; PRES.ent=[]; PRES.ge=false }
     res[2].data.forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
     PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
   }catch(e){
     const c=lsGet(presCK());
-    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.map={};
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.map={};
       (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
       PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
     else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
@@ -2255,7 +2262,7 @@ function presPointageHtml(){
   const dl=new Date(PRES.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   return `<div class="card"><div class="pctl">${presGSelect('presG')}
     <div class="pdate"><button type="button" class="btn" data-pres-date="prev" title="Séance précédente">◀</button><input type="date" id="presD" value="${PRES.date}"><button type="button" class="btn" data-pres-date="next" title="Séance suivante">▶</button><button type="button" class="btn sm" data-pres-date="today">Aujourd’hui</button></div></div>
-    ${presSessionOn(PRES.groupe,PRES.date).length?presSessionHtml(PRES.groupe,PRES.date):`<div class="hint" style="margin:6px 0 4px">${esc(dl)}</div>${presNoSessionHtml(PRES.groupe,PRES.date)}`}
+    ${presSessionOn(PRES.groupe,PRES.date).length?presSessionHtml(PRES.groupe,PRES.date)+coachLine(PRES.groupe):`<div class="hint" style="margin:6px 0 4px">${esc(dl)}</div>${presNoSessionHtml(PRES.groupe,PRES.date)}`}
     ${presSessionOn(PRES.groupe,PRES.date).length||presMembers(PRES.groupe).some(g=>PRES.map[presK(PRES.groupe,g.id,PRES.date)])?`${presSessionOn(PRES.groupe,PRES.date).length?'':'<div class="hint" style="margin:8px 0">Des pointages existent déjà pour ce jour : tu peux les corriger.</div>'}
     <div id="presCount" class="ccount">${presCountHtml()}</div>
     ${presEdit()?'<div style="margin:6px 0 10px"><button type="button" class="btn sm" data-pres-all="1">Tout le monde présent (non pointées)</button></div>':'<div class="hint" style="margin-bottom:8px">Lecture seule avec votre rôle.</div>'}
@@ -2273,6 +2280,7 @@ function presGroupeForm(g){
       <label>Lien du groupe WhatsApp<input name="wa" type="url" inputmode="url" placeholder="https://chat.whatsapp.com/…" value="${v('lien_whatsapp')}" ${ro||WA.ok===false?'disabled':''}></label></div>
     ${WA.ok===false?'<div class="hint">Le lien WhatsApp sera disponible après l’exécution du script <b>migration-communication.sql</b> dans Supabase.</div>':''}
     ${g&&g.lien_whatsapp?`<div style="margin-top:8px"><a class="btn wa" href="${v('lien_whatsapp')}" target="_blank" rel="noopener">💬 Ouvrir le groupe WhatsApp</a></div>`:''}
+    ${presCoachFormHtml(g,ro)}
     ${presCrFormHtml(g,ro)}
     <div style="margin-top:10px"><b>Membres</b> (${mem.length})${mem.length?`<div class="pmem">${mem.map(x=>`<span class="lb ok">${esc(x.nom||'')} ${esc(x.prenom||'')}</span>`).join(' ')}</div>`:''}
       <div class="hint">${g?'Pour inscrire ou retirer un adhérent, ouvrez sa fiche dans l’onglet Adhérents (onglet « Groupes »), ou sélectionnez-en plusieurs dans la liste.':'Une fois le groupe créé, inscrivez-y les adhérents depuis l’onglet Adhérents.'}</div></div>
@@ -2299,6 +2307,7 @@ function presAssiduiteHtml(){
 function renderPres(){
   if(PRES.club!==(CLUB&&CLUB.id)){ PRES=presNew(); PRES.club=CLUB&&CLUB.id }
   if(!PRES.loaded&&!PRES.loading) presLoad().then(()=>{ if(UI.view==='pres') renderMain() });
+  licEnsure();
   const head=`<div class="gymhead"><div><h2 class="name">Groupes</h2><div class="meta">Saison ${SAISON} · horaires, lieux, adhérents et présences · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
   if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
   if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
@@ -2348,6 +2357,29 @@ function presDerive(){
 }
 const crHours=c=>c.heure_debut?`${hhmm(c.heure_debut)}${c.heure_fin?' – '+hhmm(c.heure_fin):''}`:'';
 const crLieu=(c,g)=>(c.type==='vacances'&&c.lieu)||(g&&g.lieu)||'';
+
+/* ---- entraîneurs des groupes ---- */
+const presCoachs=gid=>(PRES.ent||[]).filter(e=>e.groupe_id===gid).map(e=>S.gyms.find(g=>g.id===e.licencie_id)).filter(Boolean).sort(byName);
+const coachGroups=lid=>(PRES.ent||[]).filter(e=>e.licencie_id===lid).map(e=>PRES.groupes.find(x=>x.id===e.groupe_id)).filter(Boolean);
+const isCoachRole=gid=>LIC.fct&&(fctHas(gid,'entraineur')||fctHas(gid,'aide_entraineur'));
+function presCoachFormHtml(g,ro){
+  if(!PRES.ge) return `<h4>Entraîneurs</h4><div class="hint">Disponible après l’exécution du script <b>migration-entraineurs.sql</b> dans Supabase (SQL Editor).</div>`;
+  const cur=g?presCoachs(g.id):[], cand=S.gyms.filter(x=>isCoachRole(x.id)&&!cur.some(c=>c.id===x.id)), list=[...cur,...cand].sort(byName);
+  const others=S.gyms.filter(x=>!list.some(y=>y.id===x.id)).sort(byName);
+  const lab=x=>`<label class="cbx"><input type="checkbox" name="ent_${x.id}" ${cur.some(c=>c.id===x.id)?'checked':''} ${ro}> ${esc(gymName(x))}${LIC.fct&&fctHas(x.id,'aide_entraineur')&&!fctHas(x.id,'entraineur')?' <span class="hint">(aide)</span>':''}</label>`;
+  return `<h4>Entraîneurs</h4><div class="pmem ecoach">${list.map(lab).join('')||'<span class="hint ent-empty">Aucun adhérent n’a le rôle « Entraîneur » ou « Aide-entraîneur ».</span>'}</div>
+    ${ro||!others.length?'':`<select data-ent-add aria-label="Ajouter un autre adhérent comme entraîneur" class="entadd"><option value="">+ Ajouter un autre adhérent comme entraîneur…</option>${others.map(x=>`<option value="${x.id}">${esc((x.nom||'')+' '+(x.prenom||''))}</option>`).join('')}</select>`}
+    ${LIC.fct?'':'<div class="hint">Astuce : avec les rôles des adhérents (migration-roles.sql), les entraîneurs sont proposés directement.</div>'}`;
+}
+const coachLine=gid=>{ const cs=presCoachs(gid); return PRES.ge?`<div class="coachl">👤 ${cs.length?cs.map(c=>`<button type="button" class="linkb" data-lic-fiche="${c.id}" data-ftab="id">${esc(gymName(c))}</button>`).join(', '):'<span class="hint">Aucun entraîneur</span>'}</div>`:'' };
+document.addEventListener('change',ev=>{
+  const t=ev.target; if(!t.matches||!t.matches('[data-ent-add]')||!t.value) return;
+  const x=S.gyms.find(g=>g.id===t.value), box=t.closest('form').querySelector('.ecoach'); if(!x||!box) return;
+  box.querySelector('.ent-empty')?.remove();
+  box.insertAdjacentHTML('beforeend',`<label class="cbx"><input type="checkbox" name="ent_${x.id}" checked> ${esc(gymName(x))}</label>`);
+  t.querySelector(`option[value="${x.id}"]`)?.remove(); t.value='';
+});
+
 function presSessionHtml(gid,iso){
   const g=PRES.groupes.find(x=>x.id===gid), cs=presSessionOn(gid,iso), v=vacOf(iso);
   return cs.map(c=>`<div class="psess">🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
@@ -2450,14 +2482,15 @@ function presPlanningHtml(){
     const nc=nx?presSessionOn(x.id,nx)[0]:null;
     return `<div class="card gcard"><div class="gch"><div style="min-width:0"><h3>${esc(x.nom)}</h3>${nx?`<div class="gwhen">${now?'<b>Aujourd’hui</b>':'Prochaine séance : <b>'+esc(longDate(nx))+'</b>'}${nc&&crHours(nc)?' · '+esc(crHours(nc)):''}${vacOf(nx)?' · vacances':''}</div>`:''}</div>
         ${x.lien_whatsapp?`<a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:''}</div>
+      ${coachLine(x.id)}
       ${presCrSummaryHtml(x)}
       <div class="ccount"><span class="cc">Adhérents <b>${ms.length}</b></span>${st.taux!=null?`<span class="cc">Présence <b>${st.taux} %</b></span>`:''}${st.last?`<span class="cc">Dernière séance pointée <b>${esc(payDate(st.last))}</b></span>`:''}</div>
       <div class="gmem">${ms.map(chip).join(' ')||'<span class="hint">Aucun adhérent : inscris-les depuis l’onglet Adhérents.</span>'}</div>
       <div class="quick">${presCrOf(x.id).length?`<button type="button" class="btn sm primary" data-pres-go="${x.id}">✅ ${now?'Pointer aujourd’hui':'Pointer la dernière séance'}</button>`:''}${presEdit()?`<button type="button" class="btn sm" data-pres-edit="${x.id}">Modifier</button>`:''}</div></div>` };
-  const sans=S.gyms.filter(g=>!PRES.membres.some(m=>m.licencie_id===g.id)).sort(byName);
+  const sans=S.gyms.filter(g=>needsGroup(g)&&!PRES.membres.some(m=>m.licencie_id===g.id)&&!(PRES.ent||[]).some(e=>e.licencie_id===g.id&&!fctHas(g.id,'gymnaste'))).sort(byName);
   const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
   return `<div class="gplan">${ord.map(card).join('')}</div>`
-    +(sans.length?`<h2 class="dayh" style="margin-top:22px">Adhérents sans groupe (${sans.length})</h2><div class="card"><div class="gmem">${sans.map(chip).join(' ')}</div><div class="hint" style="margin-top:8px">Pour les inscrire : ouvre leur fiche (onglet « Groupes »), ou sélectionne-en plusieurs dans l’onglet Adhérents puis « Inscrire ».</div></div>`:'');
+    +(sans.length?`<h2 class="dayh" style="margin-top:22px">Gymnastes sans groupe (${sans.length})</h2><div class="card"><div class="gmem">${sans.map(chip).join(' ')}</div><div class="hint" style="margin-top:8px">Pour les inscrire : ouvre leur fiche (onglet « Groupes »), ou sélectionne-en plusieurs dans l’onglet Adhérents puis « Inscrire ».</div></div>`:'');
 }
 document.addEventListener('click',ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-pres-go],[data-pres-edit],[data-lic-fiche],[data-lic-bulkgrp]'); if(!t) return; const d=t.dataset;
@@ -2511,6 +2544,12 @@ async function presSaveGroupe(f){
       const rm=PRES.creneaux.filter(c=>c.groupe_id===gid&&!cr.some(x=>x.id===c.id)).map(c=>c.id);
       if(rm.length) chk(await sb.from('groupe_creneaux').delete().in('id',rm));
       if(cr.length) chk(await sb.from('groupe_creneaux').upsert(cr.map(c=>({...c,club_id:CLUB.id,groupe_id:gid}))));
+    }
+    if(PRES.ge){
+      const want=[...f.querySelectorAll('[name^=ent_]')].filter(c=>c.checked).map(c=>c.name.slice(4)), have=PRES.ent.filter(e=>e.groupe_id===gid).map(e=>e.licencie_id);
+      const add=want.filter(x=>!have.includes(x)), rm=have.filter(x=>!want.includes(x));
+      if(rm.length) chk(await sb.from('groupe_entraineurs').delete().eq('groupe_id',gid).in('licencie_id',rm));
+      if(add.length) chk(await sb.from('groupe_entraineurs').upsert(add.map(l=>({groupe_id:gid,licencie_id:l,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
     }
     if(!f.dataset.gid) PRES.groupe=gid;
     LIC.loaded=false; PRES.loaded=false; await presLoad(); renderMain(); toast(f.dataset.gid?'Groupe enregistré':'Groupe créé');
@@ -2591,7 +2630,7 @@ document.addEventListener('click',ev=>{
 function licEnsure(){
   if(!CLUB) return false;
   if(LIC.club!==CLUB.id){ LIC=licNew(); LIC.club=CLUB.id }
-  if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(LIC.loaded&&['home','pay','stats','comm','lic'].includes(UI.view)) renderMain() });
+  if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(LIC.loaded&&(['home','pay','stats','comm','lic'].includes(UI.view)||(UI.view==='pres'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('form'))))) renderMain() });
   return LIC.loaded&&!LIC.err;
 }
 const licHead=(t,sub,extra='')=>`<div class="gymhead"><div><h2 class="name">${t}</h2><div class="meta">${sub}</div></div><div style="flex:1"></div>${extra}<button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
@@ -2621,7 +2660,7 @@ function renderHome(){
   const tiles=[tile('👥',n,'Adhérents',ready?`FFG ${nF} · UFOLEP ${nU}`:'','lic','#eaeeff','#3b3fa8'),
     ready?tile('📋',todo,'Dossiers à traiter',todo?'à compléter ou à vérifier':'tout est complet','lic:todo','#fff1d6','#8a5a00'):'',
     money?tile('💶',money.imp,'Cotisations à régler',money.reste>0?`reste ${eur(money.reste)} à encaisser`:'tout est encaissé','pay:sold','#e1f6ea','#14733a'):'',
-    ready&&LIC.grp?tile('✅',LIC.grp.length,'Groupes d’entraînement',`${S.gyms.filter(g=>!licGroupes(g.id).length).length} adhérent(s) sans groupe`,'pres','#e0f4fb','#0b6b85'):'',
+    ready&&LIC.grp?tile('✅',LIC.grp.length,'Groupes d’entraînement',`${S.gyms.filter(g=>needsGroup(g)&&!licGroupes(g.id).length).length} gymnaste(s) sans groupe`,'pres','#e0f4fb','#0b6b85'):'',
     tile('🏅',S.teams.length,'Équipes de compétition','','teams','#fde8f1','#a1245f')].join('');
   const items=[];
   if(ready){
@@ -2629,7 +2668,7 @@ function renderHome(){
     items.push(['Sans licence FFG ni UFOLEP',c(g=>!LIC_FEDS.some(f=>hasLic(g,f))),'lic:none']);
     items.push(['Contact manquant (parent ou licencié)',c(g=>licIssues(g).some(x=>x[0]==='contact')),'lic:todo']);
     if(licDocs()) items.push(['Santé : certificat ou questionnaire à régulariser',c(g=>licSante(g.id)!=='ok'),'lic:sante']);
-    if(LIC.grp) items.push(['Adhérents sans groupe d’entraînement',c(g=>!licGroupes(g.id).length),'lic:nogrp']);
+    if(LIC.grp) items.push(['Gymnastes sans groupe d’entraînement',c(g=>needsGroup(g)&&!licGroupes(g.id).length),'lic:nogrp']);
     if(money){ items.push(['Cotisations à régler',money.imp,'pay:sold']); if(money.tard) items.push([`Règlements en retard (${eur(money.tardMt)})`,money.tard,'pay:late']) }
   }
   const open=items.filter(x=>x[1]>0);
@@ -2800,7 +2839,7 @@ function renderStats(){
   const both=S.gyms.filter(g=>hasLic(g,'FFG')&&hasLic(g,'UFOLEP')).length, ff=S.gyms.filter(g=>hasLic(g,'FFG')).length-both, uu=S.gyms.filter(g=>hasLic(g,'UFOLEP')).length-both, none=S.gyms.filter(g=>!LIC_FEDS.some(f=>hasLic(g,f))).length;
   const fedRows=[['FFG seule',ff,'#5b5fc7'],['UFOLEP seule',uu,'#e5a823'],['Les deux fédérations',both,'#2fa56a'],['Sans licence',none,'#b9c1ca']].filter(r=>r[1]>0);
   const grpRows=LIC.grp?LIC.grp.map((x,i)=>[x.nom,S.gyms.filter(g=>LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)).length,BAR_COLORS[i%BAR_COLORS.length]]):[];
-  if(LIC.grp){ const sg=S.gyms.filter(g=>!licGroupes(g.id).length).length; if(sg) grpRows.push(['Sans groupe',sg,'#b9c1ca']) }
+  if(LIC.grp){ const sg=S.gyms.filter(g=>needsGroup(g)&&!licGroupes(g.id).length).length; if(sg) grpRows.push(['Sans groupe',sg,'#b9c1ca']) }
   const villes={}; S.gyms.forEach(g=>{ const v=((LIC.info[g.id]||{}).ville||'').trim().toUpperCase(); if(v) villes[v]=(villes[v]||0)+1 });
   const vilRows=Object.entries(villes).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,8).map(([v,k],i)=>[v,k,BAR_COLORS[i%BAR_COLORS.length]]);
   const eqRows=S.teams.slice().sort(byTeamName).map((t,i)=>[t.name,S.gyms.filter(g=>g.team===t.id).length,BAR_COLORS[i%BAR_COLORS.length]]);
