@@ -574,6 +574,10 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.wchg{color:var(--bad)}
+.flieu{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.flieu>label{font-size:12.5px;color:var(--muted)}
+.flieu input[name=l]{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-top:2px;font-size:14px;color:var(--ink)}
+.flp{display:grid;gap:4px;margin:8px 0}.flp .cbx{color:var(--ink);font-size:13px}
 .rgrid{min-width:820px}
 .rday{display:grid;grid-template-columns:96px 1fr;border-top:1px solid var(--line)}
 .rday.rhd{border-top:0}.rday.rhd .rtrack{min-height:22px;height:22px;cursor:default}.rday.rhd .rgn{min-height:0;padding:0}
@@ -2238,7 +2242,7 @@ const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
 const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
-const presNew=()=>({rot:[],ro:null,annul:[],sx:false,ent:[],ge:null,creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
+const presNew=()=>({ex:[],exo:false,rot:[],ro:null,annul:[],sx:false,ent:[],ge:null,creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
 let PRES=presNew();
 const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const presOnline=()=>navigator.onLine!==false;
@@ -2253,7 +2257,7 @@ const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom
 
 function presSave(){
   const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
-  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,lb:PRES.lb,rot:PRES.rot,ro:PRES.ro,rows,ts:PRES.ts});
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,lb:PRES.lb,rot:PRES.rot,ro:PRES.ro,ex:PRES.ex,exo:PRES.exo,rows,ts:PRES.ts});
   lsSet(presQK(),PRES.queue);
 }
 function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
@@ -2284,6 +2288,9 @@ async function presLoad(){
         sb.from('periodes_vacances').select('id,nom,debut,fin').eq('club_id',CLUB.id).eq('saison',SAISON)]);
       if(rc.error||rv.error) throw new Error('créneaux indisponibles'); PRES.creneaux=rc.data; PRES.vacances=rv.data; PRES.cr=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.creneaux=[]; PRES.vacances=[]; PRES.cr=false }
+    // lieux modifiés pour une séance : facultatif (script migration-lieux.sql)
+    try{ const rx=await sb.from('seances_exceptions').select('id,groupe_id,creneau_id,date,lieu').eq('club_id',CLUB.id); if(rx.error) throw new Error('exceptions indisponibles'); PRES.ex=rx.data; PRES.exo=true }
+    catch(e){ if(isNetErr(e)) throw e; PRES.ex=[]; PRES.exo=false }
     // rotations d'agrès : facultatif (script migration-rotations.sql)
     try{ const rr=await sb.from('rotations_agres').select('id,groupe_id,date,agres').eq('club_id',CLUB.id); if(rr.error) throw new Error('rotations indisponibles'); PRES.rot=rr.data; PRES.ro=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.rot=[]; PRES.ro=false }
@@ -2294,7 +2301,7 @@ async function presLoad(){
     PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
   }catch(e){
     const c=lsGet(presCK());
-    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.lb=c.lb||false; PRES.rot=c.rot||[]; PRES.ro=c.ro||false; PRES.map={};
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.lb=c.lb||false; PRES.rot=c.rot||[]; PRES.ro=c.ro||false; PRES.ex=c.ex||[]; PRES.exo=c.exo||false; PRES.map={};
       (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
       PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
     else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
@@ -2494,7 +2501,8 @@ function crDatesPick(c,ro){
   return `<summary class="dcks">📅 Dates : <b class="dckn">${n} sur ${ds.length}</b> <span class="dckt"></span></summary><div class="dckbox">${ds.map(d=>`<label class="dck"><input type="checkbox" name="cdt" value="${d}" ${c.id&&presAnnulOf(c.id,d)?'':'checked'} ${ro}> ${jr} ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}${ro?'':'<span class="hint dckh">Décoche les dates sans entraînement.</span>'}</div>`;
 }
 const crHours=c=>c.heure_debut?`${hhmm(c.heure_debut)}${c.heure_fin?' – '+hhmm(c.heure_fin):''}`:'';
-const crLieu=(c,g)=>c.lieu||(g&&g.lieu)||'';
+const presExOf=(cid,iso)=>iso?(PRES.ex||[]).find(x=>x.creneau_id===cid&&x.date===iso)||null:null;
+const crLieu=(c,g,iso)=>{ const x=c&&presExOf(c.id,iso); return (x&&x.lieu)||c.lieu||(g&&g.lieu)||'' };
 
 /* ---- entraîneurs des groupes ---- */
 const presCoachs=gid=>(PRES.ent||[]).filter(e=>e.groupe_id===gid).map(e=>S.gyms.find(g=>g.id===e.licencie_id)).filter(Boolean).sort(byName);
@@ -2520,7 +2528,7 @@ document.addEventListener('change',ev=>{
 
 function presSessionHtml(gid,iso){
   const g=PRES.groupes.find(x=>x.id===gid), cs=presSessionOn(gid,iso), v=vacOf(iso);
-  return cs.map(c=>`<div class="psess">${crLib(c)?`★ <b>${esc(crLib(c))}</b> · `:''}🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
+  return cs.map(c=>`<div class="psess">${crLib(c)?`★ <b>${esc(crLib(c))}</b> · `:''}🗓 <b>${esc(longDate(iso))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g,iso)?` · 📍 ${esc(crLieu(c,g,iso))}`:''}${v?` <span class="lb warn">Vacances : ${esc(v.nom)}</span>`:''}</div>`).join('');
 }
 function presNoSessionHtml(gid,iso){
   const has=presCrOf(gid).length, prev=presNextSession(gid,iso,-1), next=presNextSession(gid,iso,1), v=vacOf(iso);
@@ -2665,14 +2673,19 @@ function popOpen(html,anchor,cls){
 }
 function wkMenu(gid,iso,cid,anchor){
   const g=PRES.groupes.find(x=>x.id===gid), c=PRES.creneaux.find(x=>x.id===cid)||presSlotsOn(gid,iso).find(x=>x.id===cid); if(!g||!c) return;
-  const an=presAnnulOf(cid,iso), ed=presEdit(), lieu=crLieu(c,g), v=vacOf(iso), co=presCoachs(gid);
+  const an=presAnnulOf(cid,iso), ed=presEdit(), lieu=crLieu(c,g,iso), v=vacOf(iso), co=presCoachs(gid), exl=presExOf(cid,iso);
   popOpen(`<div class="wph"><b>${crLib(c)?esc(crLib(c))+' · ':''}${esc(g.nom)}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
-    <div>${esc(longDate(iso))}${crHours(c)?' · '+esc(crHours(c)):''}</div>${lieu?`<div>📍 ${esc(lieu)}</div>`:''}${co.length?`<div>👤 ${esc(co.map(gymName).join(', '))}</div>`:''}
+    <div>${esc(longDate(iso))}${crHours(c)?' · '+esc(crHours(c)):''}</div>${lieu?`<div>📍 ${esc(lieu)}${exl?' <span class="lb warn">lieu modifié ce jour-là</span>':''}</div>`:''}${co.length?`<div>👤 ${esc(co.map(gymName).join(', '))}</div>`:''}
     <div class="hint">${c.type==='ponctuel'?'Séance ponctuelle':c.type==='vacances'?'Créneau de vacances'+(v?' ('+esc(v.nom)+')':''):'Entraînement de la saison'}${an?' · <b style="color:var(--bad)">annulée ce jour-là</b>':''}</div>
     <div class="quick" style="margin-top:10px">${an?'':`<button type="button" class="btn sm primary" data-week-go="${gid}|${iso}">✅ Pointer</button>`}
       ${ed&&PRES.sx?(an?`<button type="button" class="btn sm" data-wp="restore" data-k="${gid}|${iso}|${cid}">↩ Rétablir la séance</button>`
         :c.type==='ponctuel'?`<button type="button" class="btn sm" data-wp="delete" data-k="${gid}|${iso}|${cid}">🗑 Supprimer cette séance</button>`
-        :`<button type="button" class="btn sm" data-wp="cancel" data-k="${gid}|${iso}|${cid}">🚫 Annuler cette séance (ce jour-là seulement)</button>`):''}</div>
+        :`<button type="button" class="btn sm" data-wp="cancel" data-k="${gid}|${iso}|${cid}">🚫 Annuler cette séance (ce jour-là seulement)</button>`):''}
+      ${ed&&!an&&PRES.cr?`<button type="button" class="btn sm" data-wp="lieu" data-k="${gid}|${iso}|${cid}">📍 Changer le lieu</button>`:''}</div>
+    <form id="fLieu" data-k="${gid}|${iso}|${cid}" hidden autocomplete="off" class="flieu"><label>Nouveau lieu<input name="l" list="lieuxList" value="${esc(lieu)}" required></label>
+      <div class="flp">${c.type==='ponctuel'?'<input type="hidden" name="p" value="tout">':`${PRES.exo?`<label class="cbx"><input type="radio" name="p" value="jour" checked> Ce jour-là seulement (${esc(longDate(iso))})</label>`:''}<label class="cbx"><input type="radio" name="p" value="tout" ${PRES.exo?'':'checked'}> Toutes les séances de ce créneau (${c.type==='vacances'?'pendant les vacances':'chaque '+esc(PRES_JOURS[c.jour].toLowerCase())})</label>`}</div>
+      ${exl?`<button type="button" class="btn sm ghost" data-wp="lieuraz" data-k="${gid}|${iso}|${cid}">↩ Revenir au lieu habituel ce jour-là</button>`:''}
+      <div class="quick" style="margin-top:6px"><button class="btn sm primary" type="submit">Enregistrer le lieu</button></div>${document.getElementById('lieuxList')?'':lieuxDatalist()}</form>
     ${ed&&!PRES.sx?'<div class="hint" style="margin-top:6px">Pour annuler une séance, exécute le script <b>migration-seances.sql</b> dans Supabase.</div>':''}`,anchor);
 }
 function wkAddForm(anchor){
@@ -2688,13 +2701,15 @@ function wkAddForm(anchor){
 }
 async function wkAct(act,k){
   const [gid,iso,cid]=k.split('|');
+  if(act==='lieu'){ const f=document.getElementById('fLieu'); if(f){ f.hidden=!f.hidden; if(!f.hidden) f.elements.l.select() } return }
   if(!presOnline()){ toast('Connexion nécessaire'); return }
   try{
     if(act==='cancel') chk(await sb.from('seances_annulees').upsert({club_id:CLUB.id,groupe_id:gid,creneau_id:cid,date:iso},{onConflict:'creneau_id,date'}));
     if(act==='restore') chk(await sb.from('seances_annulees').delete().eq('creneau_id',cid).eq('date',iso));
     if(act==='delete'){ if(!confirm('Supprimer cette séance ponctuelle ?')) return; chk(await sb.from('groupe_creneaux').delete().eq('id',cid)) }
+    if(act==='lieuraz') chk(await sb.from('seances_exceptions').delete().eq('creneau_id',cid).eq('date',iso));
     popClose(); PRES.loaded=false; await presLoad(); renderMain();
-    toast(act==='cancel'?'Séance annulée':act==='restore'?'Séance rétablie':'Séance supprimée');
+    toast(act==='cancel'?'Séance annulée':act==='restore'?'Séance rétablie':act==='lieuraz'?'Lieu habituel rétabli':'Séance supprimée');
   }catch(e){ toast('Erreur : '+e.message) }
 }
 document.addEventListener('click',ev=>{
@@ -2708,6 +2723,23 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') popClose() });
 document.addEventListener('change',ev=>{ if(ev.target.id==='wkShowAnnul'){ UI.showAnnul=ev.target.checked; renderMain() } if(ev.target.id==='listDates'){ UI.listDates=ev.target.checked; renderMain() } });
+document.addEventListener('submit',async ev=>{
+  if(ev.target.id!=='fLieu') return; ev.preventDefault();
+  const f=ev.target, [gid,iso,cid]=f.dataset.k.split('|'), l=f.elements.l.value.trim(), p=(f.querySelector('[name=p]:checked')||f.querySelector('[name=p]')||{}).value||'tout';
+  if(!l){ toast('Indique le lieu'); return }
+  if(!presOnline()){ toast('Connexion nécessaire'); return }
+  const g=PRES.groupes.find(x=>x.id===gid), cr=PRES.creneaux.find(x=>x.id===cid);
+  try{
+    if(p==='jour'){
+      if(norm(l)===norm((cr&&cr.lieu)||(g&&g.lieu)||'')) chk(await sb.from('seances_exceptions').delete().eq('creneau_id',cid).eq('date',iso));
+      else chk(await sb.from('seances_exceptions').upsert({club_id:CLUB.id,groupe_id:gid,creneau_id:cid,date:iso,lieu:l},{onConflict:'creneau_id,date'}));
+    } else {
+      const r=await sb.from('groupe_creneaux').update({lieu:g&&norm(l)===norm(g.lieu||'')?null:l}).eq('id',cid).eq('club_id',CLUB.id).select('id'); chk(r);
+      if(!r.data.length) throw new Error('modification refusée');
+    }
+    popClose(); PRES.loaded=false; await presLoad(); renderMain(); toast(p==='jour'?'Lieu modifié pour cette séance':'Lieu modifié pour toutes les séances de ce créneau');
+  }catch(e){ toast('Erreur : '+e.message) }
+});
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fWkAdd') return; ev.preventDefault();
   const f=ev.target, v=n=>(f.elements[n]?f.elements[n].value||'':'').trim(), dt=v('d');
@@ -2740,7 +2772,7 @@ function rotTimeline(gid,iso,list){
 function rotConflicts(iso){
   const out={}, rows=PRES.groupes.map(g=>({g,c:rotSess(g.id,iso),tl:rotTimeline(g.id,iso)})).filter(x=>x.c&&x.tl.length);
   for(let i=0;i<rows.length;i++) for(let j=i+1;j<rows.length;j++){
-    const A=rows[i], B=rows[j], la=norm(crLieu(A.c,A.g)), lb=norm(crLieu(B.c,B.g)); if(la!==lb) continue;
+    const A=rows[i], B=rows[j], la=norm(crLieu(A.c,A.g,iso)), lb=norm(crLieu(B.c,B.g,iso)); if(la!==lb) continue;
     A.tl.forEach((x,ia)=>{ if(!rotA(x.a)[5]||x.s==null) return; B.tl.forEach((y,ib)=>{ if(y.a!==x.a||y.s==null) return;
       if(x.s<y.e&&y.s<x.e){ (out[A.g.id+'|'+ia]=out[A.g.id+'|'+ia]||[]).push(`${B.g.nom} (${m2hm(y.s)}–${m2hm(y.e)})`); (out[B.g.id+'|'+ib]=out[B.g.id+'|'+ib]||[]).push(`${A.g.nom} (${m2hm(x.s)}–${m2hm(x.e)})`) } }) });
   }
@@ -2766,7 +2798,7 @@ function presRotHtml(){
   t0-=10; t1+=10; const span=t1-t0, pc=m=>((m-t0)/span*100).toFixed(3)+'%', pw=m=>(m/span*100).toFixed(3)+'%';
   const grid=hours.map(h=>`<i class="wline ${h%60?'half':''}" style="left:${pc(h)}"></i>`).join('');
   const row=(d,{g,c},cf)=>{
-    const a=hm2min(c.heure_debut), b=hm2min(c.heure_fin), tl=rotTimeline(g.id,d), tot=tl.reduce((s,x)=>s+x.m,0), dur=a!=null&&b!=null?b-a:0, lieu=crLieu(c,g);
+    const a=hm2min(c.heure_debut), b=hm2min(c.heure_fin), tl=rotTimeline(g.id,d), tot=tl.reduce((s,x)=>s+x.m,0), dur=a!=null&&b!=null?b-a:0, lieu=crLieu(c,g,d);
     const segs=tl.filter(x=>x.s!=null&&x.m>0).map((x,i)=>{ const A=rotA(x.a), k=cf[g.id+'|'+tl.indexOf(x)];
       return `<span class="rseg ${k?'rconf':''}" style="left:${pc(x.s)};width:calc(${pw(x.m)} - 2px);background:${A[3]};color:${A[4]};border-color:${A[4]}" title="${esc(`${A[1]} · ${m2hm(x.s)}–${m2hm(x.e)} · ${x.m} min${k?' · ⚠ même agrès au même moment que '+k.join(', '):''}`)}"><b>${esc(x.m>=25?A[1].replace('Barres asymétriques','Barres').replace('Préparation physique','Prépa'):A[2])}</b><span>${x.m}′${k?' ⚠':''}</span></span>` }).join('');
     return `<div class="rrw"><div class="rgn"><b>${esc(g.nom)}</b><span>${esc(crHours(c))}${lieu?' · '+esc(lieu):''}</span>${tl.length&&dur>0?`<span class="rtot ${tot>dur?'rover':tot<dur?'runder':''}">${tot} / ${dur} min</span>`:''}</div>
@@ -2790,11 +2822,11 @@ function rotEdit(gid,iso,anchor){
   const g=PRES.groupes.find(x=>x.id===gid), c=rotSess(gid,iso); if(!g||!c) return;
   const r=rotOf(gid,iso), list=r?r.agres:[], ro=!presEdit(), dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0);
   if(ro){ const tl=rotTimeline(gid,iso);
-    popOpen(`<div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div><div class="hint">${esc(crHours(c))}${crLieu(c,g)?' · 📍 '+esc(crLieu(c,g)):''}</div>
+    popOpen(`<div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div><div class="hint">${esc(crHours(c))}${crLieu(c,g,iso)?' · 📍 '+esc(crLieu(c,g,iso)):''}</div>
       ${tl.map(x=>`<div>${x.s!=null?m2hm(x.s)+' – '+m2hm(x.e)+' · ':''}<b>${esc(rotA(x.a)[1])}</b> (${x.m} min)</div>`).join('')||'<div class="hint">Pas de rotation définie.</div>'}`,anchor); return }
   const same=[...Array(28)].map((_,i)=>addDays(mondayOf(iso),i)).filter(d=>d!==iso&&d>=isoToday()&&presSessionOn(gid,d).length);
   popOpen(`<form id="fRot" data-k="${gid}|${iso}" autocomplete="off"><div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
-    <div class="hint" style="margin-bottom:6px">Séance ${esc(crHours(c))}${crLieu(c,g)?' · 📍 '+esc(crLieu(c,g)):''}${dur>0?` · ${dur} min`:''}</div>
+    <div class="hint" style="margin-bottom:6px">Séance ${esc(crHours(c))}${crLieu(c,g,iso)?' · 📍 '+esc(crLieu(c,g,iso)):''}${dur>0?` · ${dur} min`:''}</div>
     <div id="rRows">${list.map(rotRowHtml).join('')}</div>
     <div class="quick" style="margin:6px 0"><button type="button" class="btn sm" data-radd="1">+ Ajouter un agrès</button><button type="button" class="btn sm" data-rfill="1" title="Saut, barres, poutre et sol à parts égales sur la durée de la séance">4 agrès à parts égales</button></div>
     <div id="rTot" class="rtotl"></div>
@@ -2860,11 +2892,11 @@ function presWeekHtml(){
     const tl=list.filter(x=>x.a!=null).sort((x,y)=>x.a-y.a), lanes=[];
     tl.forEach(x=>{ const e=x.b!=null?x.b:x.a+60; let k=lanes.findIndex(end=>end<=x.a); if(k<0){ k=lanes.length; lanes.push(e) } else lanes[k]=e; x.lane=k });
     const nl=Math.max(1,lanes.length), v=vacOf(d), none=list.filter(x=>x.a==null);
-    const blk=x=>{ const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g), n=presMembers(x.g.id).length;
+    const blk=x=>{ const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g,d), n=presMembers(x.g.id).length, chg=!!presExOf(x.c.id,d);
       const rgt=x.a>t0+span*0.55;
       return `<button type="button" class="wblk ${rgt?'wr':''} ${x.off?'woff':''} ${x.c.type==='ponctuel'?'wpon':''}" data-wk="${x.g.id}|${d}|${x.c.id}" style="${rgt?`--rgt:${(100-(e-t0)/span*100).toFixed(3)}%;`:''}left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
         title="${esc(`${crLib(x.c)?crLib(x.c)+' · ':''}${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
-        <span class="wl1">${x.off?'🚫 ':x.c.type==='ponctuel'?'★ ':''}${crLib(x.c)?`<b>${esc(crLib(x.c))}</b> · ${esc(x.g.nom)}`:`<b>${esc(x.g.nom)}</b>`} · ${esc(crHours(x.c))}${lieu?` · 📍 ${esc(lieu)}`:''}</span>${x.off?'<span class="wl2">Séance annulée</span>':co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
+        <span class="wl1">${x.off?'🚫 ':x.c.type==='ponctuel'?'★ ':''}${crLib(x.c)?`<b>${esc(crLib(x.c))}</b> · ${esc(x.g.nom)}`:`<b>${esc(x.g.nom)}</b>`} · ${esc(crHours(x.c))}${lieu?` · ${chg?'<b class="wchg" title="Lieu modifié pour cette séance">📍 '+esc(lieu)+'</b>':'📍 '+esc(lieu)}`:''}</span>${x.off?'<span class="wl2">Séance annulée</span>':co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
     return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
       <div class="wtrack" style="--n:${nl}">${hours.map(h=>`<i class="wline" style="left:${pc(h)}"></i>`).join('')}${tl.map(blk).join('')}
         ${!list.length?`<span class="wnone">${v?'Vacances : pas d’entraînement':'—'}</span>`:''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
