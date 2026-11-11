@@ -572,6 +572,24 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
   .dash,.statg{grid-template-columns:1fr}
   .hello h2{font-size:22px}
 }
+
+/* adhérents et groupes */
+.addc summary{cursor:pointer;list-style:none;color:var(--accent-ink)}.addc summary::-webkit-details-marker{display:none}
+.addc[open] summary{margin-bottom:2px}
+.rsel{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:inherit}
+.rsel span{min-width:0}
+.ltb select{max-width:170px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff}
+.ccell.todo select{border-color:#e0a030;background:#fff7e6}
+.dayh{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:20px 0 8px}
+.gplan{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-items:start}
+.gcard h3{margin:0 0 2px;font-size:16px}
+.gwhen{color:var(--accent-ink);font-size:13.5px}
+.gch .btn{white-space:nowrap;flex:none}
+.gch{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.gmem{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.gchip{border:0;padding:3px 10px;cursor:pointer;font-size:12.5px}
+.gchip:hover{filter:brightness(.95);text-decoration:underline}
+@media (max-width:700px){.gplan{grid-template-columns:1fr}.ltb select{max-width:130px}}
 </style>
 </head>
 <body>
@@ -991,6 +1009,8 @@ function renderManage(){
   renderManageTable();
 }
 function renderManageTable(){
+  const lt=document.getElementById('licTable');
+  if(lt){ lt.innerHTML=licTableHtml(); const cn=document.getElementById('mCounts'); if(cn) cn.innerHTML=compCounts(); const lc=document.getElementById('licCounts'); if(lc&&LIC.loaded&&!LIC.err) lc.innerHTML=licCountsHtml(); return }
   const el=document.getElementById('mTable'); if(!el) return;
   const q=norm(UI.mq), f=UI.mcomp||'';
   const match=g=>!f||(f==='todo'?!g.compet:f==='team'?teamOk(g):f==='ind'?indOk(g):g.compet==='aucune');
@@ -1298,7 +1318,7 @@ document.addEventListener('change',ev=>{
   const t=ev.target;
   if(t.dataset.bon){ routine(UI.gym,UI.tab).ov[t.dataset.bon]=t.checked; render(); return }
   if(t.dataset.vault){ routine(UI.gym,'saut')[t.dataset.vault]=t.value||null; render(); return }
-  if(t.dataset.mf){ const g=S.gyms.find(x=>x.id===t.dataset.gid); const v=t.value.trim(); if(t.dataset.mf==='prenom'&&!v){ t.value=g.prenom; return } g[t.dataset.mf]=v; renderSideList(); save(); return }
+  if(t.dataset.mf){ const g=S.gyms.find(x=>x.id===t.dataset.gid); const v=t.value.trim(); if(t.dataset.mf==='prenom'&&!v){ t.value=g.prenom; return } g[t.dataset.mf]=v; renderSideList(); save(); renderManageTable(); return }
   if(t.dataset.mteam){ S.gyms.find(x=>x.id===t.dataset.mteam).team=t.value||null; renderSideList(); renderManageTable(); save(); return }
   if(t.dataset.selg){ if(t.checked) UI.sel[t.dataset.selg]=1; else delete UI.sel[t.dataset.selg]; renderManageTable(); return }
   if(t.id==='selAll'){ document.querySelectorAll('[data-selg]').forEach(c=>{ if(t.checked) UI.sel[c.dataset.selg]=1; else delete UI.sel[c.dataset.selg] }); renderManageTable(); return }
@@ -1328,7 +1348,7 @@ document.addEventListener('submit',ev=>{
   ev.preventDefault(); const f=ev.target, v=n=>(f.elements[n]?.value||'').trim();
   if(f.id==='fTeam'){ S.teams.push({id:uid(),name:v('n')}); render(); }
   if(f.id==='fGym'){ const g={id:uid(),prenom:v('p'),nom:v('n'),naissance:v('a'),compet:compFromBox(f.elements['ce'].checked,f.elements['ci'].checked,f.elements['ca'].checked),team:null}; S.gyms.push(g); UI.lastComp=g.compet;
-    if(UI.view==='manage'){ render(); toast(gymName(g)+' ajoutée'); document.querySelector('#fGym [name=p]')?.focus(); }
+    if(UI.view==='manage'||UI.view==='lic'){ render(); toast(gymName(g)+' ajouté'); document.querySelector('#fGym [name=p]')?.focus(); }
     else { UI.gym=g.id; UI.view='gym'; if(UI.tab==='fiche')UI.tab='barres'; render(); } }
 });
 /* glisser-déposer */
@@ -1416,6 +1436,7 @@ function navBarOld(){
   return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['pres','✅ Présences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>{ const [ic,...tx]=l.split(' '); return `<button class="tab ${act===k?'on':''}" data-nav="${k}"><span class="nti">${ic}</span><span class="ntl">${tx.join(' ')}</span></button>` }).join('')}</div>`;
 }
 function renderMain(){
+  if(UI.view==='manage') UI.view='lic';
   paintNav();
   const m=document.getElementById('main');
   if(UI.view==='home'){ m.innerHTML=renderHome(); return }
@@ -1534,7 +1555,7 @@ function indivBlock(g,rank){
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('[data-nav],[data-sum],[data-eqdel],[data-eqrm]'); if(!t) return; const d=t.dataset;
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
-    UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav;
+    UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav==='manage' ? 'lic' : d.nav;
     if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
     render(); return }
   if(d.sum){ UI.sum=d.sum; render(); return }
@@ -1611,9 +1632,9 @@ document.addEventListener('change',ev=>{
 
 /* ================= v6 : compétition choisie par gymnaste (équipe / individuel / les deux / aucune) ================= */
 const compNote=()=>{ const td=nTodo(), no=S.gyms.filter(g=>g.compet && !teamOk(g)).length;
-  return (td||no)?`<div class="hint" style="margin-bottom:12px">Seules les gymnastes inscrites en <b>compétition équipe</b> sont proposées ici.${td?` <b>${td}</b> gymnaste(s) n'ont pas encore de compétition choisie`:''}${td&&no?' et ':(no?' ':'')}${no?`<b>${no}</b> ne font pas d'équipe`:''}${td||no?' : voir l\'onglet <button class="btn sm" data-nav="manage">👥 Gymnastes</button>.':''}</div>`:'' };
+  return (td||no)?`<div class="hint" style="margin-bottom:12px">Seules les gymnastes inscrites en <b>compétition équipe</b> sont proposées ici.${td?` <b>${td}</b> gymnaste(s) n'ont pas encore de compétition choisie`:''}${td&&no?' et ':(no?' ':'')}${no?`<b>${no}</b> ne font pas d'équipe`:''}${td||no?' : voir l\'onglet <button class="btn sm" data-nav="lic">👥 Adhérents</button>.':''}</div>`:'' };
 const indNote=()=>{ const td=nTodo(), sans=S.gyms.filter(g=>!indOk(g)&&mvDone(g)>0).length;
-  return (td||sans)?`<div class="hint" style="margin-top:6px">Seules les gymnastes inscrites en <b>compétition individuelle</b> sont listées.${sans?` ${sans} gymnaste(s) avec mouvement n'y sont pas inscrites.`:''}${td?` ${td} sans compétition choisie.`:''} Réglage dans l'onglet <button class="btn sm" data-nav="manage">👥 Gymnastes</button>.</div>`:'' };
+  return (td||sans)?`<div class="hint" style="margin-top:6px">Seules les gymnastes inscrites en <b>compétition individuelle</b> sont listées.${sans?` ${sans} gymnaste(s) avec mouvement n'y sont pas inscrites.`:''}${td?` ${td} sans compétition choisie.`:''} Réglage dans l'onglet <button class="btn sm" data-nav="lic">👥 Adhérents</button>.</div>`:'' };
 /* une gymnaste en équipe fait forcément la compétition équipe */
 const _renderMain6=renderMain;
 renderMain=function(){
@@ -1760,38 +1781,45 @@ async function loadLic(){
 function licCountsHtml(){
   const n=f=>S.gyms.filter(f).length, has=(g,f)=>!!licOf(g.id,f);
   const sans=n(g=>!LIC_FEDS.some(f=>has(g,f))), td=n(g=>licIssues(g).length), ar=licPay()&&LIC.cot!==null?n(g=>licSolde(g.id).st!=='paye'):0;
-  return `<span class="cc">Licenciés <b>${S.gyms.length}</b></span><span class="cc">FFG <b>${n(g=>has(g,'FFG'))}</b></span><span class="cc">UFOLEP <b>${n(g=>has(g,'UFOLEP'))}</b></span>`
+  return `<span class="cc">Adhérents <b>${S.gyms.length}</b></span><span class="cc">FFG <b>${n(g=>has(g,'FFG'))}</b></span><span class="cc">UFOLEP <b>${n(g=>has(g,'UFOLEP'))}</b></span>`
    +`<span class="cc">Les deux <b>${n(g=>has(g,'FFG')&&has(g,'UFOLEP'))}</b></span><span class="cc ${sans?'todo':''}">Sans licence <b>${sans}</b></span>`
    +(licPay()&&LIC.cot!==null?`<span class="cc ${ar?'todo':''}">Cotisation à régler <b>${ar}</b></span>`:'')
    +`<span class="cc ${td?'todo':''}">Dossiers à traiter <b>${td}</b></span>`;
 }
 
 function licTableHtml(){
-  const q=norm(LIC.q), f=LIC.f;
-  const m=g=>!f||(f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
+  const q=norm(LIC.q), f=LIC.f, full=LIC.loaded&&!LIC.err;
+  for(const id in UI.sel) if(!S.gyms.some(g=>g.id===id)) delete UI.sel[id];
+  const m=g=>!f||(f==='ctodo'?!g.compet:f==='cteam'?teamOk(g):f==='cind'?indOk(g):f==='cnone'?g.compet==='aucune':!full?true:
+    f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
   const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
-  const fed=(g,fd)=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}">${esc(x.numero||'✓')}</span>`:`<span class="lb no">—</span>` };
-  const dc=licDocs(), pc=licPay()&&LIC.cot!==null;
+  const dc=full&&licDocs(), pc=full&&licPay()&&LIC.cot!==null, gc=full&&LIC.grp;
+  const nSel=Object.keys(UI.sel).length, allOn=list.length&&list.every(g=>UI.sel[g.id]);
+  const bar=nSel?`<div class="bulk"><b>${nSel} sélectionné(s)</b> → compétition <select id="bulkComp">${compOpts('','— Choisir —')}</select><button class="btn sm primary" id="bBulkC">Appliquer</button>`
+    +(gc&&licEdit()&&LIC.grp.length?` · groupe <select id="bulkGrp"><option value="">— Choisir —</option>${LIC.grp.map(x=>`<option value="${x.id}">${esc(presGLabel(x))}</option>`).join('')}</select><button class="btn sm primary" data-lic-bulkgrp="add">Inscrire</button><button class="btn sm" data-lic-bulkgrp="rm">Retirer</button>`:'')
+    +` <button class="btn sm" id="bBulkNone">Désélectionner</button></div>`:'';
   const rows=list.map(g=>{
-    const is=licIssues(g), c=LIC.info[g.id]||{}, hasC=!!(c.parent_email||c.telephone_urgence||c.email||c.telephone), ins=inscOf(g.id);
+    const is=full?licIssues(g):[], ins=full?inscOf(g.id):null;
     const med=ins&&(ins.infos_medicales||ins.mdph)?' <span class="medflag" title="Renseignements médicaux ou dossier MDPH dans la fiche">🩺</span>':'';
     const s=pc?licSolde(g.id):null;
+    const feds=LIC_FEDS.map(fd=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}${x.numero?' n° '+esc(x.numero):''}">${fd}</span>`:'' }).join(' ')||'<span class="lb no">Aucune</span>';
     return `<tr class="${LIC.open===g.id?'sel':''}">
-      <td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}</td><td>${esc(yr(g))}</td><td>${fed(g,'FFG')}</td><td>${fed(g,'UFOLEP')}</td>
-      ${LIC.grp?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
-      ${dc?`<td>${stBadge(licSante(g.id))}</td><td>${stBadge(docState(docOf(g.id,'autorisation_parentale')))}</td>`:''}
+      <td><label class="rsel"><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''} aria-label="Sélectionner"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}</span></label></td><td>${esc(yr(g))}</td>
+      <td class="ccell ${g.compet?'':'todo'}"><select data-compsel="${g.id}" aria-label="Compétition">${compOpts(g.compet,'— À choisir —')}</select></td>
+      ${full?`<td>${feds}</td>`:''}
+      ${gc?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
+      ${dc?`<td>${stBadge(licSante(g.id))}</td>`:''}
       ${pc?`<td><span class="lb ${PAY_CLASS[s.st]}" title="Dû ${eur(s.du)} · prévu ${eur(s.prevu)} · encaissé ${eur(s.enc)}">${PAY_TXT(s)}</span></td>`:''}
-      <td>${hasC?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Manquant</span>'}</td>
-      <td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>
-      <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Ouvrir'}</button></td></tr>`}).join('');
-  return `<div class="ltwrap"><table class="ltb"><thead><tr><th>Licencié</th><th>Naissance</th><th>FFG</th><th>UFOLEP</th>${LIC.grp?'<th>Groupes</th>':''}${dc?'<th>Santé</th><th>Autorisation parentale</th>':''}${pc?'<th>Cotisation</th>':''}<th>Contact</th><th>Dossier</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-    +(list.length?'':'<div class="empty">Aucun licencié ne correspond.</div>');
+      ${full?`<td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>`:''}
+      <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Fiche'}</button> <button class="btn sm" data-gym="${g.id}" title="Composer les mouvements">✏️</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer l’adhérent">✕</button>`:''}</td></tr>`}).join('');
+  return bar+`<div class="ltwrap"><table class="ltb"><thead><tr><th><label class="rsel"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"><span>Adhérent</span></label></th><th>Naissance</th><th>Compétition</th>${full?'<th>Licences</th>':''}${gc?'<th>Groupes</th>':''}${dc?'<th>Santé</th>':''}${pc?'<th>Cotisation</th>':''}${full?'<th>Dossier</th>':''}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+    +(list.length?'':'<div class="empty">Aucun adhérent ne correspond.</div>');
 }
 
 function groupesFiche(g,ro){
   if(!LIC.grp) return `<h4>Groupes d’entraînement</h4><div class="hint">Disponible après l’exécution du script <b>migration-presences.sql</b> dans Supabase.</div>`;
-  if(!LIC.grp.length) return `<h4>Groupes d’entraînement</h4><div class="hint">Aucun groupe pour la saison ${SAISON} : créez-les dans l’onglet Présences, puis affectez ici chaque licencié.</div>`;
+  if(!LIC.grp.length) return `<h4>Groupes d’entraînement</h4><div class="hint">Aucun groupe pour la saison ${SAISON} : créez-les dans l’onglet Groupes, puis inscrivez ici chaque adhérent.</div>`;
   return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem">${LIC.grp.map(x=>`<label class="cbx"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> ${esc(presGLabel(x))}</label>${x.lien_whatsapp&&LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?` <a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 Groupe WhatsApp</a>`:''}`).join('')}</div>`;
 }
 
@@ -1822,6 +1850,8 @@ function licFicheHtml(){
   const call=calls.length?`<div class="lcall">${calls.map(([l,n])=>`<a class="btn sm" href="tel:${esc(String(n).replace(/[^+\d]/g,''))}">📞 ${l} · ${esc(n)}</a>${waNum(n)?`<a class="btn sm wa" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" title="Écrire à ${l} sur WhatsApp" aria-label="WhatsApp ${l}">💬</a>`:''}`).join('')}</div>`:'';
   const urg=k=>`${inp('urgence'+k+'_nom','Nom et prénom')}${inp('urgence'+k+'_tel','Téléphone','tel')}${inp('urgence'+k+'_lien','Lien avec l’enfant')}`;
   const panId=`${call}
+    <h4>État civil</h4><div class="lgrid"><label>Nom<input data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}" ${ro}></label><label>Prénom<input data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}" ${ro}></label><label>Date de naissance<input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}" ${ro}></label></div>
+    <h4>Compétition</h4><div class="cboxes">${ro?`<span class="lb no">${esc(compLabel(g.compet)||'À choisir')}</span>`:compBoxes(g,`data-ccg="${g.id}"`)}</div>
     <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
     <h4>Identité et coordonnées</h4><div class="lgrid">${LIC.ext?sel('sexe','Sexe',[['F','Féminin'],['M','Masculin']]):''}${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>`;
   const panFam=`<h4>Autorité parentale</h4><div class="lgrid">${LIC.ext?sel('responsable_lien','Le responsable est',[['pere','Père'],['mere','Mère'],['tuteur','Tuteur ou tutrice']]):''}${inp('responsable_legal','Nom et prénom du responsable')}${inp('telephone_urgence','Téléphone du responsable','tel')}${inp('parent_email','Mail du responsable','email')}</div>
@@ -1857,7 +1887,7 @@ function licFicheHtml(){
     <div class="lhead big"><div class="avatar" aria-hidden="true">${esc(((g.prenom||'')[0]||'')+((g.nom||'')[0]||'')).toUpperCase()||'?'}</div>
       <div class="lt"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3>
         <div class="lsub">${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
-      <button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
+      <button type="button" class="btn sm" data-gym="${g.id}" title="Composer les mouvements de cet adhérent">✏️ Mouvements</button><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
     <div class="tabs ltabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${LIC.ftab===k?'on':''}" data-lic-ftab="${k}">${l}</button>`).join('')}</div>
     <div class="lpanel" data-p="id"${pn('id')}>${panId}</div>
     <div class="lpanel" data-p="fam"${pn('fam')}>${panFam}</div>
@@ -1872,15 +1902,28 @@ function licFicheHtml(){
 function renderLic(){
   if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id }
   if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(UI.view==='lic') renderMain() });
-  const head=`<div class="gymhead"><div><h2 class="name">Licences et dossiers d’inscription</h2><div class="meta">Saison ${SAISON} · FFG et UFOLEP · tous les licenciés ne sont pas dans les deux fédérations</div></div><div style="flex:1"></div><button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
-  if(!LIC.loaded) return head+'<div class="empty">Chargement…</div>';
-  if(LIC.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ Les données de licences ne sont pas accessibles : exécute le script <b>migration-licences.sql</b> dans Supabase (SQL Editor), puis clique sur « Actualiser ».<br><span class="hint">Détail : ${esc(LIC.err)}</span></div>`;
-  const ext=!LIC.ext?`<div class="warn" style="margin-bottom:12px">Les annexes du club (inscription, autorisations, cotisation) seront disponibles après l’exécution du script <b>migration-inscriptions.sql</b> dans Supabase.</div>`:'';
-  return head+ext+`<div class="ccount" id="licCounts">${licCountsHtml()}</div>
-    <div id="licFicheBox">${licFicheHtml()}</div>
-    <div class="card"><h3>Tous les licenciés</h3>
+  const full=LIC.loaded&&!LIC.err;
+  const head=`<div class="gymhead"><div><h2 class="name">Adhérents</h2><div class="meta">Saison ${SAISON} · ${S.gyms.length} adhérent(s) · licences FFG et UFOLEP, dossier d’inscription, groupes et compétition</div></div><div style="flex:1"></div><button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
+  const warnC=!HASCOMP?`<div class="warn" style="margin-bottom:12px">⚠ La base n'a pas encore la colonne « competition » : exécute le script <b>migration-competition.sql</b> dans Supabase, sinon le choix de compétition ne sera pas enregistré.</div>`:'';
+  const state=!LIC.loaded?'<div class="hint" style="margin-bottom:10px">Chargement des licences…</div>'
+    :LIC.err?`<div class="warn" style="margin-bottom:12px">⚠ Les données de licences ne sont pas accessibles : exécute le script <b>migration-licences.sql</b> dans Supabase (SQL Editor), puis clique sur « Actualiser ».<br><span class="hint">Détail : ${esc(LIC.err)}</span></div>`
+    :!LIC.ext?`<div class="warn" style="margin-bottom:12px">Les annexes du club (inscription, autorisations, cotisation) seront disponibles après l’exécution du script <b>migration-inscriptions.sql</b> dans Supabase.</div>`:'';
+  const addCard=`<details class="card addc" id="addAdh" style="margin-bottom:16px" ${UI.addOpen?'open':''}><summary><b>＋ Ajouter un adhérent</b></summary><div style="margin-top:10px">
+    <form class="inl" id="fGym">
+      <label>Prénom<input name="p" required autocomplete="off"></label>
+      <label>Nom<input name="n" autocomplete="off"></label>
+      <label>Date de naissance<input name="a" type="date"></label>
+      <div class="cboxes"><span class="lbl">Compétition</span>${compBoxes({compet:UI.lastComp||''},'data-ccf="1"',{equipe:'ce',indiv:'ci',aucune:'ca'})}</div>
+      <button class="btn primary">Ajouter</button>
+    </form>
+    <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour le suivant et garde la compétition choisie. Les licences, le dossier et les groupes se renseignent ensuite dans la fiche.</div></div></details>`;
+  const opts=[['','Tous'],...(full?[['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])]:[]),
+    ['ctodo','Compétition à choisir'],['cteam','Compétition équipe'],['cind','Compétition individuelle'],['cnone','Pas de compétition']];
+  return head+warnC+state+`<div class="ccount" id="licCounts">${full?licCountsHtml():''}</div><div class="ccount" id="mCounts">${compCounts()}</div>
+    <div id="licFicheBox">${full?licFicheHtml():''}</div>${addCard}
+    <div class="card"><h3>Tous les adhérents</h3>
       <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
-        ${[['','Tous'],['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])].map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        ${opts.map(([k,l])=>`<option value="${k}" ${LIC.f===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div id="licTable">${licTableHtml()}</div></div>`;
 }
 
@@ -1984,7 +2027,7 @@ const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
 const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
-const presNew=()=>({loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'pointage',club:null,ts:null,msg:''});
+const presNew=()=>({loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
 let PRES=presNew();
 const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const presOnline=()=>navigator.onLine!==false;
@@ -2075,7 +2118,7 @@ function presCountHtml(){
 }
 function presListHtml(){
   const gid=PRES.groupe, d=PRES.date, ms=presMembers(gid), ed=presEdit();
-  if(!ms.length) return '<div class="empty">Aucun licencié dans ce groupe.'+(ed?' Affectez-les depuis leur fiche dans l’onglet Licences.':'')+'</div>';
+  if(!ms.length) return '<div class="empty">Aucun adhérent dans ce groupe.'+(ed?' Inscrivez-les depuis l’onglet Adhérents.':'')+'</div>';
   return ms.map(g=>{ const s=PRES.map[presK(gid,g.id,d)]||'', ch=presChain(gid,g.id);
     return `<div class="prow ${s}"><div class="pn"><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${ch>=PRES_SEUIL?` <span class="lb warn" title="Absences non excusées d’affilée">⚠ ${ch} absences d’affilée</span>`:''}</div>
       <div class="pbs">${PRES_STAT.map(([k,l])=>`<button type="button" class="pb ${k} ${s===k?'on':''}" ${ed?`data-pres-set="${g.id}|${k}"`:'disabled'}>${l}</button>`).join('')}</div></div>` }).join('');
@@ -2085,7 +2128,7 @@ function presRefresh(){
 }
 function presStatusRefresh(){ const el=document.getElementById('presStatus'); if(el) el.innerHTML=presStatusHtml() }
 const presGSelect=(id)=>`<select id="${id}">${PRES.groupes.map(x=>`<option value="${x.id}" ${x.id===PRES.groupe?'selected':''}>${esc(presGLabel(x))}</option>`).join('')}</select>`;
-const presNoGroup=()=>`<div class="card"><div class="empty">Aucun groupe pour la saison ${SAISON}. ${presEdit()?'Créez-en un dans l’onglet Groupes.':'Un administrateur ou un entraîneur doit en créer un.'}</div></div>`;
+const presNoGroup=()=>`<div class="card"><div class="empty">Aucun groupe pour la saison ${SAISON}. ${presEdit()?'Créez-en un dans l’onglet « Gérer les groupes ».':'Un administrateur ou un entraîneur doit en créer un.'}</div></div>`;
 
 function presPointageHtml(){
   if(!PRES.groupes.length) return presNoGroup();
@@ -2113,7 +2156,7 @@ function presGroupeForm(g){
     ${WA.ok===false?'<div class="hint">Le lien WhatsApp sera disponible après l’exécution du script <b>migration-communication.sql</b> dans Supabase.</div>':''}
     ${g&&g.lien_whatsapp?`<div style="margin-top:8px"><a class="btn wa" href="${v('lien_whatsapp')}" target="_blank" rel="noopener">💬 Ouvrir le groupe WhatsApp</a></div>`:''}
     <div style="margin-top:10px"><b>Membres</b> (${mem.length})${mem.length?`<div class="pmem">${mem.map(x=>`<span class="lb ok">${esc(x.nom||'')} ${esc(x.prenom||'')}</span>`).join(' ')}</div>`:''}
-      <div class="hint">${g?'Pour ajouter ou retirer un licencié, ouvrez sa fiche dans l’onglet Licences (rubrique « Groupes d’entraînement »).':'Une fois le groupe créé, affectez-y les licenciés depuis leur fiche dans l’onglet Licences.'}</div></div>
+      <div class="hint">${g?'Pour inscrire ou retirer un adhérent, ouvrez sa fiche dans l’onglet Adhérents (onglet « Groupes »), ou sélectionnez-en plusieurs dans la liste.':'Une fois le groupe créé, inscrivez-y les adhérents depuis l’onglet Adhérents.'}</div></div>
     ${presEdit()?`<div class="lfoot"><button class="btn primary" type="submit">${g?'Enregistrer le groupe':'Créer le groupe'}</button>${g?` <button type="button" class="btn" data-pres-del="${g.id}">Supprimer le groupe</button>`:''}</div>`:''}
   </form>`;
 }
@@ -2137,13 +2180,62 @@ function presAssiduiteHtml(){
 function renderPres(){
   if(PRES.club!==(CLUB&&CLUB.id)){ PRES=presNew(); PRES.club=CLUB&&CLUB.id }
   if(!PRES.loaded&&!PRES.loading) presLoad().then(()=>{ if(UI.view==='pres') renderMain() });
-  const head=`<div class="gymhead"><div><h2 class="name">Présences</h2><div class="meta">Saison ${SAISON} · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
+  const head=`<div class="gymhead"><div><h2 class="name">Groupes</h2><div class="meta">Saison ${SAISON} · horaires, lieux, adhérents et présences · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
   if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
   if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
-  const tabs=[['pointage','Pointage'],['groupes','Groupes'],['assiduite','Assiduité']];
+  const tabs=[['planning','Planning'],['pointage','Pointage'],['assiduite','Assiduité'],['groupes','Gérer les groupes']];
   return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`
-    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():presPointageHtml());
+    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():presPlanningHtml());
 }
+
+
+/* ---- planning : horaires, lieux, adhérents et présences de chaque groupe ---- */
+function presPlanningHtml(){
+  if(!PRES.groupes.length) return presNoGroup();
+  const stat=gid=>{ const ds=presDates(gid); let p=0,t=0;
+    presMembers(gid).forEach(g=>ds.forEach(d=>{ const s=PRES.map[presK(gid,g.id,d)]; if(s){ t++; if(s==='present') p++ } }));
+    return {last:ds[ds.length-1]||null,taux:t?Math.round(100*p/t):null} };
+  const chip=g=>`<button type="button" class="lb ok gchip" data-lic-fiche="${g.id}" title="Ouvrir la fiche">${esc(gymName(g))}</button>`;
+  const card=x=>{ const ms=presMembers(x.id), st=stat(x.id);
+    const hrs=x.heure_debut?`${hhmm(x.heure_debut)}${x.heure_fin?' – '+hhmm(x.heure_fin):''}`:'';
+    return `<div class="card gcard"><div class="gch"><div style="min-width:0"><h3>${esc(x.nom)}</h3><div class="gwhen"><b>${esc(x.jour?PRES_JOURS[x.jour]:'Jour à définir')}</b>${hrs?` · ${esc(hrs)}`:''}</div>${x.lieu?`<div class="hint">📍 ${esc(x.lieu)}</div>`:''}</div>
+        ${x.lien_whatsapp?`<a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:''}</div>
+      <div class="ccount"><span class="cc">Adhérents <b>${ms.length}</b></span>${st.taux!=null?`<span class="cc">Présence <b>${st.taux} %</b></span>`:''}${st.last?`<span class="cc">Dernière séance <b>${esc(payDate(st.last))}</b></span>`:''}</div>
+      <div class="gmem">${ms.map(chip).join(' ')||'<span class="hint">Aucun adhérent : inscris-les depuis l’onglet Adhérents.</span>'}</div>
+      <div class="quick"><button type="button" class="btn sm primary" data-pres-go="${x.id}">✅ Pointer aujourd’hui</button>${presEdit()?`<button type="button" class="btn sm" data-pres-edit="${x.id}">Modifier</button>`:''}</div></div>` };
+  const sans=S.gyms.filter(g=>!PRES.membres.some(m=>m.licencie_id===g.id)).sort(byName);
+  const ord=PRES.groupes.slice().sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+  return `<div class="gplan">${ord.map(card).join('')}</div>`
+    +(sans.length?`<h2 class="dayh" style="margin-top:22px">Adhérents sans groupe (${sans.length})</h2><div class="card"><div class="gmem">${sans.map(chip).join(' ')}</div><div class="hint" style="margin-top:8px">Pour les inscrire : ouvre leur fiche (onglet « Groupes »), ou sélectionne-en plusieurs dans l’onglet Adhérents puis « Inscrire ».</div></div>`:'');
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-pres-go],[data-pres-edit],[data-lic-fiche],[data-lic-bulkgrp]'); if(!t) return; const d=t.dataset;
+  if(d.presGo){ PRES.groupe=d.presGo; lsSet('fa-pres-groupe',d.presGo); PRES.date=isoToday(); PRES.tab='pointage'; renderMain(); window.scrollTo(0,0); return }
+  if(d.presEdit){ PRES.tab='groupes'; renderMain(); const f=document.querySelector(`#fGrp[data-gid="${d.presEdit}"]`); if(f) f.scrollIntoView({block:'start'}); return }
+  if(d.licFiche){ if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id } LIC.open=d.licFiche; LIC.ftab='grp'; UI.view='lic'; render(); window.scrollTo(0,0); return }
+  if(d.licBulkgrp) licBulkGroup(d.licBulkgrp);
+});
+/* inscrire ou retirer plusieurs adhérents d'un groupe depuis la liste */
+async function licBulkGroup(mode){
+  const sel=document.getElementById('bulkGrp'), gid=sel&&sel.value, ids=Object.keys(UI.sel);
+  if(!gid){ toast('Choisis d’abord un groupe'); return }
+  if(!ids.length||!licEdit()) return;
+  if(SYNC!=='ok'){ toast('Les adhérents sont en cours d’enregistrement : réessaie dans un instant'); return }
+  const gr=(LIC.grp||[]).find(x=>x.id===gid);
+  try{
+    if(mode==='add') chk(await sb.from('groupe_licencies').upsert(ids.map(l=>({groupe_id:gid,licencie_id:l,club_id:CLUB.id})),{onConflict:'groupe_id,licencie_id'}));
+    else chk(await sb.from('groupe_licencies').delete().eq('groupe_id',gid).in('licencie_id',ids));
+    UI.sel={}; LIC.loaded=false; PRES.loaded=false; await loadLic(); renderMain();
+    toast(`${ids.length} adhérent(s) ${mode==='add'?'inscrit(s) dans':'retiré(s) de'} « ${gr?gr.nom:'groupe'} »`);
+  }catch(e){ toast('Erreur : '+e.message) }
+}
+document.addEventListener('toggle',ev=>{ if(ev.target.id==='addAdh') UI.addOpen=ev.target.open },true);
+/* compétition choisie dans la liste */
+document.addEventListener('change',ev=>{
+  const t=ev.target; if(!t||!t.dataset||!t.dataset.compsel) return;
+  const g=S.gyms.find(x=>x.id===t.dataset.compsel); if(!g) return;
+  const r=setComp(g,t.value); save(); renderManageTable(); if(r) toast(`${gymName(g)} retiré(e) de l'équipe « ${r} »`);
+});
 
 /* ---- groupes : enregistrement (connexion nécessaire) ---- */
 async function presSaveGroupe(f){
@@ -2199,7 +2291,7 @@ setInterval(()=>{ if(PRES.queue.length) presFlush() },30000);
 const ROLE_LBL={admin:'Administrateur',entraineur:'Entraîneur',tresorier:'Trésorier'};
 function navList(){
   const L=[['sec','Pilotage'],['home','Tableau de bord','🏠','#e8efff','Accueil'],
-    ['sec','Le club'],['lic','Licences','📋','#e3f5f8'],['manage','Gymnastes','👥','#ffeede'],['pres','Présences et groupes','✅','#e6f4ea','Présences']];
+    ['sec','Le club'],['lic','Adhérents','👥','#ffeede'],['pres','Groupes','✅','#e6f4ea']];
   if(licPay()) L.push(['sec','Finances'],['pay','Paiements','💶','#fff3e2']);
   L.push(['sec','Communication'],['comm','Messages et WhatsApp','✉️','#efe8ff','Messages'],
     ['sec','Compétition'],['teams','Équipes','🏅','#fde8f1'],['gym','Mouvements','✏️','#e6f0f0'],['summary','Résumé','📊','#eef1f5'],
@@ -2210,7 +2302,7 @@ function paintNav(){
   const el=document.getElementById('snav'); if(!el) return;
   if(!CLUB){ el.innerHTML=''; return }
   const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
-  const pri=['home','lic','pres',licPay()?'pay':'manage'], L=navList(), badge={};
+  const pri=['home','lic','pres',licPay()?'pay':'comm'], L=navList(), badge={};
   if(LIC.loaded&&!LIC.err&&LIC.club===CLUB.id){ try{
     badge.lic=S.gyms.filter(g=>licIssues(g).length).length;
     if(licPay()&&LIC.cot!==null) badge.pay=S.gyms.filter(g=>{ const s=licSolde(g.id).st; return s==='encours'||s==='incomplet' }).length;
@@ -2259,10 +2351,10 @@ function renderHome(){
   const nF=ready?S.gyms.filter(g=>hasLic(g,'FFG')).length:0, nU=ready?S.gyms.filter(g=>hasLic(g,'UFOLEP')).length:0;
   const todo=ready?S.gyms.filter(g=>licIssues(g).length).length:null;
   const tile=(ic,num,label,sub,go,tb,ti)=>`<button class="tile" data-go="${go}" style="--tb:${tb};--ti:${ti}"><span class="tgo">›</span><span class="ti">${ic}</span><span class="tn">${num}</span><span class="tl2">${label}</span>${sub?`<span class="hint" style="color:inherit;opacity:.8">${sub}</span>`:''}</button>`;
-  const tiles=[tile('👥',n,'Licenciés',ready?`FFG ${nF} · UFOLEP ${nU}`:'',n?'lic':'manage','#eaeeff','#3b3fa8'),
+  const tiles=[tile('👥',n,'Adhérents',ready?`FFG ${nF} · UFOLEP ${nU}`:'','lic','#eaeeff','#3b3fa8'),
     ready?tile('📋',todo,'Dossiers à traiter',todo?'à compléter ou à vérifier':'tout est complet','lic:todo','#fff1d6','#8a5a00'):'',
     money?tile('💶',money.imp,'Cotisations à régler',money.reste>0?`reste ${eur(money.reste)} à encaisser`:'tout est encaissé','pay:sold','#e1f6ea','#14733a'):'',
-    ready&&LIC.grp?tile('✅',LIC.grp.length,'Groupes d’entraînement',`${S.gyms.filter(g=>!licGroupes(g.id).length).length} licencié(s) sans groupe`,'pres','#e0f4fb','#0b6b85'):'',
+    ready&&LIC.grp?tile('✅',LIC.grp.length,'Groupes d’entraînement',`${S.gyms.filter(g=>!licGroupes(g.id).length).length} adhérent(s) sans groupe`,'pres','#e0f4fb','#0b6b85'):'',
     tile('🏅',S.teams.length,'Équipes de compétition','','teams','#fde8f1','#a1245f')].join('');
   const items=[];
   if(ready){
@@ -2270,7 +2362,7 @@ function renderHome(){
     items.push(['Sans licence FFG ni UFOLEP',c(g=>!LIC_FEDS.some(f=>hasLic(g,f))),'lic:none']);
     items.push(['Contact manquant (parent ou licencié)',c(g=>licIssues(g).some(x=>x[0]==='contact')),'lic:todo']);
     if(licDocs()) items.push(['Santé : certificat ou questionnaire à régulariser',c(g=>licSante(g.id)!=='ok'),'lic:sante']);
-    if(LIC.grp) items.push(['Licenciés sans groupe d’entraînement',c(g=>!licGroupes(g.id).length),'lic:nogrp']);
+    if(LIC.grp) items.push(['Adhérents sans groupe d’entraînement',c(g=>!licGroupes(g.id).length),'lic:nogrp']);
     if(money){ items.push(['Cotisations à régler',money.imp,'pay:sold']); if(money.tard) items.push([`Règlements en retard (${eur(money.tardMt)})`,money.tard,'pay:late']) }
   }
   const open=items.filter(x=>x[1]>0);
@@ -2278,7 +2370,7 @@ function renderHome(){
   let grpCard='';
   if(ready&&LIC.grp&&LIC.grp.length){
     const rows=LIC.grp.map((x,i)=>[x.nom,S.gyms.filter(g=>LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)).length,BAR_COLORS[i%BAR_COLORS.length]]);
-    grpCard=`<div class="card"><h3>Licenciés par groupe</h3>${bars(rows)}</div>`;
+    grpCard=`<div class="card"><h3>Adhérents par groupe</h3>${bars(rows)}</div>`;
   } else {
     const rows=S.teams.slice().sort(byTeamName).map((t,i)=>[t.name,S.gyms.filter(g=>g.team===t.id).length,BAR_COLORS[i%BAR_COLORS.length]]);
     grpCard=`<div class="card"><h3>Gymnastes par équipe</h3>${bars(rows)}</div>`;
@@ -2293,15 +2385,15 @@ function renderHome(){
     <div class="tiles">${tiles}</div>
     <div class="dash"><div class="card"><h3>À faire</h3>${tdl}</div>${moneyCard}${grpCard}
       <div class="card"><h3>Raccourcis</h3><div class="quick">
-        <button class="btn" data-go="manage">👥 Gérer les gymnastes</button><button class="btn" data-go="pres">✅ Pointer une séance</button>
-        <button class="btn" data-go="comm">✉️ Écrire aux familles</button><button class="btn" data-go="stats">📈 Statistiques</button>
-        <button class="btn" data-go="lic">📋 Licences</button></div></div></div>`;
+        <button class="btn" data-go="lic">👥 Adhérents</button><button class="btn" data-go="pres">✅ Groupes et présences</button>
+        <button class="btn" data-go="comm">✉️ Écrire aux familles</button><button class="btn" data-go="stats">📈 Statistiques</button></div></div></div>`;
 }
 document.addEventListener('click',ev=>{
   const b=ev.target.closest&&ev.target.closest('[data-go]'); if(!b) return;
   const [v,f]=b.dataset.go.split(':');
   if(v==='lic'&&f!==undefined){ LIC.f=f; LIC.q='' }
   if(v==='pay'){ PAYV.tab=f==='late'?'reg':f==='sold'?'sold':'reg'; PAYV.f=f==='late'?'late':f==='sold'?'todo':''; PAYV.m=''; PAYV.q='' }
+  if(v==='manage') v='lic';
   UI.view=v; render(); window.scrollTo(0,0); document.getElementById('main').scrollTop=0;
 });
 
@@ -2432,7 +2524,7 @@ function renderStats(){
   const sx=k=>S.gyms.filter(g=>(LIC.info[g.id]||{}).sexe===k).length, nf=sx('F'), nm=sx('M');
   const mineurs=S.gyms.filter(g=>{ const a=ageOf(g); return a!=null&&a<18 }).length;
   const tile=(ic,num,l,tb,ti)=>`<div class="tile" style="--tb:${tb};--ti:${ti}"><span class="ti">${ic}</span><span class="tn">${num}</span><span class="tl2">${l}</span></div>`;
-  const tiles=tile('👥',n,'Licenciés','#eaeeff','#3b3fa8')+tile('🎂',moy==null?'—':moy.toFixed(1).replace('.',','),'Âge moyen (ans)','#fff1d6','#8a5a00')+tile('🧒',mineurs,'Mineurs','#e0f4fb','#0b6b85')
+  const tiles=tile('👥',n,'Adhérents','#eaeeff','#3b3fa8')+tile('🎂',moy==null?'—':moy.toFixed(1).replace('.',','),'Âge moyen (ans)','#fff1d6','#8a5a00')+tile('🧒',mineurs,'Mineurs','#e0f4fb','#0b6b85')
     +(LIC.ext&&(nf||nm)?tile('⚥',`${nf} / ${nm}`,'Filles / garçons','#fde8f1','#a1245f'):'');
   const ageRows=AGE_B.map(([l,a,b],i)=>[l,S.gyms.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length]]).filter(r=>r[1]>0);
   const inconnu=S.gyms.filter(g=>ageOf(g)==null).length; if(inconnu) ageRows.push(['Âge inconnu',inconnu,'#b9c1ca']);
@@ -2522,7 +2614,7 @@ function renderComm(){
       <label class="hint" for="cAud">Qui doit recevoir le message ?</label>
       <select id="cAud" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px">${aud.map(([k,t])=>`<option value="${k}" ${COMM.aud===k?'selected':''}>${t}</option>`).join('')}</select>
       ${COMM.aud==='grp'?`<select id="cGrp" style="width:100%;margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px">${(LIC.grp||[]).map(x=>`<option value="${x.id}" ${COMM.grp===x.id?'selected':''}>${esc(presGLabel(x))}</option>`).join('')||'<option value="">Aucun groupe</option>'}</select>`:''}
-      <div class="ccount" style="margin:12px 0 4px"><span class="cc">Licenciés <b>${rc.length}</b></span><span class="cc">Adresses <b>${new Set(rc.map(commAddr).filter(Boolean)).size}</b></span>${sans.length?`<span class="cc todo">Sans adresse <b>${sans.length}</b></span>`:''}</div>
+      <div class="ccount" style="margin:12px 0 4px"><span class="cc">Adhérents <b>${rc.length}</b></span><span class="cc">Adresses <b>${new Set(rc.map(commAddr).filter(Boolean)).size}</b></span>${sans.length?`<span class="cc todo">Sans adresse <b>${sans.length}</b></span>`:''}</div>
       ${sans.length?`<div class="hint">Sans adresse e-mail : ${sans.slice(0,12).map(g=>esc(gymName(g))).join(', ')}${sans.length>12?'…':''}</div>`:''}
       ${tels.length?`<details style="margin-top:10px"><summary><b>Écrire à chacun sur WhatsApp</b> (${tels.length})</summary><div class="hint" style="margin:6px 0">Ouvre une conversation avec le responsable (ou le licencié majeur) ; le message de droite est pré-rempli.</div>
         ${tels.map(([g,t])=>`<div class="wagrp"><div class="gn">${esc(gymName(g))}</div><a class="btn sm wa" href="https://wa.me/${t}${COMM.msg?'?text='+encodeURIComponent(COMM.msg):''}" target="_blank" rel="noopener">💬</a></div>`).join('')}</details>`:''}
