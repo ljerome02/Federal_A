@@ -574,6 +574,31 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.rgrid{min-width:820px}
+.rday{display:grid;grid-template-columns:96px 1fr;border-top:1px solid var(--line)}
+.rday.rhd{border-top:0}.rday.rhd .rtrack{min-height:22px;height:22px;cursor:default}.rday.rhd .rgn{min-height:0;padding:0}
+.rday.today .rdl{color:var(--accent-ink)}
+.rday.vac .rtrack{background:repeating-linear-gradient(135deg,#fff8ec 0 8px,#fff 8px 16px)}
+.rdl{display:flex;flex-direction:column;justify-content:center;gap:1px;padding:6px 8px 6px 0;font-size:12.5px;position:sticky;left:0;background:var(--panel);z-index:3}
+.rdl span{color:var(--muted);font-size:12px}.rdl .lb{align-self:flex-start;font-size:10.5px;color:var(--warn)}
+.rdl .ds{display:none}
+.rrows{display:flex;flex-direction:column}
+.rrw{display:grid;grid-template-columns:150px 1fr;border-top:1px dashed #edf0f3}.rrows .rrw:first-child{border-top:0}
+.rgn{display:flex;flex-direction:column;justify-content:center;padding:6px 8px;font-size:11.5px;color:var(--muted);line-height:1.35;min-height:52px;position:sticky;left:96px;background:var(--panel);z-index:2}
+.rgn b{color:var(--ink);font-size:13px}
+.rtrack{position:relative;min-height:52px;cursor:pointer}
+.rtrack:not([data-ro]):hover .rsess{border-color:var(--accent);background:var(--accent-soft)}
+.rtrack:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.wline.half{background:#f3f5f7}
+.rsess{position:absolute;top:6px;bottom:6px;border:1px dashed #b9c1ca;border-radius:9px;background:#fafbfc}
+.rsess .rempty{position:absolute;left:8px;top:50%;transform:translateY(-50%);margin:0;white-space:nowrap}
+.rempty{font-size:12px;color:var(--accent-ink)}
+.rseg{position:absolute;top:8px;bottom:8px;border-radius:7px;border-left:3px solid;padding:2px 6px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;font-size:11.5px;line-height:1.25;z-index:1;white-space:nowrap}
+.rseg b{overflow:hidden;text-overflow:ellipsis}.rseg span{opacity:.85}
+.rseg.rconf{box-shadow:inset 0 0 0 2px var(--bad)}
+.rseg:hover{min-width:max-content;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.18)}.rseg.rconf:hover{box-shadow:inset 0 0 0 2px var(--bad),0 4px 14px rgba(0,0,0,.18)}
+@media (max-width:700px){.rgrid{min-width:700px}.rday{grid-template-columns:52px 1fr}.rdl .dl{display:none}.rdl .ds{display:inline}.rrw{grid-template-columns:104px 1fr}.rgn{left:52px}}
+
 .rtab{border-collapse:separate;border-spacing:0;min-width:100%}
 .rtab th,.rtab td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:4px;vertical-align:top}
 .rtab thead th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:6px 8px;white-space:nowrap;background:var(--panel)}
@@ -2726,24 +2751,36 @@ function presRotHtml(){
   if(PRES.ro===false) return `<div class="warn">Les rotations d’agrès seront disponibles après l’exécution du script <b>migration-rotations.sql</b> dans Supabase (SQL Editor).</div>`;
   const wide=window.innerWidth>1000, nd=wide?14:7, mon=PRES.rweek||(PRES.rweek=mondayOf(isoToday()));
   const all=[...Array(nd)].map((_,i)=>addDays(mon,i)), td=isoToday(), ed=presEdit();
-  const dates=all.filter(d=>PRES.groupes.some(g=>presSessionOn(g.id,d).length));
-  const grps=PRES.groupes.filter(g=>dates.some(d=>presSessionOn(g.id,d).length)).sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
-  const cf={}; dates.forEach(d=>cf[d]=rotConflicts(d));
+  const byNomG=(a,b)=>a.nom.localeCompare(b.nom);
+  const days=all.map(d=>({d,rows:PRES.groupes.map(g=>({g,c:rotSess(g.id,d)})).filter(x=>x.c).sort((a,b)=>hhmm(a.c.heure_debut).localeCompare(hhmm(b.c.heure_debut))||byNomG(a.g,b.g))})).filter(x=>x.rows.length);
   const lbl=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
-  const cell=(g,d)=>{
-    const c=rotSess(g.id,d); if(!c) return `<td class="rnone"></td>`;
-    const dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0), tl=rotTimeline(g.id,d), tot=tl.reduce((a,x)=>a+x.m,0), lieu=crLieu(c,g);
-    const chips=tl.map((x,i)=>{ const A=rotA(x.a), k=cf[d][g.id+'|'+i];
-      return `<span class="rchip ${k?'rconf':''}" style="background:${A[3]};color:${A[4]}" title="${esc(A[1]+' · '+x.m+' min'+(x.s!=null?' · '+m2hm(x.s)+'–'+m2hm(x.e):'')+(k?' · ⚠ même agrès au même moment que '+k.join(', '):''))}">${x.s!=null?`<i>${m2hm(x.s)}</i>`:''}<b>${esc(A[2])}</b> ${x.m}′${k?' ⚠':''}</span>` }).join('');
-    return `<td><button type="button" class="rcell ${d===td?'rtoday':''}" data-rot="${g.id}|${d}" ${ed?'':'data-ro="1"'}>
-      <span class="rhead">${esc(crHours(c))}${lieu?` · ${esc(lieu)}`:''}</span>${chips||`<span class="rempty">${ed?'+ Définir la rotation':'—'}</span>`}
-      ${tl.length&&dur>0?`<span class="rtot ${tot>dur?'rover':tot<dur?'runder':''}">${tot} / ${dur} min</span>`:''}</button></td>` };
-  return `<div class="card wcard"><div class="wnav"><b class="wtitle">Rotations du ${esc(lbl(all[0]))} au ${esc(lbl(all[nd-1]))}</b>
-      <button type="button" class="btn" data-rweek="-1" title="Période précédente">◀</button><button type="button" class="btn" data-rweek="1" title="Période suivante">▶</button><button type="button" class="btn sm" data-rweek="0">Cette semaine</button></div>
-    ${!dates.length?'<div class="empty">Aucun entraînement sur cette période.</div>':`<div class="wscroll"><table class="rtab"><thead><tr><th class="rg">Groupe</th>${dates.map(d=>`<th class="${d===td?'rtoday':''}"><b>${PRES_JOURS[isoDow(d)]}</b><span>${d.slice(8,10)}/${d.slice(5,7)}</span>${vacOf(d)?'<span class="lb warn">vac.</span>':''}</th>`).join('')}</tr></thead>
-      <tbody>${grps.map(g=>`<tr><th class="rg">${esc(g.nom)}</th>${dates.map(d=>cell(g,d)).join('')}</tr>`).join('')}</tbody></table></div>`}
+  const head=`<div class="wnav"><b class="wtitle">Rotations du ${esc(lbl(all[0]))} au ${esc(lbl(all[nd-1]))}</b>
+      <button type="button" class="btn" data-rweek="-1" title="Période précédente">◀</button><button type="button" class="btn" data-rweek="1" title="Période suivante">▶</button><button type="button" class="btn sm" data-rweek="0">Cette semaine</button></div>`;
+  if(!days.length) return `<div class="card wcard">${head}<div class="empty">Aucun entraînement sur cette période.</div></div>`;
+  // axe horaire commun à toute la période
+  const ts=days.flatMap(x=>x.rows).map(x=>[hm2min(x.c.heure_debut),hm2min(x.c.heure_fin)]).filter(x=>x[0]!=null);
+  let t0=ts.length?Math.min(...ts.map(x=>x[0])):17*60, t1=ts.length?Math.max(...ts.map(x=>x[1]!=null?x[1]:x[0]+60)):20*60;
+  days.forEach(x=>x.rows.forEach(r=>{ const tl=rotTimeline(r.g.id,x.d); if(tl.length&&tl[tl.length-1].e!=null) t1=Math.max(t1,tl[tl.length-1].e) }));
+  t0=Math.floor(t0/60)*60; t1=Math.max(Math.ceil(t1/60)*60,t0+120);
+  const hours=[]; for(let h=t0;h<=t1;h+=30) hours.push(h);
+  t0-=10; t1+=10; const span=t1-t0, pc=m=>((m-t0)/span*100).toFixed(3)+'%', pw=m=>(m/span*100).toFixed(3)+'%';
+  const grid=hours.map(h=>`<i class="wline ${h%60?'half':''}" style="left:${pc(h)}"></i>`).join('');
+  const row=(d,{g,c},cf)=>{
+    const a=hm2min(c.heure_debut), b=hm2min(c.heure_fin), tl=rotTimeline(g.id,d), tot=tl.reduce((s,x)=>s+x.m,0), dur=a!=null&&b!=null?b-a:0, lieu=crLieu(c,g);
+    const segs=tl.filter(x=>x.s!=null&&x.m>0).map((x,i)=>{ const A=rotA(x.a), k=cf[g.id+'|'+tl.indexOf(x)];
+      return `<span class="rseg ${k?'rconf':''}" style="left:${pc(x.s)};width:calc(${pw(x.m)} - 2px);background:${A[3]};color:${A[4]};border-color:${A[4]}" title="${esc(`${A[1]} · ${m2hm(x.s)}–${m2hm(x.e)} · ${x.m} min${k?' · ⚠ même agrès au même moment que '+k.join(', '):''}`)}"><b>${esc(x.m>=25?A[1].replace('Barres asymétriques','Barres').replace('Préparation physique','Prépa'):A[2])}</b><span>${x.m}′${k?' ⚠':''}</span></span>` }).join('');
+    return `<div class="rrw"><div class="rgn"><b>${esc(g.nom)}</b><span>${esc(crHours(c))}${lieu?' · '+esc(lieu):''}</span>${tl.length&&dur>0?`<span class="rtot ${tot>dur?'rover':tot<dur?'runder':''}">${tot} / ${dur} min</span>`:''}</div>
+      <div class="rtrack" data-rot="${g.id}|${d}" ${ed?'':'data-ro="1"'} role="button" tabindex="0" title="${ed?'Régler la rotation':'Voir la rotation'}">${grid}
+        ${a!=null?`<span class="rsess" style="left:${pc(a)};width:calc(${pw((b!=null?b:a+60)-a)} - 2px)">${tl.length?'':`<span class="rempty">${ed?'+ Définir la rotation':'Pas de rotation'}</span>`}</span>`:'<span class="rempty" style="left:6px">Horaire non précisé</span>'}${segs}</div></div>` };
+  setTimeout(()=>{ const sc=document.querySelector('.wscroll'), el=document.querySelector('.rday.today .rsess')||document.querySelector('.rsess');
+    if(sc&&el&&window.innerWidth<=1000&&sc.scrollWidth>sc.clientWidth+4) sc.scrollLeft+=el.getBoundingClientRect().left-sc.getBoundingClientRect().left-(window.innerWidth<=700?170:260) },0);
+  return `<div class="card wcard">${head}
+    <div class="wscroll"><div class="rgrid"><div class="rday rhd"><div class="rdl"></div><div class="rrw"><div class="rgn"></div><div class="rtrack rhours">${hours.filter(h=>h%60===0).map(h=>`<span class="whour" style="left:${pc(h)}">${String(h/60).padStart(2,'0')}h</span>`).join('')}</div></div></div>
+      ${days.map(({d,rows})=>{ const cf=rotConflicts(d), v=vacOf(d);
+        return `<div class="rday ${d===td?'today':''} ${v?'vac':''}"><div class="rdl"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${d.slice(8,10)}/${d.slice(5,7)}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
+          <div class="rrows">${rows.map(r=>row(d,r,cf)).join('')}</div></div>` }).join('')}</div></div>
     <div class="wleg">${ROT_AGRES.map(A=>`<span class="wkey" style="background:${A[3]};color:${A[4]};border-left-color:${A[4]}">${esc(A[1])}</span>`).join('')}</div>
-    <div class="hint" style="margin-top:6px">${ed?'Clique sur une case pour choisir les agrès, leur ordre et leur durée. ':''}Les heures de passage sont calculées à partir du début de la séance. ⚠ = même agrès au même moment qu’un autre groupe, au même endroit. ${wide?'Deux semaines affichées.':'Une semaine affichée (deux sur ordinateur).'}</div></div>`;
+    <div class="hint" style="margin-top:6px">${ed?'Clique sur la séance d’un groupe pour choisir les agrès, leur ordre et leur durée. ':''}Chaque agrès est placé à son heure de passage. ⚠ = même agrès au même moment qu’un autre groupe, au même endroit. ${wide?'Deux semaines affichées.':'Une semaine affichée (deux sur ordinateur).'}</div></div>`;
 }
 /* ---- éditeur d'une case ---- */
 function rotRowHtml(x){ return `<div class="rrow"><select name="ra">${ROT_AGRES.map(A=>`<option value="${A[0]}" ${x.a===A[0]?'selected':''}>${esc(A[1])}</option>`).join('')}</select>
@@ -2798,6 +2835,7 @@ document.addEventListener('click',ev=>{
   if(d.rclear!==undefined){ if(confirm('Effacer la rotation de cette séance ?')) rotSave(document.getElementById('fRot'),true) }
 });
 document.addEventListener('input',ev=>{ if(ev.target.closest&&ev.target.closest('#fRot')) rotLive() });
+document.addEventListener('keydown',ev=>{ if((ev.key==='Enter'||ev.key===' ')&&ev.target.matches&&ev.target.matches('.rtrack[data-rot]')){ ev.preventDefault(); ev.target.click() } });
 document.addEventListener('change',ev=>{ if(ev.target.closest&&ev.target.closest('#fRot')) rotLive() });
 document.addEventListener('submit',ev=>{ if(ev.target.id!=='fRot') return; ev.preventDefault(); rotSave(ev.target,false) });
 
