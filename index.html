@@ -2768,7 +2768,7 @@ document.addEventListener('submit',async ev=>{
    dans chaque case, l'ordre des agrès et le temps passé sur chacun (heures de passage calculées).
    Alerte si deux groupes utilisent le même agrès au même moment, au même endroit. Table rotations_agres. */
 const ROT_AGRES=[['echauffement','Échauffement','Écha.','#eef1f5','#3f4a56',0],['saut','Saut','Saut','#fff1d6','#7a5200',1],['barres','Barres asymétriques','Barres','#e0f4fb','#0b6b85',1],
-  ['poutre','Poutre','Poutre','#fde8f1','#a1245f',1],['sol','Sol','Sol','#e1f6ea','#14733a',1],['prepa','Préparation physique','Prépa','#efe8ff','#5a3aa8',0]];
+  ['poutre','Poutre','Poutre','#fde8f1','#a1245f',1],['sol','Sol','Sol','#e1f6ea','#14733a',1],['prepa','Préparation physique','Prépa','#efe8ff','#5a3aa8',0],['etirements','Étirements','Étir.','#e3f4f0','#1f6f63',0]];
 const rotA=k=>ROT_AGRES.find(x=>x[0]===k)||[k,k,k,'#eef1f5','#3f4a56',0];
 const rotOf=(gid,iso)=>(PRES.rot||[]).find(r=>r.groupe_id===gid&&r.date===iso)||null;
 const m2hm=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
@@ -2839,7 +2839,7 @@ function rotEdit(gid,iso,anchor){
   popOpen(`<form id="fRot" data-k="${gid}|${iso}" autocomplete="off"><div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
     <div class="hint" style="margin-bottom:6px">Séance ${esc(crHours(c))}${crLieu(c,g,iso)?' · 📍 '+esc(crLieu(c,g,iso)):''}${dur>0?` · ${dur} min`:''}</div>
     <div id="rRows">${list.map(rotRowHtml).join('')}</div>
-    <div class="quick" style="margin:6px 0"><button type="button" class="btn sm" data-radd="1">+ Ajouter un agrès</button><button type="button" class="btn sm" data-rfill="1" title="Saut, barres, poutre et sol à parts égales sur la durée de la séance">4 agrès à parts égales</button></div>
+    <div class="quick" style="margin:6px 0"><button type="button" class="btn sm" data-radd="1">+ Ajouter un agrès</button><button type="button" class="btn sm" data-rfill="1" title="Saut, barres, poutre et sol à parts égales sur le temps restant (échauffement, préparation physique et étirements conservés)">4 agrès à parts égales</button></div>
     <div id="rTot" class="rtotl"></div>
     ${same.length?`<div class="rcopy"><div class="hint">Appliquer aussi à :</div>${same.map(d=>`<label class="dck"><input type="checkbox" name="rc" value="${d}"> ${PRES_JOURS[isoDow(d)].slice(0,3).toLowerCase()}. ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}</div>`:''}
     <div class="quick" style="margin-top:10px"><button class="btn primary" type="submit">Enregistrer</button>${r?'<button type="button" class="btn" data-rclear="1">Effacer la rotation</button>':''}<button type="button" class="btn" data-wp="close">Annuler</button></div></form>`,anchor,'wpop-wide');
@@ -2850,6 +2850,7 @@ function rotLive(){
   const f=document.getElementById('fRot'); if(!f) return; const [gid,iso]=f.dataset.k.split('|'), c=rotSess(gid,iso), list=rotRead(), tl=rotTimeline(gid,iso,list);
   f.querySelectorAll('.rrow').forEach((r,i)=>{ const x=tl[i]; r.querySelector('.rtime').textContent=x&&x.s!=null?`${m2hm(x.s)} – ${m2hm(x.e)}`:'' });
   const dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0), tot=list.reduce((a,x)=>a+x.m,0), el=document.getElementById('rTot');
+  setTimeout(popFit,0);
   if(el) el.innerHTML=list.length?`Total <b>${tot} min</b>${dur>0?` sur ${dur} min · ${tot>dur?`<span class="rover">${tot-dur} min de trop</span>`:tot<dur?`<span class="runder">${dur-tot} min à répartir</span>`:'<span class="lb ok">juste</span>'}`:''}`:'<span class="hint">Aucun agrès : ajoute-les dans l’ordre de passage.</span>';
 }
 async function rotSave(f,clear){
@@ -2868,7 +2869,7 @@ document.addEventListener('click',ev=>{
   if(d.rot){ const [g,iso]=d.rot.split('|'); rotEdit(g,iso,t); return }
   if(d.rweek!==undefined){ const wide=window.innerWidth>1000; PRES.rweek=d.rweek==='0'?mondayOf(isoToday()):addDays(PRES.rweek||mondayOf(isoToday()),(wide?14:7)*(+d.rweek)); renderMain(); return }
   const box=document.getElementById('rRows'); if(!box) return;
-  if(d.radd){ const used=rotRead().map(x=>x.a), nx=ROT_AGRES.find(A=>A[5]&&!used.includes(A[0]))||ROT_AGRES[1]; box.insertAdjacentHTML('beforeend',rotRowHtml({a:nx[0],m:20})); rotLive(); return }
+  if(d.radd){ const used=rotRead().map(x=>x.a), nx=ROT_AGRES.find(A=>A[5]&&!used.includes(A[0]))||ROT_AGRES[1]; box.insertAdjacentHTML('beforeend',rotRowHtml({a:nx[0],m:20})); rotLive(); const nr=box.lastElementChild; setTimeout(()=>{ nr.scrollIntoView({block:'nearest'}); nr.querySelector('[name=ra]').focus({preventScroll:true}) },0); return }
   if(d.rfill){ const f=document.getElementById('fRot'), [gid,iso]=f.dataset.k.split('|'), c=rotSess(gid,iso), dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0);
     const cur=rotRead(), keep=cur.filter(x=>!rotA(x.a)[5]), rest=Math.max(0,dur-keep.reduce((a,x)=>a+x.m,0)), q=Math.floor(rest/4/5)*5||Math.floor(rest/4);
     const four=['saut','barres','poutre','sol'].map((a,i)=>({a,m:i===3?rest-3*q:q}));
