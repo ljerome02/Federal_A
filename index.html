@@ -574,6 +574,12 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.lgrid label.wide{grid-column:span 2}@media (max-width:700px){.lgrid label.wide{grid-column:auto}}
+.lb.fct{font-weight:600}.fctl{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+.fcts{display:flex;flex-wrap:wrap;gap:6px 16px}.fctck{min-width:180px}
+.ccb{cursor:pointer;font:inherit}.ccb:hover{border-color:var(--accent)}
+.bur{display:grid;gap:8px}.burr{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:baseline}
+@media (max-width:700px){.burr{grid-template-columns:1fr;gap:0}.fctck{min-width:45%}}
 .lfiche .lgrid select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);min-height:34px;width:100%}
 .famrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)}
 .famrow .sp{flex:1}.famrow select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff}
@@ -1679,6 +1685,14 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.clo
    documents du dossier (santé, autorisation parentale, droit à l'image) et alertes.
    Données dans les tables « licences » et « documents_licencie » (voir migration-licences.sql). */
 const LIC_FEDS=['FFG','UFOLEP'];
+/* rôles dans l'association (cumulables) : [clé, libellé, couleur de fond, couleur du texte, fait partie du bureau] */
+const FCT=[['gymnaste','Gymnaste','#eaeeff','#3b3fa8'],['president','Président(e)','#fde8f1','#a1245f',1],['vice_president','Vice-président(e)','#fde8f1','#a1245f',1],
+  ['secretaire','Secrétaire','#fde8f1','#a1245f',1],['tresorier','Trésorier(e)','#fde8f1','#a1245f',1],['dirigeant','Membre du comité directeur','#fdeef6','#8f2e63'],
+  ['entraineur','Entraîneur','#e1f6ea','#14733a'],['aide_entraineur','Aide-entraîneur','#e8f7ee','#2b7a4b'],['juge','Juge','#fff1d6','#8a5a00'],['benevole','Bénévole','#eef1f5','#55606b']];
+const fctLbl=k=>(FCT.find(x=>x[0]===k)||[0,k])[1];
+const fctOf=gid=>{ const f=(LIC.info[gid]||{}).fonctions; return Array.isArray(f)?f:(LIC.fct?[]:['gymnaste']) };
+const fctHas=(gid,k)=>fctOf(gid).includes(k);
+const fctChip=k=>{ const x=FCT.find(y=>y[0]===k)||[k,k,'#eef1f5','#55606b']; return `<span class="lb fct" style="background:${x[2]};color:${x[3]}">${esc(x[1])}</span>` };
 /* groupes d'entraînement : la colonne lien_whatsapp n'existe qu'après migration-communication.sql */
 const GRP_COLS='id,nom,jour,heure_debut,heure_fin,lieu', WA={ok:null};
 async function sbGroupes(){
@@ -1698,7 +1712,7 @@ const LIC_ECHEANCIER=[75,21,18,18,18,18,18,18,18,18];
 const LIC_MODES=[['cheque','Chèque'],['cheques_vacances','Chèques vacances'],['pass_sport','Pass’Sport'],['especes','Espèces'],['virement','Virement']];
 const LIC_COLS='id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email';
 const LIC_COLS_EXT=LIC_COLS+',sexe,responsable_lien,urgence1_nom,urgence1_tel,urgence1_lien,urgence2_nom,urgence2_tel,urgence2_lien';
-const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],ext:true,insc:null,cot:null,pay:[],fam:null,open:null,ftab:'id',q:'',f:'',club:null});
+const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],ext:true,insc:null,cot:null,pay:[],fam:null,fct:false,open:null,ftab:'id',q:'',f:'',club:null});
 let LIC=licNew();
 const licEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const licDocs=licEdit; // les documents de santé ne sont visibles que par l'administrateur et les entraîneurs
@@ -1776,6 +1790,9 @@ async function loadLic(){
     if(qi){ const ri=await qi; if(ri.error) ext=false; else LIC.insc=ri.data }
     if(qc){ const [rc,rp]=await qc; if(!rc.error&&!rp.error){ LIC.cot=rc.data; LIC.pay=rp.data } else if(!licEdit()) ext=false }
     LIC.ext=ext;
+    // rôles dans l'association : facultatif (script migration-roles.sql)
+    try{ const rr=await sb.from('licencies').select('id,fonctions,fonctions_note').eq('club_id',CLUB.id);
+      if(rr.error) LIC.fct=false; else { LIC.fct=true; rr.data.forEach(x=>{ const i=LIC.info[x.id]; if(i){ i.fonctions=x.fonctions||[]; i.fonctions_note=x.fonctions_note } }) } }catch(e){ LIC.fct=false }
     // liens de parenté : facultatif (script migration-famille.sql)
     try{ const rf=await sb.from('liens_familiaux').select('id,licencie_id,autre_id,lien').eq('club_id',CLUB.id); LIC.fam=rf.error?null:rf.data }catch(e){ LIC.fam=null }
     // groupes d'entraînement : facultatif (script migration-presences.sql), n'empêche pas l'affichage des licences
@@ -1798,7 +1815,7 @@ function licCountsHtml(){
 function licTableHtml(){
   const q=norm(LIC.q), f=LIC.f, full=LIC.loaded&&!LIC.err;
   for(const id in UI.sel) if(!S.gyms.some(g=>g.id===id)) delete UI.sel[id];
-  const m=g=>!f||(f==='ctodo'?!g.compet:f==='cteam'?teamOk(g):f==='cind'?indOk(g):f==='cnone'?g.compet==='aucune':!full?true:
+  const m=g=>!f||(f.startsWith('r:')?fctHas(g.id,f.slice(2)):f==='ctodo'?!g.compet:f==='cteam'?teamOk(g):f==='cind'?indOk(g):f==='cnone'?g.compet==='aucune':!full?true:
     f==='todo'?licIssues(g).length>0:f==='both'?(licOf(g.id,'FFG')&&licOf(g.id,'UFOLEP')):f==='none'?!LIC_FEDS.some(x=>licOf(g.id,x)):f==='sante'?licSante(g.id)!=='ok':f==='pay'?licSolde(g.id).st!=='paye':f==='nogrp'?licGroupes(g.id).length===0:f.startsWith('g:')?LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===f.slice(2)):!!licOf(g.id,f));
   const list=S.gyms.filter(g=>(!q||norm(gymName(g)).includes(q))&&m(g))
     .sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom).localeCompare(norm(b.prenom)));
@@ -1813,7 +1830,7 @@ function licTableHtml(){
     const s=pc?licSolde(g.id):null;
     const feds=LIC_FEDS.map(fd=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}${x.numero?' n° '+esc(x.numero):''}">${fd}</span>`:'' }).join(' ')||'<span class="lb no">Aucune</span>';
     return `<tr class="${LIC.open===g.id?'sel':''}">
-      <td><label class="rsel"><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''} aria-label="Sélectionner"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}</span></label></td><td>${esc(yr(g))}</td>
+      <td><label class="rsel"><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''} aria-label="Sélectionner"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}${full&&LIC.fct?(()=>{ const f=fctOf(g.id), o=f.filter(k=>k!=='gymnaste'); return o.length||!f.length?`<span class="fctl">${o.map(fctChip).join('')}${!f.length?'<span class="lb no">Aucun rôle</span>':''}</span>`:'' })():''}</span></label></td><td>${esc(yr(g))}</td>
       <td class="ccell ${g.compet?'':'todo'}"><select data-compsel="${g.id}" aria-label="Compétition">${compOpts(g.compet,'— À choisir —')}</select></td>
       ${full?`<td>${feds}</td>`:''}
       ${gc?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
@@ -1926,6 +1943,9 @@ function licFicheHtml(){
   const urg=k=>`${inp('urgence'+k+'_nom','Nom et prénom')}${inp('urgence'+k+'_tel','Téléphone','tel')}${inp('urgence'+k+'_lien','Lien avec l’enfant')}`;
   const panId=`${call}
     <h4>État civil</h4><div class="lgrid"><label>Nom<input data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}" ${ro}></label><label>Prénom<input data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}" ${ro}></label><label>Date de naissance<input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}" ${ro}></label></div>
+    <h4>Rôles dans l’association</h4>${LIC.fct?`<div class="fcts">${FCT.map(([k,l])=>`<label class="cbx fctck"><input type="checkbox" name="fct_${k}" ${fctHas(g.id,k)?'checked':''} ${ro}> ${l}</label>`).join('')}</div>
+      <div class="lgrid" style="margin-top:8px"><label class="wide">Précisions (niveau de juge, diplôme d’entraîneur…)<input name="fonctions_note" value="${esc(c.fonctions_note||'')}" ${ro} autocomplete="off"></label></div>
+      <div class="hint">Les rôles se cumulent. Ils décrivent l’association et ne donnent pas d’accès à l’application (voir « Membres »).</div>`:'<div class="hint">Disponible après l’exécution du script <b>migration-roles.sql</b> dans Supabase (SQL Editor).</div>'}
     <h4>Compétition</h4><div class="cboxes">${ro?`<span class="lb no">${esc(compLabel(g.compet)||'À choisir')}</span>`:compBoxes(g,`data-ccg="${g.id}"`)}</div>
     <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
     <h4>Identité et coordonnées</h4><div class="lgrid">${LIC.ext?sel('sexe','Sexe',[['F','Féminin'],['M','Masculin']]):''}${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>`;
@@ -1962,7 +1982,7 @@ function licFicheHtml(){
   return `<form class="card lfiche" id="fLic" autocomplete="off">
     <div class="lhead big"><div class="avatar" aria-hidden="true">${esc(((g.prenom||'')[0]||'')+((g.nom||'')[0]||'')).toUpperCase()||'?'}</div>
       <div class="lt"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3>
-        <div class="lsub">${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
+        <div class="lsub">${LIC.fct?fctOf(g.id).map(fctChip).join(''):''}${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
       <button type="button" class="btn sm" data-gym="${g.id}" title="Composer les mouvements de cet adhérent">✏️ Mouvements</button><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
     <div class="tabs ltabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${LIC.ftab===k?'on':''}" data-lic-ftab="${k}">${l}</button>`).join('')}</div>
     <div class="lpanel" data-p="id"${pn('id')}>${panId}</div>
@@ -1994,8 +2014,8 @@ function renderLic(){
     </form>
     <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour le suivant et garde la compétition choisie. Les licences, le dossier et les groupes se renseignent ensuite dans la fiche.</div></div></details>`;
   const opts=[['','Tous'],...(full?[['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])]:[]),
-    ['ctodo','Compétition à choisir'],['cteam','Compétition équipe'],['cind','Compétition individuelle'],['cnone','Pas de compétition']];
-  return head+warnC+state+`<div class="ccount" id="licCounts">${full?licCountsHtml():''}</div><div class="ccount" id="mCounts">${compCounts()}</div>
+    ...(full&&LIC.fct?FCT.map(([k,l])=>['r:'+k,'Rôle : '+l]):[]),['ctodo','Compétition à choisir'],['cteam','Compétition équipe'],['cind','Compétition individuelle'],['cnone','Pas de compétition']];
+  return head+warnC+state+`<div class="ccount" id="licCounts">${full?licCountsHtml():''}</div>${full&&LIC.fct?`<div class="ccount">${FCT.map(([k,l])=>{ const n=S.gyms.filter(g=>fctHas(g.id,k)).length; return n?`<button type="button" class="cc ccb" data-lic-filter="r:${k}">${l} <b>${n}</b></button>`:'' }).join('')}</div>`:''}<div class="ccount" id="mCounts">${compCounts()}</div>
     <div id="licFicheBox">${full?licFicheHtml():''}</div>${addCard}
     <div class="card"><h3>Tous les adhérents</h3>
       <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
@@ -2030,6 +2050,7 @@ async function licSave(f){
   try{
     if(licEdit()){
       const upd={email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')};
+      if(LIC.fct){ upd.fonctions=FCT.map(x=>x[0]).filter(k=>ck('fct_'+k)); upd.fonctions_note=v('fonctions_note') }
       if(LIC.ext) for(const n of ['sexe','responsable_lien','urgence1_nom','urgence1_tel','urgence1_lien','urgence2_nom','urgence2_tel','urgence2_lien']) upd[n]=v(n);
       const r=await sb.from('licencies').update(upd).eq('id',gid).eq('club_id',CLUB.id).select('id');
       chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
@@ -2288,7 +2309,7 @@ document.addEventListener('click',ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-pres-go],[data-pres-edit],[data-lic-fiche],[data-lic-bulkgrp]'); if(!t) return; const d=t.dataset;
   if(d.presGo){ PRES.groupe=d.presGo; lsSet('fa-pres-groupe',d.presGo); PRES.date=isoToday(); PRES.tab='pointage'; renderMain(); window.scrollTo(0,0); return }
   if(d.presEdit){ PRES.tab='groupes'; renderMain(); const f=document.querySelector(`#fGrp[data-gid="${d.presEdit}"]`); if(f) f.scrollIntoView({block:'start'}); return }
-  if(d.licFiche){ if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id } LIC.open=d.licFiche; LIC.ftab='grp'; UI.view='lic'; render(); window.scrollTo(0,0); return }
+  if(d.licFiche){ if(LIC.club!==(CLUB&&CLUB.id)){ LIC=licNew(); LIC.club=CLUB&&CLUB.id } LIC.open=d.licFiche; LIC.ftab=d.ftab||'grp'; UI.view='lic'; render(); window.scrollTo(0,0); return }
   if(d.licBulkgrp) licBulkGroup(d.licBulkgrp);
 });
 /* inscrire ou retirer plusieurs adhérents d'un groupe depuis la liste */
@@ -2306,6 +2327,8 @@ async function licBulkGroup(mode){
   }catch(e){ toast('Erreur : '+e.message) }
 }
 document.addEventListener('toggle',ev=>{ if(ev.target.id==='addAdh') UI.addOpen=ev.target.open },true);
+document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('[data-lic-filter]'); if(!b) return;
+  LIC.f=LIC.f===b.dataset.licFilter?'':b.dataset.licFilter; renderMain() });
 /* compétition choisie dans la liste */
 document.addEventListener('change',ev=>{
   const t=ev.target; if(!t||!t.dataset||!t.dataset.compsel) return;
@@ -2460,6 +2483,8 @@ function renderHome(){
     ${LIC.loaded&&LIC.err?'<div class="warn" style="margin-bottom:12px">⚠ Les licences ne sont pas accessibles : exécute <b>migration-licences.sql</b> dans Supabase puis clique sur « Actualiser ».</div>':''}
     <div class="tiles">${tiles}</div>
     <div class="dash"><div class="card"><h3>À faire</h3>${tdl}</div>${moneyCard}${grpCard}
+      ${ready&&LIC.fct?(()=>{ const rows=FCT.filter(x=>x[0]!=='gymnaste').map(([k,l])=>[l,S.gyms.filter(g=>fctHas(g.id,k)).sort(byName)]).filter(r=>r[1].length);
+        return `<div class="card"><h3>Bureau et encadrement</h3>${rows.length?`<div class="bur">${rows.map(([l,gs])=>`<div class="burr"><span class="hint">${l}</span><span>${gs.map(g=>`<button type="button" class="linkb" data-lic-fiche="${g.id}" data-ftab="id">${esc(gymName(g))}</button>`).join(', ')}</span></div>`).join('')}</div>`:'<div class="hint">Aucun rôle renseigné : ouvre la fiche d’un adhérent (onglet Adhérent) pour indiquer le président, le trésorier, les entraîneurs, les juges…</div>'}</div>` })():''}
       <div class="card"><h3>Raccourcis</h3><div class="quick">
         <button class="btn" data-go="lic">👥 Adhérents</button><button class="btn" data-go="pres">✅ Groupes et présences</button>
         <button class="btn" data-go="comm">✉️ Écrire aux familles</button><button class="btn" data-go="stats">📈 Statistiques</button></div></div></div>`;
@@ -2585,9 +2610,9 @@ async function statHist(){
 const AGE_B=[['Moins de 6 ans',0,5],['6-7 ans',6,7],['8-9 ans',8,9],['10-11 ans',10,11],['12-13 ans',12,13],['14-15 ans',14,15],['16-17 ans',16,17],['18 ans et plus',18,200]];
 function exportLicencies(){
   const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const head=['Nom','Prénom','Naissance','Sexe','Licence FFG','Licence UFOLEP','Groupes','Mail','Téléphone','Responsable','Téléphone du responsable','Mail du responsable','Adresse','Code postal','Ville'];
+  const head=['Nom','Prénom','Naissance','Rôles','Sexe','Licence FFG','Licence UFOLEP','Groupes','Mail','Téléphone','Responsable','Téléphone du responsable','Mail du responsable','Adresse','Code postal','Ville'];
   const rows=S.gyms.slice().sort((a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))).map(g=>{ const c=LIC.info[g.id]||{}, f=fd=>{ const x=licOf(g.id,fd); return x?(x.numero||'oui'):'' };
-    return [g.nom,g.prenom,g.naissance,c.sexe,f('FFG'),f('UFOLEP'),licGroupes(g.id).map(x=>x.nom).join(' / '),c.email,c.telephone,c.responsable_legal,c.telephone_urgence,c.parent_email,c.adresse,c.code_postal,c.ville] });
+    return [g.nom,g.prenom,g.naissance,fctOf(g.id).map(fctLbl).join(' / '),c.sexe,f('FFG'),f('UFOLEP'),licGroupes(g.id).map(x=>x.nom).join(' / '),c.email,c.telephone,c.responsable_legal,c.telephone_urgence,c.parent_email,c.adresse,c.code_postal,c.ville] });
   const csv='﻿'+[head,...rows].map(r=>r.map(q).join(';')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`licencies-${SAISON}.csv`;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove() },500);
@@ -2623,6 +2648,7 @@ function renderStats(){
     +`<div class="tiles">${tiles}</div><div class="statg">
       <div class="card"><h3>Par tranche d’âge</h3>${bars(ageRows)}</div>
       <div class="card"><h3>Par fédération</h3>${bars(fedRows)}</div>
+      ${LIC.fct?`<div class="card"><h3>Par rôle dans l’association</h3>${bars(FCT.map(([k,l,bg,fg])=>[l,S.gyms.filter(g=>fctHas(g.id,k)).length,fg]).filter(r=>r[1]>0))}</div>`:''}
       ${grpRows.length?`<div class="card"><h3>Par groupe d’entraînement</h3>${bars(grpRows)}</div>`:''}
       ${eqRows.length?`<div class="card"><h3>Par équipe de compétition</h3>${bars(eqRows)}</div>`:''}
       ${vilRows.length?`<div class="card"><h3>Par commune</h3>${bars(vilRows)}</div>`:''}
@@ -2641,10 +2667,12 @@ const COMM_TPL={
   seance:['Séance modifiée','Bonjour,\n\nL’entraînement de … est annulé / déplacé à … Merci de votre compréhension.\n\nSportivement,\n{club}'],
   compet:['Convocation à une compétition','Bonjour,\n\nVotre enfant est convoqué(e) à la compétition du … à … (lieu : …). Rendez-vous à … Merci de confirmer sa présence.\n\nSportivement,\n{club}']};
 const commHistKey=()=>'fa-comm-hist-'+(CLUB&&CLUB.id);
-const commAudLabel=()=>({all:'Tous les licenciés',grp:'Un groupe',FFG:'Licence FFG',UFOLEP:'Licence UFOLEP',pay:'Cotisation à régler',todo:'Dossier à traiter',sante:'Santé à régulariser',minor:'Mineurs',adult:'Majeurs'}[COMM.aud]||'');
+const commAudLabel=()=>COMM.aud.startsWith('r:')?fctLbl(COMM.aud.slice(2)):COMM.aud==='bureau'?'Bureau':({all:'Tous les licenciés',grp:'Un groupe',FFG:'Licence FFG',UFOLEP:'Licence UFOLEP',pay:'Cotisation à régler',todo:'Dossier à traiter',sante:'Santé à régulariser',minor:'Mineurs',adult:'Majeurs'}[COMM.aud]||'');
 function commRecipients(){
   const a=COMM.aud;
   return S.gyms.filter(g=>{
+    if(a.startsWith('r:')) return fctHas(g.id,a.slice(2));
+    if(a==='bureau') return fctOf(g.id).some(k=>(FCT.find(x=>x[0]===k)||[])[4]);
     if(a==='grp') return LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===COMM.grp);
     if(a==='FFG'||a==='UFOLEP') return hasLic(g,a);
     if(a==='pay'){ const s=licSolde(g.id).st; return s==='encours'||s==='incomplet' }
@@ -2680,7 +2708,7 @@ function renderComm(){
   if(!CLUB) return '';
   const ready=licEnsure(), T='Messages et WhatsApp', sub='Écrire à tous les licenciés, à un groupe ou à une famille';
   if(!ready) return licWait(T,sub);
-  const aud=[['all','Tous les licenciés'],['grp','Un groupe d’entraînement'],['FFG','Licenciés FFG'],['UFOLEP','Licenciés UFOLEP'],['minor','Mineurs'],['adult','Majeurs'],['todo','Dossiers à traiter'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[])];
+  const aud=[['all','Tous les adhérents'],...(LIC.fct?[['bureau','Le bureau (président, secrétaire, trésorier…)'],...FCT.filter(x=>x[0]!=='gymnaste').map(([k,l])=>['r:'+k,'Rôle : '+l]),['r:gymnaste','Les gymnastes']]:[]),['grp','Un groupe d’entraînement'],['FFG','Licenciés FFG'],['UFOLEP','Licenciés UFOLEP'],['minor','Mineurs'],['adult','Majeurs'],['todo','Dossiers à traiter'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[])];
   if(!aud.some(x=>x[0]===COMM.aud)) COMM.aud='all';
   if(COMM.aud==='grp'&&!(LIC.grp||[]).some(x=>x.id===COMM.grp)) COMM.grp=(LIC.grp&&LIC.grp[0]||{}).id||'';
   const rc=commRecipients(), sans=rc.filter(g=>!commAddr(g)), tels=rc.map(g=>[g,commPhone(g)]).filter(x=>x[1]);
