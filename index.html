@@ -2336,7 +2336,7 @@ function renderPres(){
   if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
   if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
   const tabs=[['planning','Planning'],['liste','Liste'],['pointage','Pointage'],['assiduite','Assiduité'],['groupes','Gérer les groupes']];
-  return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`
+  return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`+(PRES.tab==='assiduite'?'':presVacBanner())
     +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():PRES.tab==='liste'?presPlanningHtml():presWeekHtml());
 }
 
@@ -2354,7 +2354,10 @@ const VAC_OFFICIEL={'2026-2027':{
   C:[['Toussaint','2026-10-17','2026-11-01'],['Noël','2026-12-19','2027-01-03'],['Hiver','2027-02-06','2027-02-21'],['Printemps','2027-04-03','2027-04-18'],['Été','2027-07-03','2027-08-31']]}};
 const isoDow=iso=>new Date(iso+'T12:00:00').getDay()||7;
 const longDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-const vacOf=iso=>(PRES.vacances||[]).find(v=>v.debut<=iso&&iso<=v.fin)||null;
+const VAC_ZONE='B'; // académie d'Amiens
+/* périodes de vacances utilisées : celles enregistrées par le club, sinon le calendrier officiel de la zone du club */
+const vacList=()=>(PRES.vacances||[]).length?PRES.vacances:(PRES.cr&&VAC_OFFICIEL[SAISON]?VAC_OFFICIEL[SAISON][VAC_ZONE].map(([nom,debut,fin],i)=>({id:'off-'+i,nom,debut,fin,off:true})):[]);
+const vacOf=iso=>vacList().find(v=>v.debut<=iso&&iso<=v.fin)||null;
 const crSort=(a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut));
 function presCrOf(gid,type){
   if(!PRES.cr){ const g=PRES.groupes.find(x=>x.id===gid); return g&&g.jour&&type!=='vacances'?[{id:'legacy-'+gid,groupe_id:gid,type:'saison',jour:g.jour,heure_debut:g.heure_debut,heure_fin:g.heure_fin,lieu:null}]:[] }
@@ -2447,6 +2450,21 @@ function presCrFormHtml(g,ro){
     ${ro?'':'<button type="button" class="btn sm" data-cr-add="vacances">+ Ajouter un créneau de vacances</button>'}`;
 }
 
+/* ---- bandeau : état du calendrier des vacances ---- */
+function presVacBanner(){
+  if(PRES.cr===false) return `<div class="warn" style="margin-bottom:12px">⚠ Les vacances scolaires et les entraînements multiples ne sont pas encore activés : exécute le script <b>migration-creneaux.sql</b> dans Supabase (SQL Editor), puis clique sur « Actualiser ». En attendant, chaque groupe garde un seul entraînement par semaine, toute l’année, vacances comprises.</div>`;
+  if(PRES.cr&&!PRES.vacances.length&&VAC_OFFICIEL[SAISON]) return `<div class="warn" style="margin-bottom:12px">Le calendrier des vacances du club n’est pas encore enregistré : les dates officielles de la zone ${VAC_ZONE} (académie d’Amiens) sont appliquées automatiquement.${presEdit()?` Enregistre-les pour pouvoir les modifier et choisir des créneaux pour une période précise. <button type="button" class="btn sm primary" data-vac-quick="1">Enregistrer le calendrier zone ${VAC_ZONE}</button>`:''}</div>`;
+  return '';
+}
+async function presVacQuickSave(){
+  if(!presEdit()) return;
+  if(!presOnline()){ toast('Connexion nécessaire pour enregistrer les vacances'); return }
+  const off=(VAC_OFFICIEL[SAISON]||{})[VAC_ZONE]; if(!off) return;
+  try{ chk(await sb.from('periodes_vacances').upsert(off.map(([nom,debut,fin])=>({id:uid(),club_id:CLUB.id,saison:SAISON,nom,debut,fin}))));
+    PRES.loaded=false; await presLoad(); renderMain(); toast('Calendrier des vacances enregistré') }
+  catch(e){ toast('Erreur : '+e.message) }
+}
+
 /* ---- calendrier des vacances scolaires ---- */
 function vacRowHtml(v,ro){ return `<div class="vrow" data-id="${esc(v.id||'')}"><label><span>Vacances</span><input name="vn" value="${esc(v.nom||'')}" ${ro} autocomplete="off"></label>
   <label><span>Premier jour</span><input type="date" name="vd" value="${esc(v.debut||'')}" ${ro}></label><label><span>Dernier jour</span><input type="date" name="vf" value="${esc(v.fin||'')}" ${ro}></label>
@@ -2460,7 +2478,7 @@ function presVacCardHtml(){
     <div class="hint" style="margin-bottom:8px">Pendant ces périodes, les entraînements de la saison sont remplacés par les créneaux « vacances » de chaque groupe. Le pointage n’est proposé que les jours d’entraînement.</div>
     <div id="vacRows">${vs.map(v=>vacRowHtml(v,ro)).join('')||'<div class="hint" id="vacEmpty">Aucune période saisie.</div>'}</div>
     ${ro?'':`<div class="lfoot quick" style="margin-top:8px"><button type="button" class="btn sm" data-vac-add="1">+ Ajouter une période</button>
-      ${off?`<span class="vzone">Calendrier officiel : <select id="vacZone"><option value="A">Zone A</option><option value="B" selected>Zone B (Amiens, Lille, Reims…)</option><option value="C">Zone C</option></select><button type="button" class="btn sm" data-vac-fill="1">Remplir</button></span>`:''}
+      ${off?`<span class="vzone">Calendrier officiel : <select id="vacZone">${['A','B','C'].map(z=>`<option value="${z}" ${z===VAC_ZONE?'selected':''}>Zone ${z}${z==='B'?' (Amiens, Lille, Reims…)':''}</option>`).join('')}</select><button type="button" class="btn sm" data-vac-fill="1">Remplir et enregistrer</button></span>`:''}
       <button class="btn primary" type="submit">Enregistrer les vacances</button></div>`}</form></details>`;
 }
 async function presSaveVac(f){
@@ -2478,7 +2496,8 @@ async function presSaveVac(f){
   }catch(e){ toast('Erreur : '+e.message) }
 }
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-cr-add],[data-cr-del],[data-vac-add],[data-vac-del],[data-vac-fill],[data-pres-jump]'); if(!t) return; const d=t.dataset;
+  const t=ev.target.closest&&ev.target.closest('[data-cr-add],[data-cr-del],[data-vac-add],[data-vac-del],[data-vac-fill],[data-vac-quick],[data-pres-jump]'); if(!t) return; const d=t.dataset;
+  if(d.vacQuick){ presVacQuickSave(); return }
   if(d.crAdd){ const box=t.closest('form').querySelector(`.crows[data-box=${d.crAdd}]`); if(box) box.insertAdjacentHTML('beforeend',crRowHtml({type:d.crAdd},'')); return }
   if(d.crDel!==undefined){ t.closest('.crow')?.remove(); return }
   if(d.vacAdd){ document.getElementById('vacEmpty')?.remove(); document.getElementById('vacRows').insertAdjacentHTML('beforeend',vacRowHtml({},'')); return }
@@ -2489,7 +2508,7 @@ document.addEventListener('click',ev=>{
     // on garde l'identifiant des périodes de même nom pour ne pas perdre les créneaux qui y sont liés
     const ids={}; cur.forEach(r=>{ ids[norm(r.querySelector('[name=vn]').value)]=r.dataset.id });
     box.innerHTML=off.map(([n,a,b])=>vacRowHtml({id:ids[norm(n)]||'',nom:n,debut:a,fin:b},'')).join('');
-    toast(`Calendrier zone ${z} chargé : clique sur « Enregistrer les vacances »`); return }
+    presSaveVac(document.getElementById('fVac')); return }
   if(d.presJump){ PRES.date=d.presJump; renderMain(); return }
 });
 document.addEventListener('toggle',ev=>{ if(ev.target.id==='vacD') UI.vacOpen=ev.target.open },true);
@@ -2523,7 +2542,7 @@ function presWeekHtml(){
         <span class="wl1"><b>${esc(x.g.nom)}</b> · ${esc(crHours(x.c))}${lieu?` · 📍 ${esc(lieu)}`:''}</span>${co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
     return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
       <div class="wtrack" style="--n:${nl}">${hours.map(h=>`<i class="wline" style="left:${pc(h)}"></i>`).join('')}${tl.map(blk).join('')}
-        ${!list.length?'<span class="wnone">—</span>':''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
+        ${!list.length?`<span class="wnone">${v?'Vacances : pas d’entraînement':'—'}</span>`:''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
   const lbl=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   // sur petit écran, la grille défile : on amène la première séance (du jour si possible) en vue
   setTimeout(()=>{ const sc=document.querySelector('.wscroll'), el=document.querySelector('.wrow.today .wblk')||document.querySelector('.wblk');
