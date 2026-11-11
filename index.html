@@ -578,7 +578,7 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 .wnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.wtitle{margin-right:6px}
 .wday .ds{display:none}
 .wscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.wgrid{min-width:760px;--lane:72px}
+.wgrid{min-width:760px;--lane:48px}
 .wrow{display:grid;grid-template-columns:96px 1fr;border-top:1px solid var(--line)}
 .wrow.whead{border-top:0}.wrow.whead .wtrack{min-height:22px;height:22px}
 .wrow.today .wday{color:var(--accent-ink)}.wrow.today .wday b::after{content:' •'}
@@ -588,13 +588,16 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 .wtrack{position:relative;min-height:calc(var(--n,1) * var(--lane) + 8px)}
 .wline{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
 .whour{position:absolute;top:2px;transform:translateX(-50%);font-size:11px;color:var(--muted)}
-.wblk{position:absolute;height:calc(var(--lane) - 6px);min-width:46px;border:0;border-left:4px solid;border-radius:8px;padding:4px 7px;text-align:left;overflow:hidden;display:flex;flex-direction:column;gap:0;font-size:11.5px;line-height:1.3;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06);z-index:1}
-.wblk b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wblk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.wblk{position:absolute;height:calc(var(--lane) - 6px);min-width:46px;justify-content:center;border:0;border-left:4px solid;border-radius:8px;padding:4px 7px;text-align:left;overflow:hidden;display:flex;flex-direction:column;gap:0;font-size:11.5px;line-height:1.3;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06);z-index:1}
+.wblk .wl1,.wblk .wl2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wblk .wl1{font-size:12px}.wblk .wl1 b{font-size:12.5px}.wblk .wl2{opacity:.85;font-size:11.5px}
 .wblk:hover{filter:brightness(.96);box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .wnone{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#c4cad1}
 .wnoh{position:absolute;right:6px;bottom:4px;font-size:11px;color:var(--muted)}
 .wleg{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.wkey{border-left:4px solid;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:600}
-@media (max-width:700px){.wgrid{min-width:640px}.wrow{grid-template-columns:52px 1fr}.wday .dl{display:none}.wday .ds{display:inline}.wtitle{flex:1 1 100%;font-size:14px}.wrow.today .wday b::after{content:''}}
+.wblk:hover,.wblk:focus-visible{width:auto!important;max-width:420px;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.wblk:hover .wl1,.wblk:hover .wl2{overflow:visible}
+.wblk.wr:hover,.wblk.wr:focus-visible{left:auto!important;right:var(--rgt)}
+@media (max-width:700px){.wgrid{min-width:max(640px, calc(52px + var(--wmin,0px)))}.wrow{grid-template-columns:52px 1fr}.wday .dl{display:none}.wday .ds{display:inline}.wtitle{flex:1 1 100%;font-size:14px}.wrow.today .wday b::after{content:''}}
 .coachl{font-size:13.5px;margin:2px 0 6px}.entadd{margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff;max-width:100%}
 input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crs{margin:4px 0 8px}.crlieu{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}.crt{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:2px}.cri{font-size:13.5px}
@@ -2514,18 +2517,19 @@ function presWeekHtml(){
     tl.forEach(x=>{ const e=x.b!=null?x.b:x.a+60; let k=lanes.findIndex(end=>end<=x.a); if(k<0){ k=lanes.length; lanes.push(e) } else lanes[k]=e; x.lane=k });
     const nl=Math.max(1,lanes.length), v=vacOf(d), none=list.filter(x=>x.a==null);
     const blk=x=>{ const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g), n=presMembers(x.g.id).length;
-      return `<button type="button" class="wblk" data-week-go="${x.g.id}|${d}" style="left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
+      const rgt=x.a>t0+span*0.55;
+      return `<button type="button" class="wblk ${rgt?'wr':''}" data-week-go="${x.g.id}|${d}" style="${rgt?`--rgt:${(100-(e-t0)/span*100).toFixed(3)}%;`:''}left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
         title="${esc(`${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
-        <b>${esc(x.g.nom)}</b><span>${esc(crHours(x.c))}</span>${lieu?`<span>📍 ${esc(lieu)}</span>`:''}${co.length?`<span>👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
+        <span class="wl1"><b>${esc(x.g.nom)}</b> · ${esc(crHours(x.c))}${lieu?` · 📍 ${esc(lieu)}`:''}</span>${co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
     return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
       <div class="wtrack" style="--n:${nl}">${hours.map(h=>`<i class="wline" style="left:${pc(h)}"></i>`).join('')}${tl.map(blk).join('')}
         ${!list.length?'<span class="wnone">—</span>':''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
   const lbl=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   // sur petit écran, la grille défile : on amène la première séance (du jour si possible) en vue
   setTimeout(()=>{ const sc=document.querySelector('.wscroll'), el=document.querySelector('.wrow.today .wblk')||document.querySelector('.wblk');
-    if(sc&&el&&sc.scrollWidth>sc.clientWidth+4) sc.scrollLeft+=el.getBoundingClientRect().left-sc.getBoundingClientRect().left-(window.innerWidth<=700?80:110) },0);
+    if(sc&&el&&window.innerWidth<=1000&&sc.scrollWidth>sc.clientWidth+4) sc.scrollLeft+=el.getBoundingClientRect().left-sc.getBoundingClientRect().left-(window.innerWidth<=700?80:110) },0);
   return `<div class="card wcard"><div class="wnav"><b class="wtitle">Semaine du ${esc(lbl(mon))} au ${esc(lbl(days[6]))}</b><button type="button" class="btn" data-week="-1" title="Semaine précédente">◀</button><button type="button" class="btn" data-week="1" title="Semaine suivante">▶</button><button type="button" class="btn sm" data-week="0">Cette semaine</button>${vacWeek.length?`<span class="lb warn">Vacances : ${esc(vacWeek.join(', '))}</span>`:''}</div>
-    <div class="wscroll"><div class="wgrid"><div class="wrow whead"><div class="wday"></div><div class="wtrack">${hours.map(h=>`<span class="whour" style="left:${pc(h)}">${String(h/60).padStart(2,'0')}h</span>`).join('')}</div></div>
+    <div class="wscroll"><div class="wgrid" style="--wmin:${(span/60*92).toFixed(0)}px"><div class="wrow whead"><div class="wday"></div><div class="wtrack">${hours.map(h=>`<span class="whour" style="left:${pc(h)}">${String(h/60).padStart(2,'0')}h</span>`).join('')}</div></div>
       ${days.map((d,i)=>row(d,ses[i])).join('')}</div></div>
     <div class="wleg">${PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).map(g=>{ const [bg,fg,bd]=grpColor(g.id); return `<span class="wkey" style="background:${bg};color:${fg};border-left-color:${bd}">${esc(g.nom)}</span>` }).join('')}</div>
     <div class="hint" style="margin-top:6px">Clique sur une séance pour ouvrir son pointage. Pendant les vacances scolaires, ce sont les créneaux « vacances » des groupes qui s’affichent.</div></div>`;
