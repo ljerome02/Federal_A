@@ -574,11 +574,34 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 }
 
 /* adhérents et groupes */
+.rtab{border-collapse:separate;border-spacing:0;min-width:100%}
+.rtab th,.rtab td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:4px;vertical-align:top}
+.rtab thead th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:6px 8px;white-space:nowrap;background:var(--panel)}
+.rtab thead th b{display:block;color:var(--ink);font-size:12.5px}.rtab thead th span{margin-right:4px}
+.rtab thead th.rtoday b{color:var(--accent-ink)}
+.rtab .rg{position:sticky;left:0;z-index:2;background:var(--panel);text-align:left;font-size:13px;min-width:110px;max-width:150px;padding:8px}
+.rtab tbody .rg{font-weight:700;vertical-align:middle}
+.rtab td{min-width:132px}.rtab td.rnone{background:repeating-linear-gradient(135deg,#fafbfc 0 6px,#fff 6px 12px)}
+.rcell{display:flex;flex-direction:column;gap:3px;width:100%;min-height:64px;border:1px dashed transparent;border-radius:10px;background:transparent;padding:4px;text-align:left;cursor:pointer}
+.rcell:hover{border-color:var(--accent);background:var(--accent-soft)}.rcell[data-ro]{cursor:default}.rcell[data-ro]:hover{border-color:transparent;background:transparent}
+.rcell.rtoday{box-shadow:inset 0 0 0 2px var(--accent-soft)}
+.rhead{font-size:11px;color:var(--muted)}
+.rchip{display:flex;align-items:baseline;gap:5px;border-radius:7px;padding:2px 7px;font-size:12px;line-height:1.35}
+.rchip i{font-style:normal;font-variant-numeric:tabular-nums;opacity:.75;font-size:11px}
+.rchip.rconf{box-shadow:inset 0 0 0 2px var(--bad);}
+.rempty{font-size:12px;color:var(--accent-ink);margin-top:6px}
+.rtot{font-size:11px;color:var(--muted)}.rover{color:var(--bad);font-weight:600}.runder{color:var(--warn)}
+.rrow{display:grid;grid-template-columns:minmax(150px,1fr) 70px auto minmax(90px,auto) 32px 32px 32px;gap:6px;align-items:center;margin:4px 0}
+.rrow select,.rrow input{border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:#fff;color:var(--ink);font-size:14px;width:100%}
+.rtime{font-size:12px;color:var(--accent-ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rtotl{font-size:13px;margin:4px 0}.rcopy{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:8px}
+@media (max-width:700px){.rrow{grid-template-columns:1fr 64px auto 30px 30px 30px}.rrow .rtime{grid-column:1/-1;order:9}.rtab td{min-width:120px}}
 .wblk.woff{background:#f1f2f4!important;color:#8a939c!important;border-left-color:#c3c8cf!important;text-decoration:line-through}
 .wblk.woff .wl2{text-decoration:none}
 .wann{margin-left:6px;font-size:12.5px;color:var(--muted)}
 .wblk.wpon{box-shadow:inset 0 0 0 1px currentColor}
-.wpop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(16,24,40,.22);padding:12px 14px;width:min(380px,calc(100vw - 16px));font-size:13.5px;line-height:1.5}
+.wpop.wpop-wide{width:min(600px,calc(100vw - 16px))}
+.wpop{max-height:86vh;overflow-y:auto;overflow-x:hidden;position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(16,24,40,.22);padding:12px 14px;width:min(380px,calc(100vw - 16px));font-size:13.5px;line-height:1.5}
 .wph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.wph b{font-size:15px}
 .wpf{display:grid;grid-template-columns:1fr 1fr;gap:8px}.wpf label{font-size:12px;color:var(--muted)}.wpf .full,.wpf label:first-child{grid-column:span 2}
 .wpf input,.wpf select{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font-size:14px}
@@ -2190,7 +2213,7 @@ const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
 const addDays=(iso,n)=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoOf(d) };
-const presNew=()=>({annul:[],sx:false,ent:[],ge:null,creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
+const presNew=()=>({rot:[],ro:null,annul:[],sx:false,ent:[],ge:null,creneaux:[],vacances:[],cr:null,loaded:false,loading:false,err:'',offline:false,groupes:[],membres:[],map:{},queue:[],groupe:null,date:isoToday(),tab:'planning',club:null,ts:null,msg:''});
 let PRES=presNew();
 const presEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const presOnline=()=>navigator.onLine!==false;
@@ -2205,7 +2228,7 @@ const byNom=(a,b)=>norm(a.nom||'').localeCompare(norm(b.nom||''))||norm(a.prenom
 
 function presSave(){
   const rows=Object.keys(PRES.map).map(k=>{ const [g,l,d]=k.split('|'); return {groupe_id:g,licencie_id:l,date:d,statut:PRES.map[k]} });
-  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,lb:PRES.lb,rows,ts:PRES.ts});
+  lsSet(presCK(),{groupes:PRES.groupes,membres:PRES.membres,creneaux:PRES.creneaux,vacances:PRES.vacances,cr:PRES.cr,ent:PRES.ent,ge:PRES.ge,annul:PRES.annul,sx:PRES.sx,lb:PRES.lb,rot:PRES.rot,ro:PRES.ro,rows,ts:PRES.ts});
   lsSet(presQK(),PRES.queue);
 }
 function presApplyQueue(){ PRES.queue.forEach(o=>{ if(o.s) PRES.map[o.k]=o.s; else delete PRES.map[o.k] }) }
@@ -2236,6 +2259,9 @@ async function presLoad(){
         sb.from('periodes_vacances').select('id,nom,debut,fin').eq('club_id',CLUB.id).eq('saison',SAISON)]);
       if(rc.error||rv.error) throw new Error('créneaux indisponibles'); PRES.creneaux=rc.data; PRES.vacances=rv.data; PRES.cr=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.creneaux=[]; PRES.vacances=[]; PRES.cr=false }
+    // rotations d'agrès : facultatif (script migration-rotations.sql)
+    try{ const rr=await sb.from('rotations_agres').select('id,groupe_id,date,agres').eq('club_id',CLUB.id); if(rr.error) throw new Error('rotations indisponibles'); PRES.rot=rr.data; PRES.ro=true }
+    catch(e){ if(isNetErr(e)) throw e; PRES.rot=[]; PRES.ro=false }
     // entraîneurs des groupes : facultatif (script migration-entraineurs.sql)
     try{ const re=await sb.from('groupe_entraineurs').select('groupe_id,licencie_id').eq('club_id',CLUB.id); if(re.error) throw new Error('entraîneurs indisponibles'); PRES.ent=re.data; PRES.ge=true }
     catch(e){ if(isNetErr(e)) throw e; PRES.ent=[]; PRES.ge=false }
@@ -2243,7 +2269,7 @@ async function presLoad(){
     PRES.offline=false; PRES.err=''; PRES.ts=Date.now();
   }catch(e){
     const c=lsGet(presCK());
-    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.lb=c.lb||false; PRES.map={};
+    if(isNetErr(e)&&c){ PRES.groupes=c.groupes||[]; PRES.membres=c.membres||[]; PRES.creneaux=c.creneaux||[]; PRES.vacances=c.vacances||[]; PRES.cr=c.cr||false; PRES.ent=c.ent||[]; PRES.ge=c.ge||false; PRES.annul=c.annul||[]; PRES.sx=c.sx||false; PRES.lb=c.lb||false; PRES.rot=c.rot||[]; PRES.ro=c.ro||false; PRES.map={};
       (c.rows||[]).forEach(r=>PRES.map[presK(r.groupe_id,r.licencie_id,r.date)]=r.statut);
       PRES.offline=true; PRES.ts=c.ts; PRES.err='' }
     else PRES.err=isNetErr(e)?'Pas de connexion et aucune donnée enregistrée sur cet appareil : ouvrez d’abord cet onglet une fois avec du réseau.':e.message;
@@ -2362,9 +2388,9 @@ function renderPres(){
   const head=`<div class="gymhead"><div><h2 class="name">Groupes</h2><div class="meta">Saison ${SAISON} · horaires, lieux, adhérents et présences · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
   if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
   if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
-  const tabs=[['planning','Planning'],['liste','Liste'],['pointage','Pointage'],['assiduite','Assiduité'],['groupes','Gérer les groupes']];
+  const tabs=[['planning','Planning'],['rotations','Rotations'],['liste','Liste'],['pointage','Pointage'],['assiduite','Assiduité'],['groupes','Gérer les groupes']];
   return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`+(PRES.tab==='assiduite'?'':presVacBanner())
-    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():PRES.tab==='liste'?presPlanningHtml():presWeekHtml());
+    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():PRES.tab==='liste'?presPlanningHtml():PRES.tab==='rotations'?presRotHtml():presWeekHtml());
 }
 
 
@@ -2605,8 +2631,8 @@ document.addEventListener('submit',ev=>{ if(ev.target.id!=='fVac') return; ev.pr
 
 /* ---- menu d'une séance du planning, ajout d'une séance ponctuelle ---- */
 function popClose(){ document.getElementById('wpop')?.remove() }
-function popOpen(html,anchor){
-  popClose(); document.body.insertAdjacentHTML('beforeend',`<div id="wpop" class="wpop" role="dialog">${html}</div>`);
+function popOpen(html,anchor,cls){
+  popClose(); document.body.insertAdjacentHTML('beforeend',`<div id="wpop" class="wpop ${cls||''}" role="dialog">${html}</div>`);
   const p=document.getElementById('wpop'), r=anchor?anchor.getBoundingClientRect():null;
   if(r&&window.innerWidth>700){ const w=p.offsetWidth, h=p.offsetHeight;
     p.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.left))+'px'; p.style.top=(r.bottom+h+8>window.innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+'px' }
@@ -2667,6 +2693,113 @@ document.addEventListener('submit',async ev=>{
     popClose(); PRES.week=mondayOf(dt); PRES.loaded=false; await presLoad(); renderMain(); toast('Séance ajoutée') }
   catch(e){ toast('Erreur : '+e.message) }
 });
+
+
+/* ================= ROTATIONS D'AGRÈS ================= */
+/* Onglet Groupes > Rotations : en colonnes les dates d'entraînement, en lignes les groupes qui s'entraînent ;
+   dans chaque case, l'ordre des agrès et le temps passé sur chacun (heures de passage calculées).
+   Alerte si deux groupes utilisent le même agrès au même moment, au même endroit. Table rotations_agres. */
+const ROT_AGRES=[['echauffement','Échauffement','Écha.','#eef1f5','#3f4a56',0],['saut','Saut','Saut','#fff1d6','#7a5200',1],['barres','Barres asymétriques','Barres','#e0f4fb','#0b6b85',1],
+  ['poutre','Poutre','Poutre','#fde8f1','#a1245f',1],['sol','Sol','Sol','#e1f6ea','#14733a',1],['prepa','Préparation physique','Prépa','#efe8ff','#5a3aa8',0]];
+const rotA=k=>ROT_AGRES.find(x=>x[0]===k)||[k,k,k,'#eef1f5','#3f4a56',0];
+const rotOf=(gid,iso)=>(PRES.rot||[]).find(r=>r.groupe_id===gid&&r.date===iso)||null;
+const m2hm=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+/* séance de référence d'un groupe ce jour-là (la première s'il y en a plusieurs) */
+const rotSess=(gid,iso)=>presSessionOn(gid,iso)[0]||null;
+/* agrès avec heures de début et de fin */
+function rotTimeline(gid,iso,list){
+  const c=rotSess(gid,iso), t0=c?hm2min(c.heure_debut):null; let t=t0||0;
+  return (list||(rotOf(gid,iso)||{}).agres||[]).map(x=>{ const m=Math.max(0,+x.m||0), it={a:x.a,m,s:t0==null?null:t,e:t0==null?null:t+m}; t+=m; return it });
+}
+/* conflits : même date, même lieu, même agrès (hors échauffement et préparation physique), horaires qui se chevauchent */
+function rotConflicts(iso){
+  const out={}, rows=PRES.groupes.map(g=>({g,c:rotSess(g.id,iso),tl:rotTimeline(g.id,iso)})).filter(x=>x.c&&x.tl.length);
+  for(let i=0;i<rows.length;i++) for(let j=i+1;j<rows.length;j++){
+    const A=rows[i], B=rows[j], la=norm(crLieu(A.c,A.g)), lb=norm(crLieu(B.c,B.g)); if(la!==lb) continue;
+    A.tl.forEach((x,ia)=>{ if(!rotA(x.a)[5]||x.s==null) return; B.tl.forEach((y,ib)=>{ if(y.a!==x.a||y.s==null) return;
+      if(x.s<y.e&&y.s<x.e){ (out[A.g.id+'|'+ia]=out[A.g.id+'|'+ia]||[]).push(`${B.g.nom} (${m2hm(y.s)}–${m2hm(y.e)})`); (out[B.g.id+'|'+ib]=out[B.g.id+'|'+ib]||[]).push(`${A.g.nom} (${m2hm(x.s)}–${m2hm(x.e)})`) } }) });
+  }
+  return out;
+}
+function presRotHtml(){
+  if(!PRES.groupes.length) return presNoGroup();
+  if(PRES.ro===false) return `<div class="warn">Les rotations d’agrès seront disponibles après l’exécution du script <b>migration-rotations.sql</b> dans Supabase (SQL Editor).</div>`;
+  const wide=window.innerWidth>1000, nd=wide?14:7, mon=PRES.rweek||(PRES.rweek=mondayOf(isoToday()));
+  const all=[...Array(nd)].map((_,i)=>addDays(mon,i)), td=isoToday(), ed=presEdit();
+  const dates=all.filter(d=>PRES.groupes.some(g=>presSessionOn(g.id,d).length));
+  const grps=PRES.groupes.filter(g=>dates.some(d=>presSessionOn(g.id,d).length)).sort((a,b)=>(a.jour||9)-(b.jour||9)||hhmm(a.heure_debut).localeCompare(hhmm(b.heure_debut))||a.nom.localeCompare(b.nom));
+  const cf={}; dates.forEach(d=>cf[d]=rotConflicts(d));
+  const lbl=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  const cell=(g,d)=>{
+    const c=rotSess(g.id,d); if(!c) return `<td class="rnone"></td>`;
+    const dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0), tl=rotTimeline(g.id,d), tot=tl.reduce((a,x)=>a+x.m,0), lieu=crLieu(c,g);
+    const chips=tl.map((x,i)=>{ const A=rotA(x.a), k=cf[d][g.id+'|'+i];
+      return `<span class="rchip ${k?'rconf':''}" style="background:${A[3]};color:${A[4]}" title="${esc(A[1]+' · '+x.m+' min'+(x.s!=null?' · '+m2hm(x.s)+'–'+m2hm(x.e):'')+(k?' · ⚠ même agrès au même moment que '+k.join(', '):''))}">${x.s!=null?`<i>${m2hm(x.s)}</i>`:''}<b>${esc(A[2])}</b> ${x.m}′${k?' ⚠':''}</span>` }).join('');
+    return `<td><button type="button" class="rcell ${d===td?'rtoday':''}" data-rot="${g.id}|${d}" ${ed?'':'data-ro="1"'}>
+      <span class="rhead">${esc(crHours(c))}${lieu?` · ${esc(lieu)}`:''}</span>${chips||`<span class="rempty">${ed?'+ Définir la rotation':'—'}</span>`}
+      ${tl.length&&dur>0?`<span class="rtot ${tot>dur?'rover':tot<dur?'runder':''}">${tot} / ${dur} min</span>`:''}</button></td>` };
+  return `<div class="card wcard"><div class="wnav"><b class="wtitle">Rotations du ${esc(lbl(all[0]))} au ${esc(lbl(all[nd-1]))}</b>
+      <button type="button" class="btn" data-rweek="-1" title="Période précédente">◀</button><button type="button" class="btn" data-rweek="1" title="Période suivante">▶</button><button type="button" class="btn sm" data-rweek="0">Cette semaine</button></div>
+    ${!dates.length?'<div class="empty">Aucun entraînement sur cette période.</div>':`<div class="wscroll"><table class="rtab"><thead><tr><th class="rg">Groupe</th>${dates.map(d=>`<th class="${d===td?'rtoday':''}"><b>${PRES_JOURS[isoDow(d)]}</b><span>${d.slice(8,10)}/${d.slice(5,7)}</span>${vacOf(d)?'<span class="lb warn">vac.</span>':''}</th>`).join('')}</tr></thead>
+      <tbody>${grps.map(g=>`<tr><th class="rg">${esc(g.nom)}</th>${dates.map(d=>cell(g,d)).join('')}</tr>`).join('')}</tbody></table></div>`}
+    <div class="wleg">${ROT_AGRES.map(A=>`<span class="wkey" style="background:${A[3]};color:${A[4]};border-left-color:${A[4]}">${esc(A[1])}</span>`).join('')}</div>
+    <div class="hint" style="margin-top:6px">${ed?'Clique sur une case pour choisir les agrès, leur ordre et leur durée. ':''}Les heures de passage sont calculées à partir du début de la séance. ⚠ = même agrès au même moment qu’un autre groupe, au même endroit. ${wide?'Deux semaines affichées.':'Une semaine affichée (deux sur ordinateur).'}</div></div>`;
+}
+/* ---- éditeur d'une case ---- */
+function rotRowHtml(x){ return `<div class="rrow"><select name="ra">${ROT_AGRES.map(A=>`<option value="${A[0]}" ${x.a===A[0]?'selected':''}>${esc(A[1])}</option>`).join('')}</select>
+  <input type="number" name="rm" min="0" max="300" step="5" value="${+x.m||0}" inputmode="numeric" aria-label="Durée en minutes"><span class="hint">min</span><span class="rtime"></span>
+  <button type="button" class="btn sm ghost" data-rmove="-1" aria-label="Monter">↑</button><button type="button" class="btn sm ghost" data-rmove="1" aria-label="Descendre">↓</button><button type="button" class="btn sm ghost" data-rdel="1" aria-label="Retirer">✕</button></div>` }
+function rotEdit(gid,iso,anchor){
+  const g=PRES.groupes.find(x=>x.id===gid), c=rotSess(gid,iso); if(!g||!c) return;
+  const r=rotOf(gid,iso), list=r?r.agres:[], ro=!presEdit(), dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0);
+  if(ro){ const tl=rotTimeline(gid,iso);
+    popOpen(`<div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div><div class="hint">${esc(crHours(c))}${crLieu(c,g)?' · 📍 '+esc(crLieu(c,g)):''}</div>
+      ${tl.map(x=>`<div>${x.s!=null?m2hm(x.s)+' – '+m2hm(x.e)+' · ':''}<b>${esc(rotA(x.a)[1])}</b> (${x.m} min)</div>`).join('')||'<div class="hint">Pas de rotation définie.</div>'}`,anchor); return }
+  const same=[...Array(28)].map((_,i)=>addDays(mondayOf(iso),i)).filter(d=>d!==iso&&d>=isoToday()&&presSessionOn(gid,d).length);
+  popOpen(`<form id="fRot" data-k="${gid}|${iso}" autocomplete="off"><div class="wph"><b>${esc(g.nom)} · ${esc(longDate(iso))}</b><button type="button" class="btn sm ghost" data-wp="close" aria-label="Fermer">✕</button></div>
+    <div class="hint" style="margin-bottom:6px">Séance ${esc(crHours(c))}${crLieu(c,g)?' · 📍 '+esc(crLieu(c,g)):''}${dur>0?` · ${dur} min`:''}</div>
+    <div id="rRows">${list.map(rotRowHtml).join('')}</div>
+    <div class="quick" style="margin:6px 0"><button type="button" class="btn sm" data-radd="1">+ Ajouter un agrès</button><button type="button" class="btn sm" data-rfill="1" title="Saut, barres, poutre et sol à parts égales sur la durée de la séance">4 agrès à parts égales</button></div>
+    <div id="rTot" class="rtotl"></div>
+    ${same.length?`<div class="rcopy"><div class="hint">Appliquer aussi à :</div>${same.map(d=>`<label class="dck"><input type="checkbox" name="rc" value="${d}"> ${PRES_JOURS[isoDow(d)].slice(0,3).toLowerCase()}. ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}</div>`:''}
+    <div class="quick" style="margin-top:10px"><button class="btn primary" type="submit">Enregistrer</button>${r?'<button type="button" class="btn" data-rclear="1">Effacer la rotation</button>':''}<button type="button" class="btn" data-wp="close">Annuler</button></div></form>`,anchor,'wpop-wide');
+  rotLive();
+}
+function rotRead(){ return [...document.querySelectorAll('#fRot .rrow')].map(r=>({a:r.querySelector('[name=ra]').value,m:Math.max(0,parseInt(r.querySelector('[name=rm]').value)||0)})) }
+function rotLive(){
+  const f=document.getElementById('fRot'); if(!f) return; const [gid,iso]=f.dataset.k.split('|'), c=rotSess(gid,iso), list=rotRead(), tl=rotTimeline(gid,iso,list);
+  f.querySelectorAll('.rrow').forEach((r,i)=>{ const x=tl[i]; r.querySelector('.rtime').textContent=x&&x.s!=null?`${m2hm(x.s)} – ${m2hm(x.e)}`:'' });
+  const dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0), tot=list.reduce((a,x)=>a+x.m,0), el=document.getElementById('rTot');
+  if(el) el.innerHTML=list.length?`Total <b>${tot} min</b>${dur>0?` sur ${dur} min · ${tot>dur?`<span class="rover">${tot-dur} min de trop</span>`:tot<dur?`<span class="runder">${dur-tot} min à répartir</span>`:'<span class="lb ok">juste</span>'}`:''}`:'<span class="hint">Aucun agrès : ajoute-les dans l’ordre de passage.</span>';
+}
+async function rotSave(f,clear){
+  const [gid,iso]=f.dataset.k.split('|'), list=clear?[]:rotRead().filter(x=>x.m>0||x.a);
+  const dates=[iso,...(clear?[]:[...f.querySelectorAll('[name=rc]:checked')].map(b=>b.value))];
+  if(!presOnline()){ toast('Connexion nécessaire'); return }
+  try{
+    if(list.length) chk(await sb.from('rotations_agres').upsert(dates.map(d=>({club_id:CLUB.id,groupe_id:gid,date:d,agres:list,updated_at:new Date().toISOString()})),{onConflict:'groupe_id,date'}));
+    else chk(await sb.from('rotations_agres').delete().eq('groupe_id',gid).eq('date',iso));
+    popClose(); PRES.loaded=false; await presLoad(); renderMain();
+    toast(list.length?(dates.length>1?`Rotation enregistrée sur ${dates.length} séances`:'Rotation enregistrée'):'Rotation effacée');
+  }catch(e){ toast('Erreur : '+e.message) }
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-rot],[data-rweek],[data-radd],[data-rfill],[data-rdel],[data-rmove],[data-rclear]'); if(!t) return; const d=t.dataset;
+  if(d.rot){ const [g,iso]=d.rot.split('|'); rotEdit(g,iso,t); return }
+  if(d.rweek!==undefined){ const wide=window.innerWidth>1000; PRES.rweek=d.rweek==='0'?mondayOf(isoToday()):addDays(PRES.rweek||mondayOf(isoToday()),(wide?14:7)*(+d.rweek)); renderMain(); return }
+  const box=document.getElementById('rRows'); if(!box) return;
+  if(d.radd){ const used=rotRead().map(x=>x.a), nx=ROT_AGRES.find(A=>A[5]&&!used.includes(A[0]))||ROT_AGRES[1]; box.insertAdjacentHTML('beforeend',rotRowHtml({a:nx[0],m:20})); rotLive(); return }
+  if(d.rfill){ const f=document.getElementById('fRot'), [gid,iso]=f.dataset.k.split('|'), c=rotSess(gid,iso), dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0);
+    const cur=rotRead(), keep=cur.filter(x=>!rotA(x.a)[5]), rest=Math.max(0,dur-keep.reduce((a,x)=>a+x.m,0)), q=Math.floor(rest/4/5)*5||Math.floor(rest/4);
+    const four=['saut','barres','poutre','sol'].map((a,i)=>({a,m:i===3?rest-3*q:q}));
+    box.innerHTML=[...keep.filter(x=>x.a==='echauffement'),...four,...keep.filter(x=>x.a!=='echauffement')].map(rotRowHtml).join(''); rotLive(); return }
+  if(d.rdel){ t.closest('.rrow')?.remove(); rotLive(); return }
+  if(d.rmove){ const r=t.closest('.rrow'); if(d.rmove==='-1'&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); else if(d.rmove==='1'&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); rotLive(); return }
+  if(d.rclear!==undefined){ if(confirm('Effacer la rotation de cette séance ?')) rotSave(document.getElementById('fRot'),true) }
+});
+document.addEventListener('input',ev=>{ if(ev.target.closest&&ev.target.closest('#fRot')) rotLive() });
+document.addEventListener('change',ev=>{ if(ev.target.closest&&ev.target.closest('#fRot')) rotLive() });
+document.addEventListener('submit',ev=>{ if(ev.target.id!=='fRot') return; ev.preventDefault(); rotSave(ev.target,false) });
 
 /* ---- planning de la semaine : jours en lignes, heures en colonnes, séances des groupes à l'intérieur ---- */
 const mondayOf=iso=>addDays(iso,1-isoDow(iso));
