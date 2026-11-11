@@ -701,7 +701,9 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .lgrid label.wide{grid-column:span 2}@media (max-width:700px){.lgrid label.wide{grid-column:auto}}
 .lb.fct{font-weight:600}.fctl{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .fcts{display:flex;flex-wrap:wrap;gap:6px 16px}.fctck{min-width:180px}
-.ccb{cursor:pointer;font:inherit}.ccb:hover{border-color:var(--accent)}
+.ccb{cursor:pointer;font:inherit;color:inherit}.ccb:hover{border-color:var(--accent)}
+.ccb.on{background:var(--accent);border-color:var(--accent);color:#fff}.ccb.on b{color:#fff}
+.ccf{margin-bottom:8px}.ccin{display:contents}.ccsep{width:1px;align-self:stretch;background:var(--line);margin:2px 4px}
 .bur{display:grid;gap:8px}.burr{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:baseline}
 @media (max-width:700px){.burr{grid-template-columns:1fr;gap:0}.fctck{min-width:45%}}
 .lfiche .lgrid select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);min-height:34px;width:100%}
@@ -1115,8 +1117,10 @@ function renderSideList(){
 UI.mq=UI.mq||''; UI.mteam=UI.mteam||''; UI.sel=UI.sel||{};
 const canDelete=()=>typeof ROLE==='undefined' || ROLE==='admin';
 const teamOpts=(sel,empty='— Sans équipe —')=>`<option value="">${empty}</option>`+S.teams.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name))).map(t=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${esc(t.name)}</option>`).join('');
-function compCounts(){
+const licChip=(k,l,n,todo)=>`<button type="button" class="cc ccb ${todo?'todo':''} ${(LIC.f||'')===k?'on':''}" data-lic-filter="${k}" aria-pressed="${(LIC.f||'')===k}">${l} <b>${n}</b></button>`;
+function compCounts(btn){
   const n=f=>S.gyms.filter(f).length, td=nTodo();
+  if(btn) return licChip('cteam','🏅 Équipe',n(teamOk))+licChip('cind','🧍 Individuel',n(indOk))+licChip('cnone','Pas de compétition',n(g=>g.compet==='aucune'))+licChip('ctodo','À choisir',td,td);
   return `<span class="cc">🏅 Équipe <b>${n(teamOk)}</b></span><span class="cc">🧍 Individuel <b>${n(indOk)}</b></span><span class="cc">Pas de compétition <b>${n(g=>g.compet==='aucune')}</b></span><span class="cc ${td?'todo':''}">À choisir <b>${td}</b></span>`;
 }
 function renderManage(){
@@ -1147,7 +1151,7 @@ function renderManage(){
 }
 function renderManageTable(){
   const lt=document.getElementById('licTable');
-  if(lt){ lt.innerHTML=licTableHtml(); const cn=document.getElementById('mCounts'); if(cn) cn.innerHTML=compCounts(); const lc=document.getElementById('licCounts'); if(lc&&LIC.loaded&&!LIC.err) lc.innerHTML=licCountsHtml(); return }
+  if(lt){ lt.innerHTML=licTableHtml(); const cn=document.getElementById('mCounts'); if(cn) cn.innerHTML=compCounts(true); const lc=document.getElementById('licCounts'); if(lc&&LIC.loaded&&!LIC.err) lc.innerHTML=licCountsHtml(); return }
   const el=document.getElementById('mTable'); if(!el) return;
   const q=norm(UI.mq), f=UI.mcomp||'';
   const match=g=>!f||(f==='todo'?!g.compet:f==='team'?teamOk(g):f==='ind'?indOk(g):g.compet==='aucune');
@@ -1933,10 +1937,13 @@ async function loadLic(){
 function licCountsHtml(){
   const n=f=>S.gyms.filter(f).length, has=(g,f)=>!!licOf(g.id,f);
   const sans=n(g=>!LIC_FEDS.some(f=>has(g,f))), td=n(g=>licIssues(g).length), ar=licPay()&&LIC.cot!==null?n(g=>licSolde(g.id).st!=='paye'):0;
-  return `<span class="cc">Adhérents <b>${S.gyms.length}</b></span><span class="cc">FFG <b>${n(g=>has(g,'FFG'))}</b></span><span class="cc">UFOLEP <b>${n(g=>has(g,'UFOLEP'))}</b></span>`
-   +`<span class="cc">Les deux <b>${n(g=>has(g,'FFG')&&has(g,'UFOLEP'))}</b></span><span class="cc ${sans?'todo':''}">Sans licence <b>${sans}</b></span>`
-   +(licPay()&&LIC.cot!==null?`<span class="cc ${ar?'todo':''}">Cotisation à régler <b>${ar}</b></span>`:'')
-   +`<span class="cc ${td?'todo':''}">Dossiers à traiter <b>${td}</b></span>`;
+  return licChip('','Adhérents',S.gyms.length)+licChip('FFG','FFG',n(g=>has(g,'FFG')))+licChip('UFOLEP','UFOLEP',n(g=>has(g,'UFOLEP')))
+   +licChip('both','Les deux',n(g=>has(g,'FFG')&&has(g,'UFOLEP')))+licChip('none','Sans licence',sans,sans)
+   +(licPay()&&LIC.cot!==null?licChip('pay','Cotisation à régler',ar,ar):'')
+   +licChip('todo','Dossiers à traiter',td,td);
+}
+function licRolesChips(){
+  return LIC.loaded&&!LIC.err&&LIC.fct?FCT.map(([k,l])=>{ const n=S.gyms.filter(g=>fctHas(g.id,k)).length; return n?licChip('r:'+k,l,n):'' }).join(''):'';
 }
 
 function licTableHtml(){
@@ -2143,7 +2150,7 @@ function renderLic(){
     <div class="hint" style="margin-top:6px">Appuie sur Entrée pour ajouter : le formulaire se vide pour le suivant et garde la compétition choisie. Les licences, le dossier et les groupes se renseignent ensuite dans la fiche.</div></div></details>`;
   const opts=[['','Tous'],...(full?[['todo','Dossiers à traiter'],['FFG','Licence FFG'],['UFOLEP','Licence UFOLEP'],['both','Les deux fédérations'],['none','Sans licence'],...(licDocs()?[['sante','Santé à régulariser']]:[]),...(licPay()&&LIC.cot!==null?[['pay','Cotisation à régler']]:[]),...(LIC.grp?[['nogrp','Sans groupe'],...LIC.grp.map(x=>['g:'+x.id,'Groupe : '+x.nom])]:[])]:[]),
     ...(full&&LIC.fct?FCT.map(([k,l])=>['r:'+k,'Rôle : '+l]):[]),['ctodo','Compétition à choisir'],['cteam','Compétition équipe'],['cind','Compétition individuelle'],['cnone','Pas de compétition']];
-  return head+warnC+state+`<div class="ccount" id="licCounts">${full?licCountsHtml():''}</div>${full&&LIC.fct?`<div class="ccount">${FCT.map(([k,l])=>{ const n=S.gyms.filter(g=>fctHas(g.id,k)).length; return n?`<button type="button" class="cc ccb" data-lic-filter="r:${k}">${l} <b>${n}</b></button>`:'' }).join('')}</div>`:''}<div class="ccount" id="mCounts">${compCounts()}</div>
+  return head+warnC+state+`<div class="ccount ccf" id="licCounts">${full?licCountsHtml():''}</div><div class="ccount ccf">${full&&LIC.fct?licRolesChips()+'<span class="ccsep" aria-hidden="true"></span>':''}<span id="mCounts" class="ccin">${compCounts(true)}</span></div>
     <div id="licFicheBox">${full?licFicheHtml():''}</div>${addCard}
     <div class="card"><h3>Tous les adhérents</h3>
       <div class="mfilt"><input id="licQ" placeholder="Filtrer par nom…" value="${esc(LIC.q)}" autocomplete="off"><select id="licF">
@@ -2236,7 +2243,7 @@ document.addEventListener('input',ev=>{
   else if(ev.target.closest&&ev.target.closest('#fLic')&&/^(montant_du|pa|pe)$/.test(ev.target.name||'')) licPayLive();
 });
 document.addEventListener('change',ev=>{
-  if(ev.target.id==='licF'){ LIC.f=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml() }
+  if(ev.target.id==='licF'){ LIC.f=ev.target.value; const el=document.getElementById('licTable'); if(el) el.innerHTML=licTableHtml(); licChipsSync() }
   else if(ev.target.closest&&ev.target.closest('#fLic')&&ev.target.name==='pe') licPayLive();
 });
 document.addEventListener('submit',ev=>{
@@ -3017,8 +3024,14 @@ async function licBulkGroup(mode){
   }catch(e){ toast('Erreur : '+e.message) }
 }
 document.addEventListener('toggle',ev=>{ if(ev.target.id==='addAdh') UI.addOpen=ev.target.open },true);
+function licChipsSync(){ document.querySelectorAll('[data-lic-filter]').forEach(x=>{ const on=(LIC.f||'')===x.dataset.licFilter; x.classList.toggle('on',on); x.setAttribute('aria-pressed',on) }) }
 document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('[data-lic-filter]'); if(!b) return;
-  LIC.f=LIC.f===b.dataset.licFilter?'':b.dataset.licFilter; renderMain() });
+  LIC.f=LIC.f===b.dataset.licFilter?'':b.dataset.licFilter;
+  const t=document.getElementById('licTable'), sel=document.getElementById('licF');
+  if(!t){ renderMain(); return }
+  if(sel){ if(![...sel.options].some(o=>o.value===LIC.f)) LIC.f=''; sel.value=LIC.f }
+  t.innerHTML=licTableHtml(); licChipsSync();
+  const card=t.closest('.card'), r=card&&card.getBoundingClientRect(); if(r&&r.top>window.innerHeight-120) card.scrollIntoView({behavior:'smooth',block:'start'}) });
 /* compétition choisie dans la liste */
 document.addEventListener('change',ev=>{
   const t=ev.target; if(!t||!t.dataset||!t.dataset.compsel) return;
