@@ -39,7 +39,7 @@ as $$
   limit 1
 $$;
 
-revoke all on function public.role_dans_club(uuid) from public;
+revoke all on function public.role_dans_club(uuid) from public, anon;
 grant execute on function public.role_dans_club(uuid) to authenticated;
 
 -- 1) Annexe 1 : responsable et personnes à contacter --------------------------

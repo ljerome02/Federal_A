@@ -44,7 +44,7 @@ as $$
   limit 1
 $$;
 
-revoke all on function public.role_dans_club(uuid) from public;
+revoke all on function public.role_dans_club(uuid) from public, anon;
 grant execute on function public.role_dans_club(uuid) to authenticated;
 
 -- 2) Groupes (créneaux d'entraînement) ----------------------------------------
