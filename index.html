@@ -615,6 +615,11 @@ input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .crow .dck input{width:auto;padding:0;margin:0;border:0}
 .dckl{font-weight:600}
+.crsec>summary{cursor:pointer;list-style:none}.crsec>summary::-webkit-details-marker{display:none}
+.crsec>summary{display:flex;align-items:center;gap:6px}.crsec>summary h4{margin:0}.crsec>summary::before{content:'▶';font-size:10px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;color:var(--accent-ink);transition:transform .15s;flex:none}.crsec[open]>summary::before{transform:rotate(90deg)}
+.crsec>summary:hover h4,.crsec>summary:hover{color:var(--accent-ink)}
+details.crsec[data-crsec=vac],details.crsec[data-crsec=pon]{margin:16px 0 4px}.crsec[open]>summary{margin-bottom:6px}
+.secn{font-weight:500;font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:4px}
 details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:4px}
 .dcks{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;font-weight:600}.dcks::-webkit-details-marker{display:none}
 .dcks .dckn{font-weight:600}.dcks .dckt::after{content:'· afficher ▸';font-weight:400;color:var(--muted)}details[open] > .dcks .dckt::after{content:'· masquer ▾'}.dck{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #cfe9ee;border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
@@ -2473,8 +2478,8 @@ function presCrSummaryHtml(g){
   const sa=presCrOf(g.id,'saison'), va=PRES.cr?presCrOf(g.id,'vacances'):[], po=PRES.sx?presCrOf(g.id,'ponctuel').filter(c=>c.date>=isoToday()).sort((a,b)=>a.date.localeCompare(b.date)):[];
   const vn=c=>c.vacance_id?((vacList().find(v=>v.id===c.vacance_id)||{}).nom||'Vacances'):'Toutes les vacances';
   return `<div class="crs"><div class="crt">Saison, hors vacances${g.lieu?` <span class="crlieu">· 📍 ${esc(g.lieu)}</span>`:''}</div>${sa.map(c=>`<div class="cri"><b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${c.lieu&&c.lieu!==g.lieu?` · 📍 ${esc(c.lieu)}`:''}</div>`).join('')||'<div class="hint">Aucun horaire défini.</div>'}</div>`
-    +(po.length?`<div class="crs"><div class="crt">Séances ponctuelles à venir</div>${po.map(c=>`<div class="cri"><b>${esc(longDate(c.date))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')}</div>`:'')
-    +(PRES.cr?`<div class="crs"><div class="crt">Vacances scolaires</div>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${UI.listDates?`<div class="crd">${crDatesHtml(c)}</div>`:''}</div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</div>`:'');
+    +(po.length?`<details class="crs crsec" data-crsec="lpon" ${UI.secOpen&&UI.secOpen.lpon?'open':''}><summary class="crt">Séances ponctuelles à venir <span class="secn">${po.length}</span></summary>${po.map(c=>`<div class="cri"><b>${esc(longDate(c.date))}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}</div>`).join('')}</details>`:'')
+    +(PRES.cr?`<details class="crs crsec" data-crsec="lvac" ${UI.secOpen&&UI.secOpen.lvac?'open':''}><summary class="crt">Vacances scolaires <span class="secn">${va.length||'aucun'}</span></summary>${va.map(c=>`<div class="cri"><span class="hint">${esc(vn(c))}</span> · <b>${PRES_JOURS[c.jour]}</b>${crHours(c)?' · '+esc(crHours(c)):''}${crLieu(c,g)?` · 📍 ${esc(crLieu(c,g))}`:''}${UI.listDates?`<div class="crd">${crDatesHtml(c)}</div>`:''}</div>`).join('')||'<div class="hint">Pas d’entraînement pendant les vacances.</div>'}</details>`:'');
 }
 
 /* ---- formulaire : lignes d'entraînement ---- */
@@ -2498,12 +2503,12 @@ function presCrFormHtml(g,ro){
   return `<h4>Entraînements de la saison (hors vacances scolaires)</h4><div class="hint" style="margin-bottom:4px">Au lieu habituel du groupe${PRES.sx?', sauf si un autre lieu est indiqué sur la ligne':''}.</div>
     <div class="crows" data-box="saison">${(sa.length||ro?sa:[{type:'saison'}]).map(c=>crRowHtml(c,ro)).join('')}</div>
     ${ro?'':'<button type="button" class="btn sm" data-cr-add="saison">+ Ajouter un entraînement</button>'}
-    <h4>Pendant les vacances scolaires</h4><div class="hint" style="margin-bottom:4px">Jours, horaires et lieu pendant les vacances. Sans créneau ici, le groupe ne s’entraîne pas pendant les vacances.${PRES.vacances.length?'':' Renseigne d’abord le calendrier des vacances en haut de cette page.'}</div>
+    <details class="crsec" data-crsec="vac" ${UI.secOpen&&UI.secOpen.vac?'open':''}><summary><h4>Pendant les vacances scolaires <span class="secn">${va.length?va.length+' créneau'+(va.length>1?'x':''):'aucun créneau'}</span></h4></summary><div class="hint" style="margin-bottom:4px">Jours, horaires et lieu pendant les vacances. Sans créneau ici, le groupe ne s’entraîne pas pendant les vacances.${PRES.vacances.length?'':' Renseigne d’abord le calendrier des vacances en haut de cette page.'}</div>
     <div class="crows" data-box="vacances">${va.map(c=>crRowHtml(c,ro)).join('')}</div>
-    ${ro?'':'<button type="button" class="btn sm" data-cr-add="vacances">+ Ajouter un créneau de vacances</button>'}
-    ${PRES.sx?`<h4>Séances ponctuelles (stage, séance exceptionnelle…)</h4><div class="hint" style="margin-bottom:4px">Une séance à une date précise, pendant les vacances ou non. Elle s’ajoute aux entraînements habituels de ce jour-là.</div>
+    ${ro?'':'<button type="button" class="btn sm" data-cr-add="vacances">+ Ajouter un créneau de vacances</button>'}</details>
+    ${PRES.sx?`<details class="crsec" data-crsec="pon" ${UI.secOpen&&UI.secOpen.pon?'open':''}><summary><h4>Séances ponctuelles (stage, séance exceptionnelle…) <span class="secn">${po.length?po.length+' séance'+(po.length>1?'s':''):'aucune séance'}</span></h4></summary><div class="hint" style="margin-bottom:4px">Une séance à une date précise, pendant les vacances ou non. Elle s’ajoute aux entraînements habituels de ce jour-là.</div>
     <div class="crows" data-box="ponctuel">${po.map(c=>crRowHtml(c,ro)).join('')}</div>
-    ${ro?'':'<button type="button" class="btn sm" data-cr-add="ponctuel">+ Ajouter une séance à une date</button>'}`:'<div class="hint" style="margin-top:8px">Pour ajouter des séances à une date précise et annuler une séance, exécute le script <b>migration-seances.sql</b> dans Supabase.</div>'}`;
+    ${ro?'':'<button type="button" class="btn sm" data-cr-add="ponctuel">+ Ajouter une séance à une date</button>'}</details>`:'<div class="hint" style="margin-top:8px">Pour ajouter des séances à une date précise et annuler une séance, exécute le script <b>migration-seances.sql</b> dans Supabase.</div>'}`;
 }
 
 /* ---- bandeau : état du calendrier des vacances ---- */
@@ -2588,6 +2593,7 @@ document.addEventListener('change',ev=>{
   const bx=[...d.querySelectorAll('[name=cdt]')], n=d.querySelector('.dckn'); if(n) n.textContent=`${bx.filter(b=>b.checked).length} sur ${bx.length}`;
 });
 document.addEventListener('toggle',ev=>{ if(ev.target.classList&&ev.target.classList.contains('crdates')) UI.crDatesOpen=ev.target.open },true);
+document.addEventListener('toggle',ev=>{ const d=ev.target; if(!d.classList||!d.classList.contains('crsec')) return; (UI.secOpen=UI.secOpen||{})[d.dataset.crsec]=d.open },true);
 document.addEventListener('submit',ev=>{ if(ev.target.id!=='fVac') return; ev.preventDefault(); presSaveVac(ev.target) });
 
 /* ---- planning : horaires, lieux, adhérents et présences de chaque groupe ---- */
@@ -2871,7 +2877,7 @@ document.addEventListener('click',ev=>{
 function licEnsure(){
   if(!CLUB) return false;
   if(LIC.club!==CLUB.id){ LIC=licNew(); LIC.club=CLUB.id }
-  if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(LIC.loaded&&(['home','pay','stats','comm','lic'].includes(UI.view)||(UI.view==='pres'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('form'))))) renderMain() });
+  if(!LIC.loaded&&!LIC.loading) loadLic().then(()=>{ if(LIC.loaded&&(['home','pay','stats','comm','lic'].includes(UI.view)||(UI.view==='pres'&&PRES.tab!=='groupes'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('form'))))) renderMain() });
   return LIC.loaded&&!LIC.err;
 }
 const licHead=(t,sub,extra='')=>`<div class="gymhead"><div><h2 class="name">${t}</h2><div class="meta">${sub}</div></div><div style="flex:1"></div>${extra}<button class="btn sm" data-lic-reload="1">↻ Actualiser</button></div>`;
