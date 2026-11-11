@@ -2672,7 +2672,16 @@ function popOpen(html,anchor,cls){
   if(r&&window.innerWidth>700){ const w=p.offsetWidth, h=p.offsetHeight;
     p.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.left))+'px'; p.style.top=(r.bottom+h+8>window.innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+'px' }
   p.querySelector('input,select,button')?.focus({preventScroll:true});
+  popFit();
 }
+/* garde la fenêtre entièrement visible (elle peut grandir, ex. formulaire du lieu) */
+function popFit(){
+  const p=document.getElementById('wpop'); if(!p||window.innerWidth<=700) return;
+  const h=p.offsetHeight, r=p.getBoundingClientRect(), H=window.innerHeight;
+  if(r.bottom>H-8) p.style.top=Math.max(8,H-h-8)+'px';
+  if(r.top<8) p.style.top='8px';
+}
+window.addEventListener('resize',()=>popFit());
 function wkMenu(gid,iso,cid,anchor){
   const g=PRES.groupes.find(x=>x.id===gid), c=PRES.creneaux.find(x=>x.id===cid)||presSlotsOn(gid,iso).find(x=>x.id===cid); if(!g||!c) return;
   const an=presAnnulOf(cid,iso), ed=presEdit(), lieu=crLieu(c,g,iso), v=vacOf(iso), co=presCoachs(gid), exl=presExOf(cid,iso);
@@ -2703,7 +2712,7 @@ function wkAddForm(anchor){
 }
 async function wkAct(act,k){
   const [gid,iso,cid]=k.split('|');
-  if(act==='lieu'){ const f=document.getElementById('fLieu'); if(f){ f.hidden=!f.hidden; if(!f.hidden) f.elements.l.select() } return }
+  if(act==='lieu'){ const f=document.getElementById('fLieu'); if(f){ f.hidden=!f.hidden; popFit(); if(!f.hidden){ f.elements.l.focus({preventScroll:true}); f.elements.l.select(); f.scrollIntoView({block:'nearest'}) } } return }
   if(!presOnline()){ toast('Connexion nécessaire'); return }
   try{
     if(act==='cancel') chk(await sb.from('seances_annulees').upsert({club_id:CLUB.id,groupe_id:gid,creneau_id:cid,date:iso},{onConflict:'creneau_id,date'}));
