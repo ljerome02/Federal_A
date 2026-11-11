@@ -576,6 +576,7 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 /* adhérents et groupes */
 .wblk.woff{background:#f1f2f4!important;color:#8a939c!important;border-left-color:#c3c8cf!important;text-decoration:line-through}
 .wblk.woff .wl2{text-decoration:none}
+.wann{margin-left:6px;font-size:12.5px;color:var(--muted)}
 .wblk.wpon{box-shadow:inset 0 0 0 1px currentColor}
 .wpop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(16,24,40,.22);padding:12px 14px;width:min(380px,calc(100vw - 16px));font-size:13.5px;line-height:1.5}
 .wph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.wph b{font-size:15px}
@@ -614,7 +615,7 @@ input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .crow .dck input{width:auto;padding:0;margin:0;border:0}
 .dckl{font-weight:600}.dck{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #cfe9ee;border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
-.dck:has(input:not(:checked)){color:var(--muted);text-decoration:line-through;background:var(--bg)}.dckh{margin-left:4px}.crdates s{color:var(--muted)}.crd{font-size:12px;color:var(--accent-ink)}
+.dck:has(input:not(:checked)){color:var(--muted);background:var(--bg)}.dckh{margin-left:4px}.crdates s{color:var(--muted)}.crd{font-size:12px;color:var(--accent-ink)}
 .crow[data-type=vacances]{grid-template-columns:170px 140px 100px 100px minmax(160px,260px) 34px}
 .vrow{grid-template-columns:minmax(140px,1fr) 160px 160px 34px}
 .crow label span,.vrow label span{display:block;font-size:12px;color:var(--muted)}
@@ -2417,8 +2418,8 @@ function crVacDates(c){
   return out.sort();
 }
 const crDatesHtml=c=>{ if(c.type!=='vacances'||!c.jour) return ''; const ds=crVacDates(c); if(!ds.length) return '<span class="hint">Aucune date : vérifie le calendrier des vacances.</span>';
-  const f=d=>{ const t=d.slice(8,10)+'/'+d.slice(5,7), an=c.id&&presAnnulOf(c.id,d); return an?`<s title="séance annulée">${t}</s>`:t };
-  return `📅 ${PRES_JOURS[c.jour].toLowerCase()} ${ds.slice(0,10).map(f).join(', ')}${ds.length>10?` … (${ds.length} dates)`:''}` };
+  const ok=ds.filter(d=>!(c.id&&presAnnulOf(c.id,d))); if(!ok.length) return '<span class="hint">Aucune date retenue.</span>';
+  return `📅 ${PRES_JOURS[c.jour].toLowerCase()} ${ok.slice(0,10).map(d=>d.slice(8,10)+'/'+d.slice(5,7)).join(', ')}${ok.length>10?` … (${ok.length} dates)`:''}` };
 /* dans le formulaire : une case par date ; décocher = pas d'entraînement ce jour-là (séance annulée) */
 function crDatesPick(c,ro){
   if(!c.jour) return '';
@@ -2634,6 +2635,7 @@ document.addEventListener('click',ev=>{
   if(d.wp) wkAct(d.wp,d.k);
 });
 document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') popClose() });
+document.addEventListener('change',ev=>{ if(ev.target.id==='wkShowAnnul'){ UI.showAnnul=ev.target.checked; renderMain() } });
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fWkAdd') return; ev.preventDefault();
   const f=ev.target, v=n=>(f.elements[n].value||'').trim(), dt=v('d');
@@ -2653,7 +2655,8 @@ const grpColor=gid=>{ const i=PRES.groupes.slice().sort((a,b)=>a.nom.localeCompa
 function presWeekHtml(){
   if(!PRES.groupes.length) return presNoGroup();
   const mon=PRES.week||(PRES.week=mondayOf(isoToday())), days=[0,1,2,3,4,5,6].map(i=>addDays(mon,i)), td=isoToday();
-  const ses=days.map(d=>PRES.groupes.flatMap(g=>presSlotsOn(g.id,d).map(c=>({g,c,a:hm2min(c.heure_debut),b:hm2min(c.heure_fin),off:!!presAnnulOf(c.id,d)}))));
+  const ses=days.map(d=>PRES.groupes.flatMap(g=>presSlotsOn(g.id,d).map(c=>({g,c,a:hm2min(c.heure_debut),b:hm2min(c.heure_fin),off:!!presAnnulOf(c.id,d)})).filter(x=>!x.off||UI.showAnnul)));
+  const nAnnul=days.reduce((n,d)=>n+PRES.groupes.reduce((m,g)=>m+presSlotsOn(g.id,d).filter(c=>presAnnulOf(c.id,d)).length,0),0);
   const timed=ses.flat().filter(x=>x.a!=null);
   let t0=timed.length?Math.min(...timed.map(x=>x.a)):9*60, t1=timed.length?Math.max(...timed.map(x=>x.b!=null?x.b:x.a+60)):19*60;
   t0=Math.floor(t0/60)*60; t1=Math.max(Math.ceil(t1/60)*60,t0+120);
@@ -2677,11 +2680,11 @@ function presWeekHtml(){
   // sur petit écran, la grille défile : on amène la première séance (du jour si possible) en vue
   setTimeout(()=>{ const sc=document.querySelector('.wscroll'), el=document.querySelector('.wrow.today .wblk')||document.querySelector('.wblk');
     if(sc&&el&&window.innerWidth<=1000&&sc.scrollWidth>sc.clientWidth+4) sc.scrollLeft+=el.getBoundingClientRect().left-sc.getBoundingClientRect().left-(window.innerWidth<=700?80:110) },0);
-  return lieuxDatalist()+`<div class="card wcard"><div class="wnav"><b class="wtitle">Semaine du ${esc(lbl(mon))} au ${esc(lbl(days[6]))}</b><button type="button" class="btn" data-week="-1" title="Semaine précédente">◀</button><button type="button" class="btn" data-week="1" title="Semaine suivante">▶</button><button type="button" class="btn sm" data-week="0">Cette semaine</button>${presEdit()&&PRES.sx?'<button type="button" class="btn sm primary" data-wk-add="1">+ Ajouter une séance</button>':''}${vacWeek.length?`<span class="lb warn">Vacances : ${esc(vacWeek.join(', '))}</span>`:''}</div>
+  return lieuxDatalist()+`<div class="card wcard"><div class="wnav"><b class="wtitle">Semaine du ${esc(lbl(mon))} au ${esc(lbl(days[6]))}</b><button type="button" class="btn" data-week="-1" title="Semaine précédente">◀</button><button type="button" class="btn" data-week="1" title="Semaine suivante">▶</button><button type="button" class="btn sm" data-week="0">Cette semaine</button>${presEdit()&&PRES.sx?'<button type="button" class="btn sm primary" data-wk-add="1">+ Ajouter une séance</button>':''}${presEdit()&&(nAnnul||UI.showAnnul)?`<label class="cbx wann"><input type="checkbox" id="wkShowAnnul" ${UI.showAnnul?'checked':''}> Afficher les séances annulées${nAnnul?` (${nAnnul})`:''}</label>`:''}${vacWeek.length?`<span class="lb warn">Vacances : ${esc(vacWeek.join(', '))}</span>`:''}</div>
     <div class="wscroll"><div class="wgrid" style="--wmin:${(span/60*92).toFixed(0)}px"><div class="wrow whead"><div class="wday"></div><div class="wtrack">${hours.map(h=>`<span class="whour" style="left:${pc(h)}">${String(h/60).padStart(2,'0')}h</span>`).join('')}</div></div>
       ${days.map((d,i)=>row(d,ses[i])).join('')}</div></div>
     <div class="wleg">${PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).map(g=>{ const [bg,fg,bd]=grpColor(g.id); return `<span class="wkey" style="background:${bg};color:${fg};border-left-color:${bd}">${esc(g.nom)}</span>` }).join('')}</div>
-    <div class="hint" style="margin-top:6px">Clique sur une séance pour la pointer${presEdit()?', l’annuler ce jour-là (ex. un samedi de vacances non assuré) ou la supprimer si c’est une séance ponctuelle':''}. ★ séance ponctuelle · 🚫 séance annulée. Pendant les vacances scolaires, ce sont les créneaux « vacances » des groupes qui s’affichent.</div></div>`;
+    <div class="hint" style="margin-top:6px">Clique sur une séance pour la pointer${presEdit()?', l’annuler ce jour-là (ex. un samedi de vacances non assuré) ou la supprimer si c’est une séance ponctuelle':''}. ★ séance ponctuelle. Pendant les vacances scolaires, ce sont les créneaux « vacances » des groupes qui s’affichent.</div></div>`;
 }
 document.addEventListener('click',ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-week],[data-week-go]'); if(!t) return; const d=t.dataset;
