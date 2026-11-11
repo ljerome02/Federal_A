@@ -611,7 +611,10 @@ input[data-mf=nom],#fGym [name=n]{text-transform:uppercase}
 .crs{margin:4px 0 8px}.crlieu{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}.crt{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:2px}.cri{font-size:13.5px}
 .crow,.vrow{display:grid;grid-template-columns:150px 110px 110px minmax(160px,260px) 34px;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
 .crow.nol{grid-template-columns:150px 110px 110px 34px}
-.crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px}.crdates s{color:var(--muted)}.crd{font-size:12px;color:var(--accent-ink)}
+.crdates{grid-column:1/-1;font-size:12.5px;color:var(--accent-ink);margin-top:-2px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.crow .dck input{width:auto;padding:0;margin:0;border:0}
+.dckl{font-weight:600}.dck{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #cfe9ee;border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
+.dck:has(input:not(:checked)){color:var(--muted);text-decoration:line-through;background:var(--bg)}.dckh{margin-left:4px}.crdates s{color:var(--muted)}.crd{font-size:12px;color:var(--accent-ink)}
 .crow[data-type=vacances]{grid-template-columns:170px 140px 100px 100px minmax(160px,260px) 34px}
 .vrow{grid-template-columns:minmax(140px,1fr) 160px 160px 34px}
 .crow label span,.vrow label span{display:block;font-size:12px;color:var(--muted)}
@@ -2416,6 +2419,14 @@ function crVacDates(c){
 const crDatesHtml=c=>{ if(c.type!=='vacances'||!c.jour) return ''; const ds=crVacDates(c); if(!ds.length) return '<span class="hint">Aucune date : vérifie le calendrier des vacances.</span>';
   const f=d=>{ const t=d.slice(8,10)+'/'+d.slice(5,7), an=c.id&&presAnnulOf(c.id,d); return an?`<s title="séance annulée">${t}</s>`:t };
   return `📅 ${PRES_JOURS[c.jour].toLowerCase()} ${ds.slice(0,10).map(f).join(', ')}${ds.length>10?` … (${ds.length} dates)`:''}` };
+/* dans le formulaire : une case par date ; décocher = pas d'entraînement ce jour-là (séance annulée) */
+function crDatesPick(c,ro){
+  if(!c.jour) return '';
+  if(!PRES.sx) return crDatesHtml(c);
+  const ds=crVacDates(c); if(!ds.length) return '<span class="hint">Aucune date : vérifie le calendrier des vacances.</span>';
+  const jr=PRES_JOURS[c.jour].slice(0,3).toLowerCase()+'.';
+  return `<span class="dckl">📅 Dates :</span>${ds.map(d=>`<label class="dck"><input type="checkbox" name="cdt" value="${d}" ${c.id&&presAnnulOf(c.id,d)?'':'checked'} ${ro}> ${jr} ${d.slice(8,10)}/${d.slice(5,7)}</label>`).join('')}${ro?'':'<span class="hint dckh">Décoche les dates sans entraînement.</span>'}`;
+}
 const crHours=c=>c.heure_debut?`${hhmm(c.heure_debut)}${c.heure_fin?' – '+hhmm(c.heure_fin):''}`:'';
 const crLieu=(c,g)=>c.lieu||(g&&g.lieu)||'';
 
@@ -2472,7 +2483,7 @@ function crRowHtml(c,ro){
     <label><span>Fin</span><input type="time" name="cf" value="${esc(hhmm(c.heure_fin))}" ${ro}></label>
     ${PRES.sx||vac?`<label class="crl"><span>Lieu</span><input name="cl" list="lieuxList" value="${esc(c.lieu||'')}" placeholder="Lieu habituel si vide" ${ro} autocomplete="off"></label>`:''}
     ${ro?'':'<button type="button" class="btn sm ghost crx" data-cr-del="1" aria-label="Supprimer cet entraînement">✕</button>'}
-    ${vac?`<div class="crdates">${c.jour?crDatesHtml(c):''}</div>`:''}</div>`;
+    ${vac?`<div class="crdates">${crDatesPick(c,ro)}</div>`:''}</div>`;
 }
 function presCrFormHtml(g,ro){
   if(!PRES.cr) return `<div class="lgrid"><label>Jour<select name="jour" ${ro}><option value="">—</option>${PRES_JOURS.slice(1).map((j,i)=>`<option value="${i+1}" ${g&&g.jour===i+1?'selected':''}>${j}</option>`).join('')}</select></label>
@@ -2565,7 +2576,7 @@ document.addEventListener('click',ev=>{
 document.addEventListener('toggle',ev=>{ if(ev.target.id==='vacD') UI.vacOpen=ev.target.open },true);
 document.addEventListener('change',ev=>{
   const r=ev.target.closest&&ev.target.closest('.crow[data-type=vacances]'); if(!r||!/^(cj|cv)$/.test(ev.target.name||'')) return;
-  const el=r.querySelector('.crdates'); if(el) el.innerHTML=crDatesHtml({type:'vacances',id:r.dataset.id,jour:+r.querySelector('[name=cj]').value||null,vacance_id:r.querySelector('[name=cv]').value||null});
+  const el=r.querySelector('.crdates'); if(el) el.innerHTML=crDatesPick({type:'vacances',id:r.dataset.id,jour:+r.querySelector('[name=cj]').value||null,vacance_id:r.querySelector('[name=cv]').value||null},'');
 });
 document.addEventListener('submit',ev=>{ if(ev.target.id!=='fVac') return; ev.preventDefault(); presSaveVac(ev.target) });
 
@@ -2738,7 +2749,8 @@ async function presSaveGroupe(f){
   const v=n=>(f.elements[n]?.value||'').trim(), gid=f.dataset.gid||uid();
   const cr=PRES.cr?[...f.querySelectorAll('.crow')].map(r=>{ const q=n=>(r.querySelector(`[name=${n}]`)?.value||'').trim();
     const ty=r.dataset.type, dt=ty==='ponctuel'?(q('cd')||null):null;
-    return {id:r.dataset.id||uid(),type:ty,jour:dt?isoDow(dt):(+q('cj')||null),heure_debut:q('ch')||null,heure_fin:q('cf')||null,lieu:q('cl')||null,vacance_id:ty==='vacances'?(q('cv')||null):null,...(PRES.sx?{date:dt}:{})} })
+    if(!r.dataset.id) r.dataset.id=uid();
+    return {id:r.dataset.id,type:ty,jour:dt?isoDow(dt):(+q('cj')||null),heure_debut:q('ch')||null,heure_fin:q('cf')||null,lieu:q('cl')||null,vacance_id:ty==='vacances'?(q('cv')||null):null,...(PRES.sx?{date:dt}:{})} })
     .filter(c=>c.jour||c.heure_debut||c.heure_fin||c.lieu||c.date):null;
   if(cr&&cr.some(c=>c.type==='ponctuel'&&!c.date)){ toast('Choisis la date de chaque séance ponctuelle'); return }
   if(cr&&cr.some(c=>!c.jour)){ toast('Choisis le jour de chaque entraînement'); return }
@@ -2753,6 +2765,13 @@ async function presSaveGroupe(f){
       const rm=PRES.creneaux.filter(c=>c.groupe_id===gid&&!cr.some(x=>x.id===c.id)).map(c=>c.id);
       if(rm.length) chk(await sb.from('groupe_creneaux').delete().in('id',rm));
       if(cr.length) chk(await sb.from('groupe_creneaux').upsert(cr.map(c=>({...c,club_id:CLUB.id,groupe_id:gid}))));
+      if(PRES.sx) for(const r of f.querySelectorAll('.crow[data-type=vacances]')){
+        const cid=r.dataset.id; if(!cid||!cr.some(c=>c.id===cid)) continue;
+        const bx=[...r.querySelectorAll('[name=cdt]')], off=bx.filter(b=>!b.checked).map(b=>b.value), on=bx.filter(b=>b.checked).map(b=>b.value);
+        const ex=(PRES.annul||[]).filter(a=>a.creneau_id===cid), add=off.filter(d=>!ex.some(a=>a.date===d)), del=ex.filter(a=>on.includes(a.date)).map(a=>a.id);
+        if(add.length) chk(await sb.from('seances_annulees').upsert(add.map(d=>({club_id:CLUB.id,groupe_id:gid,creneau_id:cid,date:d})),{onConflict:'creneau_id,date'}));
+        if(del.length) chk(await sb.from('seances_annulees').delete().in('id',del));
+      }
     }
     if(PRES.ge){
       const want=[...f.querySelectorAll('[name^=ent_]')].filter(c=>c.checked).map(c=>c.name.slice(4)), have=PRES.ent.filter(e=>e.groupe_id===gid).map(e=>e.licencie_id);
