@@ -110,6 +110,9 @@ create index if not exists paiements_licencie_idx on public.paiements_licencie (
 do $$
 declare c record;
 begin
+  -- déjà remplacée par un contrôle de format (migration-parametres.sql) : on n'y touche plus
+  if exists (select 1 from pg_constraint where conrelid = 'public.documents_licencie'::regclass
+             and conname = 'documents_licencie_type_check' and pg_get_constraintdef(oid) like '%~%') then return; end if;
   for c in
     select conname from pg_constraint
     where conrelid = 'public.documents_licencie'::regclass

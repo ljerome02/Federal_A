@@ -703,6 +703,17 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .fcts{display:flex;flex-wrap:wrap;gap:6px 16px}.fctck{min-width:180px}
 .ccb{cursor:pointer;font:inherit;color:inherit}.ccb:hover{border-color:var(--accent)}
 .ccb.on{background:var(--accent);border-color:var(--accent);color:#fff}.ccb.on b{color:#fff}
+/* paramètres */
+.plist{display:flex;flex-direction:column;gap:6px}
+.prow2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.prow2>input[name=l]{flex:1 1 200px;min-width:0}.prow2 select{width:auto}.prow2 .cbx{display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap}
+.pmv{display:flex;gap:4px;margin-left:auto}.pnum{min-width:74px;font-size:13px;color:var(--muted)}.pprev{min-width:70px;text-align:center}
+.prow2.pgr{display:grid;grid-template-columns:170px minmax(140px,1fr) 120px auto 56px auto}
+.prow2.pga{display:grid;grid-template-columns:90px minmax(140px,1fr) 84px 120px auto auto}
+.prow2.pgr>*,.prow2.pga>*{min-width:0}.prow2.pgr>input,.prow2.pgr>select,.prow2.pga>input,.prow2.pga>select{width:100%;box-sizing:border-box}.prow2 .pprev{justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:700px){ .prow2.pgr{grid-template-columns:1fr auto auto;gap:6px} .prow2.pga{grid-template-columns:1fr 1fr auto;gap:6px}
+  .prow2 .pprev,.prow2 .puse{display:none} .prow2.pgr>input[name=l],.prow2.pga>input[name=l]{grid-column:1/-1} .prow2.pga>.pmv{grid-column:1/-1;justify-content:flex-end} .prow2 .pmv .btn{padding:4px 8px} }
+.pmsg{flex-direction:column;align-items:stretch}.pmhd{display:flex;gap:8px;align-items:center}.pmhd input{flex:1}.pmsg textarea{width:100%;font:inherit}
 .ccf{margin-bottom:8px}.ccin{display:contents}.ccsep{width:1px;align-self:stretch;background:var(--line);margin:2px 4px}
 .bur{display:grid;gap:8px}.burr{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:baseline}
 @media (max-width:700px){.burr{grid-template-columns:1fr;gap:0}.fctck{min-width:45%}}
@@ -865,6 +876,7 @@ async function loadClub(){
     if(UI.gym && !S.gyms.some(g=>g.id===UI.gym)) UI.gym=null;
     toast('Hors connexion : dernières données connues');
   }
+  await paramLoad();
 }
 async function refresh(){ if(SYNC!=='ok'){ toast('Enregistrement en cours…'); return } try{ await loadClub(); render(); toast('Données actualisées') }catch(e){ toast('Erreur : '+e.message) } }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && CLUB && SYNC==='ok') loadClub().then(render).catch(()=>{}) });
@@ -1584,6 +1596,7 @@ function renderMain(){
   if(UI.view==='pay'&&licPay()){ m.innerHTML=renderPay(); return }
   if(UI.view==='stats'){ m.innerHTML=renderStats(); return }
   if(UI.view==='comm'){ m.innerHTML=renderComm(); return }
+  if(UI.view==='param'){ m.innerHTML=renderParam(); return }
   if(UI.view==='lic'){ m.innerHTML=navBar()+renderLic(); return }
   if(UI.view==='pres'){ m.innerHTML=navBar()+renderPres(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
@@ -1817,7 +1830,7 @@ const LIC_FEDS=['FFG','UFOLEP'];
 /* un adhérent doit être dans un groupe s'il est gymnaste (ou si les rôles ne sont pas encore en place) */
 const needsGroup=g=>!LIC.fct||fctHas(g.id,'gymnaste');
 /* rôles dans l'association (cumulables) : [clé, libellé, couleur de fond, couleur du texte, fait partie du bureau] */
-const FCT=[['gymnaste','Gymnaste','#eaeeff','#3b3fa8'],['president','Président(e)','#fde8f1','#a1245f',1],['vice_president','Vice-président(e)','#fde8f1','#a1245f',1],
+let FCT=[['gymnaste','Gymnaste','#eaeeff','#3b3fa8'],['president','Président(e)','#fde8f1','#a1245f',1],['vice_president','Vice-président(e)','#fde8f1','#a1245f',1],
   ['secretaire','Secrétaire','#fde8f1','#a1245f',1],['tresorier','Trésorier(e)','#fde8f1','#a1245f',1],['dirigeant','Membre du comité directeur','#fdeef6','#8f2e63'],
   ['entraineur','Entraîneur','#e1f6ea','#14733a'],['aide_entraineur','Aide-entraîneur','#e8f7ee','#2b7a4b'],['juge','Juge','#fff1d6','#8a5a00'],['benevole','Bénévole','#eef1f5','#55606b']];
 const fctLbl=k=>(FCT.find(x=>x[0]===k)||[0,k])[1];
@@ -1834,13 +1847,13 @@ async function sbGroupes(){
 /* numéro WhatsApp (format international sans +) à partir d'un numéro français ou international */
 const waNum=t=>{ let d=String(t||'').replace(/[^\d+]/g,''); if(d.startsWith('+')) d=d.slice(1); else if(d.startsWith('00')) d=d.slice(2); else if(d.startsWith('0')) d='33'+d.slice(1); return /^\d{9,15}$/.test(d)?d:null };
 /* pièces du dossier : annexe 1, annexe 2 et cadre « réservé au club » (3e valeur : pièce simple, sans date de validité) */
-const LIC_DOCS=[['fiche_inscription','Annexe 1 – Fiche d’inscription',1],['autorisation_parentale','Annexe 2 – Autorisations signées'],['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['photo','Photo d’identité',1],['caution','Caution',1]];
+let LIC_DOCS=[['fiche_inscription','Annexe 1 – Fiche d’inscription',1],['autorisation_parentale','Annexe 2 – Autorisations signées'],['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['photo','Photo d’identité',1],['caution','Caution',1]];
 /* liste d'avant migration-inscriptions.sql */
 const LIC_DOCS_V1=[['certificat_medical','Certificat médical'],['questionnaire_sante','Questionnaire de santé'],['autorisation_parentale','Autorisation parentale'],['droit_image',"Droit à l'image"]];
-const LIC_ALERTE_JOURS=60; // un document est signalé « bientôt périmé » dans les 60 jours avant sa date de validité
+let LIC_ALERTE_JOURS=60; // un document est signalé « bientôt périmé » dans les 60 jours avant sa date de validité
 /* modèle de la fiche comptable (annexe 3) : 10 chèques, encaissés le 10 de chaque mois de septembre à juin */
-const LIC_ECHEANCIER=[75,21,18,18,18,18,18,18,18,18];
-const LIC_MODES=[['cheque','Chèque'],['cheques_vacances','Chèques vacances'],['pass_sport','Pass’Sport'],['especes','Espèces'],['virement','Virement']];
+let LIC_ECHEANCIER=[75,21,18,18,18,18,18,18,18,18];
+let LIC_MODES=[['cheque','Chèque'],['cheques_vacances','Chèques vacances'],['pass_sport','Pass’Sport'],['especes','Espèces'],['virement','Virement']];
 const LIC_COLS='id,email,telephone,adresse,code_postal,ville,responsable_legal,telephone_urgence,parent_email';
 const LIC_COLS_EXT=LIC_COLS+',sexe,responsable_lien,urgence1_nom,urgence1_tel,urgence1_lien,urgence2_nom,urgence2_tel,urgence2_lien';
 const licNew=()=>({loaded:false,loading:false,err:'',info:{},lic:[],docs:[],grp:null,mem:[],ext:true,insc:null,cot:null,pay:[],fam:null,fct:false,open:null,ftab:'id',q:'',f:'',club:null});
@@ -1985,7 +1998,7 @@ function groupesFiche0(g,ro){
 
 
 /* ---------- liens de parenté entre adhérents (onglet Famille) ---------- */
-const FAM_LIENS=[['fratrie','Frère ou sœur'],['parent','Parent'],['enfant','Enfant'],['cousin','Cousin ou cousine'],['conjoint','Conjoint(e)'],['autre','Autre lien familial']];
+let FAM_LIENS=[['fratrie','Frère ou sœur'],['parent','Parent'],['enfant','Enfant'],['cousin','Cousin ou cousine'],['conjoint','Conjoint(e)'],['autre','Autre lien familial']];
 const famLbl=k=>(FAM_LIENS.find(x=>x[0]===k)||[0,'Famille'])[1];
 const famInv=k=>k==='parent'?'enfant':k==='enfant'?'parent':k;
 /* liens vus depuis un adhérent : [{id, other, lien}] où lien décrit « other » par rapport à lui */
@@ -2052,7 +2065,7 @@ document.addEventListener('click',async ev=>{
 const licNoExt=()=>`<div class="hint">Disponible après l’exécution du script <b>migration-inscriptions.sql</b> dans Supabase (SQL Editor).</div>`;
 const licPaySum=s=>`<span class="cc">Dû <b>${eur(s.du)}</b></span><span class="cc">Prévu <b>${eur(s.prevu)}</b></span><span class="cc">Encaissé <b>${eur(s.enc)}</b></span><span class="lb ${PAY_CLASS[s.st]}">${s.st==='paye'?'PAYÉ':PAY_TXT(s)}</span>`;
 const payRowHtml=(p,dis)=>`<div class="payrow" data-id="${esc(p.id||'')}">
-  <label><span>Mode</span><select name="pm" ${dis}>${LIC_MODES.map(([k,l])=>`<option value="${k}" ${(p.mode||'cheque')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>Mode</span><select name="pm" ${dis}>${(p.mode&&!LIC_MODES.some(x=>x[0]===p.mode)?[[p.mode,p.mode],...LIC_MODES]:LIC_MODES).map(([k,l])=>`<option value="${k}" ${(p.mode||'cheque')===k?'selected':''}>${l}</option>`).join('')}</select></label>
   <label><span>Date prévue</span><input type="date" name="pd" value="${esc(p.date_prevue||'')}" ${dis}></label>
   <label><span>Montant (€)</span><input type="number" name="pa" step="0.01" min="0" inputmode="decimal" value="${p.montant!=null&&p.montant!==''?esc(String(p.montant)):''}" ${dis}></label>
   <label><span>Banque / nature</span><input name="pb" value="${esc(p.banque||'')}" ${dis} autocomplete="off"></label>
@@ -2112,7 +2125,7 @@ function licFicheHtml(){
     <div class="ccount" id="paySum" style="margin-top:10px">${licPaySum(licSolde(g.id))}</div>
     <h4>Règlements (annexe 3 – fiche comptable)</h4>
     <div id="payRows">${ps.map(p=>payRowHtml(p,rp)).join('')}</div>
-    ${licPay()?`<div class="lfoot" style="margin-top:8px"><button type="button" class="btn sm" data-pay-add="1">+ Ajouter un règlement</button> <button type="button" class="btn sm" data-pay-model="modele" title="10 chèques : ${LIC_ECHEANCIER.join(' + ')} €, le 10 de chaque mois">Échéancier du club (10 chèques)</button> <button type="button" class="btn sm" data-pay-model="once">Paiement en une fois</button></div>`:''}
+    ${licPay()?`<div class="lfoot" style="margin-top:8px"><button type="button" class="btn sm" data-pay-add="1">+ Ajouter un règlement</button> <button type="button" class="btn sm" data-pay-model="modele" title="${LIC_ECHEANCIER.length} chèques : ${LIC_ECHEANCIER.join(' + ')} €, le 10 de chaque mois">Échéancier du club (${LIC_ECHEANCIER.length} chèques)</button> <button type="button" class="btn sm" data-pay-model="once">Paiement en une fois</button></div>`:''}
     <div class="hint">Chèques, chèques vacances (nature : ANCV, Sport…), Pass’Sport ou espèces. Un règlement est « encaissé » dès que sa date d’encaissement est saisie ; la cotisation est payée quand le total encaissé atteint le montant dû.</div>`);
   return `<form class="card lfiche" id="fLic" autocomplete="off">
     <div class="lhead big"><div class="avatar" aria-hidden="true">${esc(((g.prenom||'')[0]||'')+((g.nom||'')[0]||'')).toUpperCase()||'?'}</div>
@@ -2185,7 +2198,7 @@ async function licSave(f){
   try{
     if(licEdit()){
       const upd={email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')};
-      if(LIC.fct){ upd.fonctions=FCT.map(x=>x[0]).filter(k=>ck('fct_'+k)); upd.fonctions_note=v('fonctions_note') }
+      if(LIC.fct){ upd.fonctions=[...fctOf(gid).filter(k=>!FCT.some(x=>x[0]===k)),...FCT.map(x=>x[0]).filter(k=>ck('fct_'+k))]; upd.fonctions_note=v('fonctions_note') }
       if(LIC.ext) for(const n of ['sexe','responsable_lien','urgence1_nom','urgence1_tel','urgence1_lien','urgence2_nom','urgence2_tel','urgence2_lien']) upd[n]=v(n);
       const r=await sb.from('licencies').update(upd).eq('id',gid).eq('club_id',CLUB.id).select('id');
       chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
@@ -2256,7 +2269,7 @@ document.addEventListener('submit',ev=>{
    à Supabase dès que le réseau est disponible. Tables : voir migration-presences.sql. */
 const PRES_JOURS=['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 const PRES_STAT=[['present','Présente'],['absent','Absente'],['excuse','Excusée ou blessée']];
-const PRES_SEUIL=3;      // nombre d'absences non excusées d'affilée qui déclenche l'alerte
+let PRES_SEUIL=3;      // nombre d'absences non excusées d'affilée qui déclenche l'alerte
 const PRES_FENETRE=120;  // nombre de jours d'historique chargés
 const isoOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isoToday=()=>isoOf(new Date());
@@ -2494,10 +2507,10 @@ const VAC_OFFICIEL={'2026-2027':{
   C:[['Toussaint','2026-10-18','2026-11-01'],['Noël','2026-12-20','2027-01-03'],['Hiver','2027-02-07','2027-02-21'],['Printemps','2027-04-04','2027-04-18'],['Été','2027-07-04','2027-08-31']]}};
 const isoDow=iso=>new Date(iso+'T12:00:00').getDay()||7;
 const longDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-const VAC_ZONE='B'; // académie d'Amiens
+let VAC_ZONE='B'; // académie d'Amiens
 /* lieux d'entraînement proposés (on peut en saisir un autre) ; le premier est le lieu par défaut d'un nouveau groupe */
-const LIEUX=['Chauny','Saint-Quentin','Hirson'], LIEU_DEF=LIEUX[0];
-const LIBELLES=['Stage','Fête du club','Gala','Compétition','Séance de rattrapage','Portes ouvertes','Entraînement commun'];
+let LIEUX=['Chauny','Saint-Quentin','Hirson'], LIEU_DEF=LIEUX[0];
+let LIBELLES=['Stage','Fête du club','Gala','Compétition','Séance de rattrapage','Portes ouvertes','Entraînement commun'];
 const libDatalist=()=>`<datalist id="libList">${[...new Set([...LIBELLES,...(PRES.creneaux||[]).map(c=>c.libelle).filter(Boolean)])].map(l=>`<option value="${esc(l)}"></option>`).join('')}</datalist>`;
 /* nom affiché d'une séance : intitulé (séance ponctuelle) */
 const crLib=c=>c&&c.type==='ponctuel'&&c.libelle?String(c.libelle):'';
@@ -2819,7 +2832,7 @@ document.addEventListener('submit',async ev=>{
 /* Onglet Groupes > Rotations : en colonnes les dates d'entraînement, en lignes les groupes qui s'entraînent ;
    dans chaque case, l'ordre des agrès et le temps passé sur chacun (heures de passage calculées).
    Alerte si deux groupes utilisent le même agrès au même moment, au même endroit. Table rotations_agres. */
-const ROT_AGRES=[['echauffement','Échauffement','Écha.','#eef1f5','#3f4a56',0],['saut','Saut','Saut','#fff1d6','#7a5200',1],['barres','Barres asymétriques','Barres','#e0f4fb','#0b6b85',1],
+let ROT_AGRES=[['echauffement','Échauffement','Écha.','#eef1f5','#3f4a56',0],['saut','Saut','Saut','#fff1d6','#7a5200',1],['barres','Barres asymétriques','Barres','#e0f4fb','#0b6b85',1],
   ['poutre','Poutre','Poutre','#fde8f1','#a1245f',1],['sol','Sol','Sol','#e1f6ea','#14733a',1],['prepa','Préparation physique','Prépa','#efe8ff','#5a3aa8',0],['etirements','Étirements','Étir.','#e3f4f0','#1f6f63',0]];
 const rotA=k=>ROT_AGRES.find(x=>x[0]===k)||[k,k,k,'#eef1f5','#3f4a56',0];
 const rotOf=(gid,iso)=>(PRES.rot||[]).find(r=>r.groupe_id===gid&&r.date===iso)||null;
@@ -2924,7 +2937,7 @@ document.addEventListener('click',ev=>{
   if(d.radd){ const used=rotRead().map(x=>x.a), nx=ROT_AGRES.find(A=>A[5]&&!used.includes(A[0]))||ROT_AGRES[1]; box.insertAdjacentHTML('beforeend',rotRowHtml({a:nx[0],m:20})); rotLive(); const nr=box.lastElementChild; setTimeout(()=>{ nr.scrollIntoView({block:'nearest'}); nr.querySelector('[name=ra]').focus({preventScroll:true}) },0); return }
   if(d.rfill){ const f=document.getElementById('fRot'), [gid,iso]=f.dataset.k.split('|'), c=rotSess(gid,iso), dur=(hm2min(c.heure_fin)??0)-(hm2min(c.heure_debut)??0);
     const cur=rotRead(), keep=cur.filter(x=>!rotA(x.a)[5]), rest=Math.max(0,dur-keep.reduce((a,x)=>a+x.m,0)), q=Math.floor(rest/4/5)*5||Math.floor(rest/4);
-    const four=['saut','barres','poutre','sol'].map((a,i)=>({a,m:i===3?rest-3*q:q}));
+    const ag=ROT_AGRES.filter(A=>A[5]).map(A=>A[0]), na=ag.length||1, qq=Math.floor(rest/na/5)*5||Math.floor(rest/na), four=ag.map((a,i)=>({a,m:i===na-1?rest-(na-1)*qq:qq}));
     box.innerHTML=[...keep.filter(x=>x.a==='echauffement'),...four,...keep.filter(x=>x.a!=='echauffement')].map(rotRowHtml).join(''); rotLive(); return }
   if(d.rdel){ t.closest('.rrow')?.remove(); rotLive(); return }
   if(d.rmove){ const r=t.closest('.rrow'); if(d.rmove==='-1'&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); else if(d.rmove==='1'&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); rotLive(); return }
@@ -3128,7 +3141,8 @@ function navList(){
   if(licPay()) L.push(['sec','Finances'],['pay','Paiements','💶','#fff3e2']);
   L.push(['sec','Communication'],['comm','Messages et WhatsApp','✉️','#efe8ff','Messages'],
     ['sec','Compétition'],['teams','Équipes','🏅','#fde8f1'],['gym','Mouvements','✏️','#e6f0f0'],['summary','Résumé','📊','#eef1f5'],
-    ['sec','Analyse'],['stats','Statistiques','📈','#e7f5ff']);
+    ['sec','Analyse'],['stats','Statistiques','📈','#e7f5ff'],
+    ['sec','Réglages'],['param','Paramètres','⚙️','#eef1f5']);
   return L;
 }
 function paintNav(){
@@ -3394,7 +3408,7 @@ document.addEventListener('click',ev=>{ if(ev.target.closest&&ev.target.closest(
 
 /* ---------- messages (e-mail et WhatsApp) ---------- */
 const COMM={aud:'all',grp:'',obj:'',msg:'',tpl:''};
-const COMM_TPL={
+let COMM_TPL={
   info:['Information du club','Bonjour,\n\n…\n\nSportivement,\n{club}'],
   cot:['Rappel de cotisation','Bonjour,\n\nSauf erreur de notre part, la cotisation de la saison {saison} n’est pas encore entièrement réglée. Merci de régulariser auprès du club. Si le règlement vient d’être effectué, ne tenez pas compte de ce message.\n\nCordialement,\n{club}'],
   cert:['Certificat médical à fournir','Bonjour,\n\nIl manque le certificat médical (ou le questionnaire de santé) dans le dossier de votre enfant pour la saison {saison}. Merci de le remettre à l’entraîneur dès que possible.\n\nCordialement,\n{club}'],
@@ -3488,6 +3502,171 @@ document.addEventListener('change',ev=>{
   else if(id==='cGrp'){ COMM.grp=v; renderMain() }
   else if(id==='cTpl'){ COMM.tpl=v; const x=COMM_TPL[v]; if(x){ const f=s=>s.replace(/\{club\}/g,CLUB.nom).replace(/\{saison\}/g,SAISON); COMM.obj=x[0]; COMM.msg=f(x[1]) } renderMain() }
 });
+
+/* ================= PARAMÈTRES DU CLUB ================= */
+/* Les listes de l'application (lieux, rôles, agrès, pièces du dossier…) sont modifiables par
+   l'administrateur. Elles sont enregistrées dans « parametres_club » (une ligne par liste, en JSON) ;
+   sans ligne, c'est la liste par défaut ci-dessous qui s'applique. */
+const PARAM={club:null,ok:null,vals:{},draft:{},sel:null,busy:false};
+const PARAM_DEF=JSON.parse(JSON.stringify({lieux:LIEUX,libelles:LIBELLES,roles:FCT,agres:ROT_AGRES,docs:LIC_DOCS,modes:LIC_MODES,liens:FAM_LIENS,
+  echeancier:LIC_ECHEANCIER,modeles:Object.entries(COMM_TPL).map(([k,v])=>[k,v[0],v[1]]),reglages:{seuil:PRES_SEUIL,alerte:LIC_ALERTE_JOURS,zone:VAC_ZONE}}));
+const PAL=[['Bleu','#eaeeff','#3b3fa8'],['Rose','#fde8f1','#a1245f'],['Vert','#e1f6ea','#14733a'],['Jaune','#fff1d6','#8a5a00'],['Turquoise','#e0f4fb','#0b6b85'],
+  ['Violet','#efe8ff','#5a3aa8'],['Orange','#ffe9dc','#8f4a1a'],['Menthe','#e3f4f0','#1f6f63'],['Gris','#eef1f5','#55606b']];
+/* [clé, titre, explication, codes à garder (utilisés par l'application)] */
+const PARAM_SECS=[
+  ['lieux','Lieux d’entraînement','Proposés dans les groupes et le planning. Le premier est le lieu par défaut d’un nouveau groupe. On peut toujours saisir un autre lieu.'],
+  ['libelles','Intitulés des séances ponctuelles','Proposés quand on ajoute une séance ponctuelle (stage, gala…). On peut toujours saisir un autre intitulé.'],
+  ['roles','Rôles dans l’association','Cases à cocher dans la fiche adhérent. « Bureau » : le rôle compte dans l’envoi au bureau.',['gymnaste','entraineur','aide_entraineur']],
+  ['agres','Agrès et ateliers des rotations','« Agrès » coché : l’atelier est pris dans la répartition automatique du temps de la séance.'],
+  ['docs','Pièces du dossier d’inscription','« Sans date de validité » : on ne saisit que la date de remise.',['certificat_medical','questionnaire_sante','autorisation_parentale','fiche_inscription','photo','droit_image']],
+  ['modes','Modes de règlement','Proposés dans les règlements des cotisations.',['cheque']],
+  ['echeancier','Échéancier du club','Montants des chèques de l’échéancier type, encaissés le 10 de chaque mois à partir de septembre. Ils sont ajustés proportionnellement au montant de la cotisation.'],
+  ['liens','Liens de parenté','Seuls les libellés se modifient : les liens fonctionnent par paires (parent et enfant, frère ou sœur…).'],
+  ['modeles','Modèles de messages','Dans Messages et WhatsApp. {club} est remplacé par le nom du club et {saison} par la saison.'],
+  ['reglages','Réglages','Seuils d’alerte et zone des vacances scolaires.']];
+const paramSec=k=>PARAM_SECS.find(x=>x[0]===k)||PARAM_SECS[0];
+const paramVal=k=>PARAM.vals[k]!==undefined?PARAM.vals[k]:PARAM_DEF[k];
+const paramCache=()=>'fa-param-'+(CLUB&&CLUB.id);
+const paramArr=(v,n)=>Array.isArray(v)&&v.every(x=>n?Array.isArray(x)&&x.length>=n&&typeof x[0]==='string'&&x[0]&&typeof x[1]==='string':typeof x==='string');
+/* applique les listes enregistrées (une liste invalide garde sa valeur par défaut) */
+function paramApply(){
+  const D=k=>JSON.parse(JSON.stringify(PARAM_DEF[k])), V=PARAM.vals, ok=(k,n)=>paramArr(V[k],n)&&V[k].length;
+  LIEUX=ok('lieux')?V.lieux.slice():D('lieux'); LIEU_DEF=LIEUX[0]||'Chauny';
+  LIBELLES=ok('libelles')?V.libelles.slice():D('libelles');
+  FCT=ok('roles',2)?V.roles.map(x=>[x[0],x[1],x[2]||'#eef1f5',x[3]||'#55606b',x[4]?1:0]):D('roles');
+  ROT_AGRES=ok('agres',2)?V.agres.map(x=>[x[0],x[1],x[2]||x[1],x[3]||'#eef1f5',x[4]||'#3f4a56',x[5]?1:0]):D('agres');
+  LIC_DOCS=ok('docs',2)?V.docs.map(x=>[x[0],x[1],x[2]?1:0]):D('docs');
+  LIC_MODES=ok('modes',2)?V.modes.map(x=>[x[0],x[1]]):D('modes');
+  FAM_LIENS=D('liens').map(([k,l])=>{ const x=paramArr(V.liens,2)&&V.liens.find(y=>y[0]===k); return [k,x&&x[1].trim()?x[1]:l] });
+  LIC_ECHEANCIER=Array.isArray(V.echeancier)&&V.echeancier.length&&V.echeancier.every(x=>typeof x==='number'&&x>=0)&&V.echeancier.some(x=>x>0)?V.echeancier.slice():D('echeancier');
+  COMM_TPL=Object.fromEntries((Array.isArray(V.modeles)&&V.modeles.every(x=>Array.isArray(x)&&x.length>=3)?V.modeles:D('modeles')).map(x=>[x[0],[x[1],x[2]]]));
+  const R=V.reglages&&typeof V.reglages==='object'?V.reglages:{}, d=PARAM_DEF.reglages;
+  PRES_SEUIL=Number.isInteger(R.seuil)&&R.seuil>0?R.seuil:d.seuil;
+  LIC_ALERTE_JOURS=Number.isInteger(R.alerte)&&R.alerte>=0?R.alerte:d.alerte;
+  VAC_ZONE=['A','B','C'].includes(R.zone)?R.zone:d.zone;
+}
+async function paramLoad(){
+  if(!CLUB) return;
+  if(PARAM.club!==CLUB.id){ PARAM.club=CLUB.id; PARAM.vals={}; PARAM.draft={}; PARAM.ok=null }
+  try{
+    const r=await withTimeout(sb.from('parametres_club').select('cle,valeur').eq('club_id',CLUB.id),10000);
+    if(r.error){ PARAM.ok=false; PARAM.vals={} }
+    else{ PARAM.ok=true; PARAM.vals=Object.fromEntries(r.data.map(x=>[x.cle,x.valeur])); lsSet(paramCache(),PARAM.vals) }
+  }catch(e){ const c=lsGet(paramCache()); if(c&&typeof c==='object') PARAM.vals=c }
+  paramApply();
+}
+const paramSlug=(l,used)=>{ let b=norm(l).replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,32)||'x'; let k=b,i=2; while(used.includes(k)) k=b+'_'+i++; return k };
+/* lit la section affichée et renvoie sa valeur */
+function paramRead(k){
+  const box=document.getElementById('prmEd'); if(!box) return PARAM.draft[k]??paramVal(k);
+  const rows=[...box.querySelectorAll('.prow2')], g=(r,n)=>{ const e=r.querySelector(`[name=${n}]`); return !e?'':e.type==='checkbox'?e.checked:e.value };
+  if(k==='lieux'||k==='libelles') return rows.map(r=>g(r,'l').trim());
+  if(k==='echeancier') return rows.map(r=>parseFloat(String(g(r,'l')).replace(',','.'))||0);
+  if(k==='reglages') return {seuil:parseInt(box.querySelector('[name=seuil]').value,10)||0,alerte:parseInt(box.querySelector('[name=alerte]').value,10),zone:box.querySelector('[name=zone]').value};
+  return rows.map(r=>{ const key=r.dataset.k||'', l=g(r,'l').trim(), cv=g(r,'c'), c=cv===''?null:PAL[+cv]||null, cur=r.dataset.col?r.dataset.col.split('|'):null, col=c?[c[1],c[2]]:cur||[PAL[8][1],PAL[8][2]];
+    if(k==='roles') return [key,l,col[0],col[1],g(r,'f')?1:0];
+    if(k==='agres') return [key,l,g(r,'s').trim(),col[0],col[1],g(r,'f')?1:0];
+    if(k==='docs') return [key,l,g(r,'f')?1:0];
+    if(k==='modeles') return [key,l,g(r,'m')];
+    return [key,l] });
+}
+/* nombre d'adhérents qui ont un rôle (pour prévenir avant de le retirer) */
+const paramUse=(k,key)=>k==='roles'&&LIC.loaded&&LIC.fct?S.gyms.filter(g=>fctHas(g.id,key)).length:null;
+function paramRowHtml(k,x,i,n,ro){
+  const sys=(paramSec(k)[3]||[]), locked=Array.isArray(x)&&sys.includes(x[0]), fixed=k==='liens';
+  const mv=ro||fixed?'':`<span class="pmv"><button type="button" class="btn sm" data-prm-mv="-1" ${i?'':'disabled'} aria-label="Monter">↑</button><button type="button" class="btn sm" data-prm-mv="1" ${i<n-1?'':'disabled'} aria-label="Descendre">↓</button>`
+    +`<button type="button" class="btn sm" data-prm-del="${i}" ${locked?'disabled title="Utilisé par l’application : on peut le renommer mais pas le retirer"':''} aria-label="Retirer">✕</button></span>`;
+  const dis=ro?'disabled':'';
+  if(k==='lieux'||k==='libelles') return `<div class="prow2"><input name="l" value="${esc(x)}" ${dis} maxlength="60" aria-label="Libellé">${k==='lieux'&&!i?'<span class="lb ok">par défaut</span>':''}${mv}</div>`;
+  if(k==='echeancier') return `<div class="prow2"><span class="pnum">Chèque ${i+1}</span><input name="l" type="number" min="0" step="0.01" value="${x}" ${dis} style="max-width:110px" aria-label="Montant"> €${mv}</div>`;
+  const colSel=(bg,fg)=>{ const j=PAL.findIndex(p=>p[1]===bg&&p[2]===fg); return `<select name="c" ${dis} aria-label="Couleur">${j<0?`<option value="">Actuelle</option>`:''}${PAL.map((p,m)=>`<option value="${m}" ${m===j?'selected':''}>${p[0]}</option>`).join('')}</select>` };
+  const prev=(l,bg,fg)=>`<span class="lb fct pprev" style="background:${bg};color:${fg}">${esc(l||'…')}</span>`;
+  const use=paramUse(k,x[0]), usek=`<span class="hint puse">${use?use+' adh.':''}</span>`;
+  if(k==='roles') return `<div class="prow2 pgr" data-k="${esc(x[0])}" data-col="${esc(x[2]+'|'+x[3])}">${prev(x[1],x[2],x[3])}<input name="l" value="${esc(x[1])}" ${dis} maxlength="40" aria-label="Libellé">${colSel(x[2],x[3])}<label class="cbx"><input type="checkbox" name="f" ${x[4]?'checked':''} ${dis}> Bureau</label>${usek}${mv||'<span></span>'}</div>`;
+  if(k==='agres') return `<div class="prow2 pga" data-k="${esc(x[0])}" data-col="${esc(x[3]+'|'+x[4])}">${prev(x[2],x[3],x[4])}<input name="l" value="${esc(x[1])}" ${dis} maxlength="40" aria-label="Libellé"><input name="s" value="${esc(x[2])}" ${dis} maxlength="8" style="max-width:84px" aria-label="Abrégé" title="Abrégé affiché dans le planning">${colSel(x[3],x[4])}<label class="cbx"><input type="checkbox" name="f" ${x[5]?'checked':''} ${dis}> Agrès</label>${mv||'<span></span>'}</div>`;
+  if(k==='docs') return `<div class="prow2" data-k="${esc(x[0])}"><input name="l" value="${esc(x[1])}" ${dis} maxlength="60" aria-label="Libellé"><label class="cbx"><input type="checkbox" name="f" ${x[2]?'checked':''} ${dis}> Sans date de validité</label>${mv}</div>`;
+  if(k==='modeles') return `<div class="prow2 pmsg" data-k="${esc(x[0])}"><div class="pmhd"><input name="l" value="${esc(x[1])}" ${dis} maxlength="80" placeholder="Objet du message" aria-label="Objet">${mv}</div><textarea name="m" rows="5" ${dis} aria-label="Message">${esc(x[2])}</textarea></div>`;
+  return `<div class="prow2" data-k="${esc(x[0])}"><input name="l" value="${esc(x[1])}" ${dis} maxlength="60" aria-label="Libellé">${mv}</div>`;
+}
+function paramEdHtml(k){
+  const ro=ROLE!=='admin'||!PARAM.ok||OFFLINE, v=PARAM.draft[k]??paramVal(k), [_,t,help]=paramSec(k), custom=PARAM.vals[k]!==undefined;
+  let body;
+  if(k==='reglages'){ const R=Object.assign({},PARAM_DEF.reglages,v||{}), dis=ro?'disabled':'';
+    body=`<div class="lgrid"><label>Alerte d’absences : à partir de combien d’absences non excusées d’affilée<input type="number" name="seuil" min="1" max="20" value="${R.seuil}" ${dis}></label>
+      <label>Document bientôt périmé : combien de jours avant sa date de validité<input type="number" name="alerte" min="0" max="365" value="${R.alerte}" ${dis}></label>
+      <label>Zone des vacances scolaires (calendrier officiel)<select name="zone" ${dis}>${['A','B','C'].map(z=>`<option value="${z}" ${R.zone===z?'selected':''}>Zone ${z}${z==='B'?' (Amiens, Lille, Reims…)':''}</option>`).join('')}</select></label></div>`;
+  } else {
+    const L=Array.isArray(v)?v:[], tot=k==='echeancier'?L.reduce((a,b)=>a+(+b||0),0):0;
+    body=`<div class="plist">${L.map((x,i)=>paramRowHtml(k,x,i,L.length,ro)).join('')||'<div class="empty">Liste vide.</div>'}</div>`
+      +(k==='echeancier'?`<div class="hint">Total : <b>${eur(tot)}</b> pour ${L.length} chèque(s).</div>`:'')
+      +(!ro&&k!=='liens'?`<button type="button" class="btn sm" data-prm-add="1" style="margin-top:8px">+ Ajouter</button>`:'');
+  }
+  const dirty=PARAM.draft[k]!==undefined;
+  return `<div class="card" id="prmEd" data-k="${k}"><h3>${t}</h3><div class="hint" style="margin:-4px 0 12px">${help}</div>${body}
+    ${ro?'':`<div class="lfoot" style="margin-top:14px"><button type="button" class="btn primary" data-prm-save="1">Enregistrer</button>${dirty?'<button type="button" class="btn" data-prm-cancel="1">Annuler les changements</button>':''}${custom?'<button type="button" class="btn" data-prm-reset="1">Revenir à la liste d’origine</button>':''}${dirty?'<span class="lb warn">Non enregistré</span>':''}</div>`}</div>`;
+}
+function renderParam(){
+  licEnsure();
+  const wide=window.innerWidth>900, ed=ROLE==='admin';
+  if(wide&&!PARAM.sel) PARAM.sel='lieux';
+  const warn=PARAM.ok===false?`<div class="warn" style="margin-bottom:12px">Pour enregistrer les paramètres, lance le script <b>migration-parametres.sql</b> dans Supabase (SQL Editor). En attendant, les listes d’origine s’appliquent.</div>`
+    :!ed?`<div class="hint" style="margin-bottom:12px">Seul l’administrateur peut modifier les paramètres.</div>`:OFFLINE?`<div class="hint" style="margin-bottom:12px">La modification des paramètres demande une connexion.</div>`:'';
+  const items=PARAM_SECS.map(([k,t])=>{ const v=PARAM.draft[k]??paramVal(k), n=Array.isArray(v)?v.length:null;
+    return `<button type="button" class="gli ${PARAM.sel===k?'on':''}" data-prm-sel="${k}"><span class="gln"><b>${t}</b>${n!=null?`<span class="glc">${n}</span>`:''}</span>${PARAM.vals[k]!==undefined?'<span class="glh">modifiée</span>':'<span class="glh">liste d’origine</span>'}${PARAM.draft[k]!==undefined?' <span class="lb warn">non enregistré</span>':''}</button>` }).join('');
+  const list=`<div class="card glist"><div class="gitems">${items}</div></div>`;
+  const back=wide?'':`<button type="button" class="btn sm" data-prm-sel="" style="margin-bottom:8px">← Tous les paramètres</button>`;
+  const body=wide?`<div class="gman">${list}<div class="gform">${paramEdHtml(PARAM.sel||'lieux')}</div></div>`:(PARAM.sel?back+paramEdHtml(PARAM.sel):list);
+  return `<div class="gymhead"><div><h2 class="name">Paramètres</h2><div class="meta">Les listes utilisées dans l’application, communes à tout le club</div></div></div>${warn}${body}`;
+}
+function paramRerender(){ const el=document.getElementById('prmEd'); if(el&&UI.view==='param') el.outerHTML=paramEdHtml(el.dataset.k); }
+function paramCheck(k,v){
+  if(k==='reglages') return v.seuil>=1&&v.seuil<=20&&Number.isInteger(v.alerte)&&v.alerte>=0&&v.alerte<=365?'':'Vérifie les nombres saisis.';
+  if(!Array.isArray(v)||!v.length) return 'La liste ne peut pas être vide.';
+  if(k==='echeancier') return v.some(x=>x>0)&&v.length<=12?'':v.length>12?'12 chèques au maximum (de septembre à août).':'Saisis au moins un montant.';
+  const lbl=x=>Array.isArray(x)?x[1]:x;
+  if(v.some(x=>!lbl(x))) return 'Chaque ligne doit avoir un libellé (ou être retirée).';
+  if(k==='lieux'||k==='libelles'){ const s=v.map(x=>norm(x)); if(new Set(s).size<s.length) return 'Deux lignes portent le même nom.' }
+  if(k==='agres'&&!v.some(x=>x[5])) return 'Coche « Agrès » sur au moins une ligne.';
+  return '';
+}
+async function paramSave(k){
+  if(PARAM.busy) return; const v=paramRead(k), err=paramCheck(k,v); if(err){ toast(err); return }
+  if(Array.isArray(v)&&Array.isArray(v[0])){ const used=v.map(x=>x[0]).filter(Boolean); v.forEach(x=>{ if(!x[0]){ x[0]=paramSlug(x[1],used); used.push(x[0]) } }) }
+  if(k==='agres') v.forEach(x=>{ if(!x[2]) x[2]=x[1].slice(0,6) });
+  PARAM.busy=true;
+  try{ chk(await sb.from('parametres_club').upsert({club_id:CLUB.id,cle:k,valeur:v,updated_at:new Date().toISOString()},{onConflict:'club_id,cle'}));
+    PARAM.vals[k]=v; delete PARAM.draft[k]; lsSet(paramCache(),PARAM.vals); paramApply(); toast('Paramètres enregistrés'); renderMain() }
+  catch(e){ toast('Erreur : '+e.message) }
+  PARAM.busy=false;
+}
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-prm-sel],[data-prm-add],[data-prm-del],[data-prm-mv],[data-prm-save],[data-prm-cancel],[data-prm-reset]'); if(!t) return;
+  const d=t.dataset, box=document.getElementById('prmEd'), k=box&&box.dataset.k;
+  if(d.prmSel!==undefined){ if(box&&k) { const v=paramRead(k); if(JSON.stringify(v)!==JSON.stringify(PARAM.draft[k]??paramVal(k))) PARAM.draft[k]=v }
+    PARAM.sel=d.prmSel||null; renderMain(); if(window.innerWidth<=900) window.scrollTo(0,0); return }
+  if(!k) return;
+  if(d.prmSave){ paramSave(k); return }
+  if(d.prmCancel){ delete PARAM.draft[k]; renderMain(); return }
+  if(d.prmReset){ if(!confirm('Revenir à la liste d’origine pour « '+paramSec(k)[1]+' » ? Les modifications de cette liste seront perdues.')) return;
+    try{ chk(await sb.from('parametres_club').delete().eq('club_id',CLUB.id).eq('cle',k)); delete PARAM.vals[k]; delete PARAM.draft[k]; lsSet(paramCache(),PARAM.vals); paramApply(); toast('Liste d’origine rétablie'); renderMain() }
+    catch(e){ toast('Erreur : '+e.message) } return }
+  const v=paramRead(k);
+  if(d.prmAdd){ const nv={lieux:'',libelles:'',echeancier:0,roles:['','',PAL[0][1],PAL[0][2],0],agres:['','','',PAL[0][1],PAL[0][2],1],docs:['','',0],modes:['',''],modeles:['','','Bonjour,\n\n…\n\nSportivement,\n{club}']}[k];
+    v.push(nv); PARAM.draft[k]=v; paramRerender(); const rs=document.querySelectorAll('#prmEd .prow2'); const last=rs[rs.length-1]; last&&last.querySelector('input:not([type=checkbox]),textarea')?.focus(); return }
+  if(d.prmDel!==undefined){ const i=+d.prmDel, x=v[i], n=Array.isArray(x)?paramUse(k,x[0]):null;
+    if(n&&!confirm(`${n} adhérent(s) ont ce rôle. Le retirer de la liste ? Il restera enregistré dans leur fiche mais ne sera plus proposé.`)) return;
+    v.splice(i,1); PARAM.draft[k]=v; paramRerender(); return }
+  if(d.prmMv){ const r=t.closest('.prow2'), rows=[...box.querySelectorAll('.prow2')], i=rows.indexOf(r), j=i+(+d.prmMv); if(j<0||j>=v.length) return;
+    [v[i],v[j]]=[v[j],v[i]]; PARAM.draft[k]=v; paramRerender(); return }
+});
+/* aperçu de la couleur et de l'abrégé pendant la saisie */
+document.addEventListener('input',ev=>{
+  const r=ev.target.closest&&ev.target.closest('#prmEd .prow2'); if(!r) return;
+  const pv=r.querySelector('.pprev'), k=document.getElementById('prmEd').dataset.k;
+  if(pv){ const c=PAL[+((r.querySelector('[name=c]')||{}).value)]; if(c&&(r.querySelector('[name=c]').value!=='')){ pv.style.background=c[1]; pv.style.color=c[2] }
+    pv.textContent=(k==='agres'?r.querySelector('[name=s]').value:r.querySelector('[name=l]').value)||'…' }
+});
+document.addEventListener('change',ev=>{ if(ev.target.closest&&ev.target.closest('#prmEd .prow2')&&ev.target.name==='c') ev.target.dispatchEvent(new Event('input',{bubbles:true})) });
 
 
 /* menu de l'en-tête (téléphone) */
