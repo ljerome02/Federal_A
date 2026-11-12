@@ -749,8 +749,6 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
     <span id="fstat" class="fstat"></span>
     <button class="tbtn" id="bMenu" type="button" aria-label="Menu" aria-expanded="false">☰</button>
     <div class="hdr-acts">
-      <button class="tbtn" id="bExport" title="Sauvegarder toutes les données (toutes les gymnastes) dans un fichier">⤓ Sauvegarde complète</button>
-      <button class="tbtn" id="bImport" title="Recharger une sauvegarde complète ou une ou plusieurs fiches gymnaste">⤒ Importer</button>
       <button class="tbtn" id="bPrint" title="Exporter la fiche affichée en PDF">📄 PDF</button>
     </div>
     <input type="file" id="fImport" accept=".json,application/json" multiple hidden>
@@ -955,14 +953,15 @@ sb.auth.onAuthStateChange((evt,session)=>{
 
 /* ---------- membres du club ---------- */
 async function renderMembers(){
-  const m=document.getElementById('main');
+  if(UI.view!=='param'||PARAM.tab!=='membres'){ UI.view='param'; PARAM.tab='membres'; renderMain() }
+  const m=document.getElementById('memBox'); if(!m) return; m.dataset.ld=1;
   m.innerHTML='<div class="card">Chargement…</div>';
   const r=await sb.rpc('liste_membres',{c:CLUB.id});
   const rows=r.error?`<p class="warn">${esc(r.error.message)}</p>`:r.data.map(x=>`<div class="mem"><span>${esc(x.email)}${x.user_id===SESSION.user.id?' <span class="hint">(toi)</span>':''}</span>
      <span class="tag-b">${esc({admin:'Administrateur',entraineur:'Entraîneur',tresorier:'Trésorier'}[x.role])}</span>
      ${ROLE==='admin'&&x.user_id!==SESSION.user.id?`<button class="btn sm" data-rmmem="${x.user_id}">Retirer</button>`:'<span></span>'}</div>`).join('');
-  m.innerHTML=`<div class="gymhead"><div><h2 class="name">Membres du club</h2><div class="meta">${esc(CLUB.nom)}</div></div></div>
-   <div class="work"><div class="card"><h3>Comptes ayant accès</h3>${rows}</div>
+  if(!document.getElementById('memBox')) return;
+  m.innerHTML=`<div class="work"><div class="card"><h3>Comptes ayant accès à l’application</h3>${rows}</div>
    ${ROLE==='admin'?`<form class="card add" id="fMem"><h3>Ajouter un membre</h3>
      <p class="hint">La personne crée d'abord son compte (bouton « Créer un compte » sur l'écran de connexion), puis tu l'ajoutes ici avec son e-mail.</p>
      <input name="email" type="email" placeholder="E-mail de la personne" required>
@@ -976,10 +975,10 @@ document.addEventListener('submit',async ev=>{
 },true);
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('[data-rmmem],#bMembers,#bRefresh,#bLogout'); if(!b) return;
-  if(b.id==='bMembers'){ UI.view='members'; renderSide(); renderMembers(); return }
+  if(b.id==='bMembers'){ UI.view='param'; PARAM.tab='membres'; render(); return }
   if(b.id==='bRefresh'){ refresh(); return }
   if(b.id==='bLogout'){ if(SYNC!=='ok' && !confirm('Des modifications ne sont pas encore enregistrées. Se déconnecter quand même ?')) return; sb.auth.signOut(); return }
-  if(b.dataset.rmmem && confirm('Retirer ce membre du club ?')){ const r=await sb.from('membres_club').delete().eq('club_id',CLUB.id).eq('user_id',b.dataset.rmmem); if(r.error) alert(r.error.message); renderMembers() }
+  if(b.dataset&&b.dataset.rmmem && confirm('Retirer ce membre du club ?')){ const r=await sb.from('membres_club').delete().eq('club_id',CLUB.id).eq('user_id',b.dataset.rmmem); if(r.error) alert(r.error.message); renderMembers() }
 });
 window.addEventListener('beforeunload',e=>{ if(SYNC==='pending'||SYNC==='saving'||SYNC==='error'){ e.preventDefault(); e.returnValue='' } });
 function renderFstat(){
@@ -987,8 +986,7 @@ function renderFstat(){
   if(!CLUB){ el.innerHTML=''; return }
   const st={ok:`<span class="okf">✓ Enregistré${lastSync?' '+lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</span>`,pending:'<span class="nof">● Modifications…</span>',saving:'<span class="nof">⟳ Enregistrement…</span>',error:`<span class="nof" title="${esc(SYNCERR)}">⚠ Non enregistré – nouvel essai à la prochaine modification</span>`}[SYNC];
   el.innerHTML=`<span class="fs-info"><span class="fs-id" title="${esc(SESSION?.user?.email||'')}"><b>${esc(CLUB.nom)}</b><span class="fs-mail"> · ${esc(SESSION?.user?.email||'')}</span></span>${(OFFLINE||navigator.onLine===false)?'<span class="nof">⚡ Hors connexion</span>':''}${st}</span>
-    <span class="fs-acts"><button class="alt" id="bRefresh" title="Recharger les dernières données du club">↻<span class="fs-t"> Actualiser</span></button>
-    <button class="alt" id="bMembers">👥 Membres</button><button class="alt" id="bLogout">Déconnexion</button></span>`;
+    <span class="fs-acts"><button class="alt" id="bRefresh" title="Recharger les dernières données du club">↻<span class="fs-t"> Actualiser</span></button></span>`;
 }
 
 const uid = () => crypto.randomUUID();
@@ -1158,7 +1156,7 @@ function renderManage(){
     <div id="mTable"></div>
   </div>
   ${typeof SB_URL==='undefined'?`<div class="card" style="margin-top:16px"><h3>Données</h3><div class="hint">Avec Chrome ou Edge, ouvre le fichier de données de la clé USB (en haut à droite) : tout s'y enregistre automatiquement. <b>Sauvegarde complète</b> et <b>Importer</b> servent à faire des copies.</div>${!S.gyms.length?'<div style="margin-top:8px"><button class="btn sm" id="bDemo">Charger un exemple</button></div>':''}</div>`
-    :`<div class="card" style="margin-top:16px"><h3>Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps.</div></div>`}`;
+    :`<div class="card" style="margin-top:16px"><h3>Données</h3><div class="hint">Tout est enregistré en ligne et partagé avec les entraîneurs du club. Pense à faire une <b>Sauvegarde complète</b> de temps en temps (Paramètres › Sauvegarde).</div></div>`}`;
   renderManageTable();
 }
 function renderManageTable(){
@@ -1221,7 +1219,7 @@ function welcome(){
       <li>Réorganise l'ordre par glisser-déposer (ou ▲▼) et clique sur <b>« lier »</b> entre deux éléments pour indiquer une série.</li>
       <li>La note de départ = valeur des 7 meilleurs éléments différents (7 pts max) + bonifications (3 × 0,5 pt).</li>
     </ol>
-    <p><b>Déjà des gymnastes sur la clé USB ?</b> Bouton <b>⤒ Importer</b> en haut, puis choisis le fichier <code>federal-A-donnees.json</code> : elles sont ajoutées au club.</p>
+    <p><b>Déjà des gymnastes sur la clé USB ?</b> Dans <b>Paramètres › Sauvegarde</b>, bouton <b>⤒ Importer</b>, puis choisis le fichier <code>federal-A-donnees.json</code> : elles sont ajoutées au club.</p>
     <p class="hint">Les données sont enregistrées en ligne et partagées avec les autres entraîneurs du club.</p>
   </div>`;
 }
@@ -1590,6 +1588,7 @@ function navBarOld(){
 }
 function renderMain(){
   if(UI.view==='manage') UI.view='lic';
+  if(UI.view==='members'){ UI.view='param'; PARAM.tab='membres' }
   paintNav();
   const m=document.getElementById('main');
   if(UI.view==='home'){ m.innerHTML=renderHome(); return }
@@ -3507,7 +3506,7 @@ document.addEventListener('change',ev=>{
 /* Les listes de l'application (lieux, rôles, agrès, pièces du dossier…) sont modifiables par
    l'administrateur. Elles sont enregistrées dans « parametres_club » (une ligne par liste, en JSON) ;
    sans ligne, c'est la liste par défaut ci-dessous qui s'applique. */
-const PARAM={club:null,ok:null,vals:{},draft:{},sel:null,busy:false};
+const PARAM={club:null,ok:null,vals:{},draft:{},sel:null,busy:false,tab:'listes'};
 const PARAM_DEF=JSON.parse(JSON.stringify({lieux:LIEUX,libelles:LIBELLES,roles:FCT,agres:ROT_AGRES,docs:LIC_DOCS,modes:LIC_MODES,liens:FAM_LIENS,
   echeancier:LIC_ECHEANCIER,modeles:Object.entries(COMM_TPL).map(([k,v])=>[k,v[0],v[1]]),reglages:{seuil:PRES_SEUIL,alerte:LIC_ALERTE_JOURS,zone:VAC_ZONE}}));
 const PAL=[['Bleu','#eaeeff','#3b3fa8'],['Rose','#fde8f1','#a1245f'],['Vert','#e1f6ea','#14733a'],['Jaune','#fff1d6','#8a5a00'],['Turquoise','#e0f4fb','#0b6b85'],
@@ -3605,7 +3604,22 @@ function paramEdHtml(k){
   return `<div class="card" id="prmEd" data-k="${k}"><h3>${t}</h3><div class="hint" style="margin:-4px 0 12px">${help}</div>${body}
     ${ro?'':`<div class="lfoot" style="margin-top:14px"><button type="button" class="btn primary" data-prm-save="1">Enregistrer</button>${dirty?'<button type="button" class="btn" data-prm-cancel="1">Annuler les changements</button>':''}${custom?'<button type="button" class="btn" data-prm-reset="1">Revenir à la liste d’origine</button>':''}${dirty?'<span class="lb warn">Non enregistré</span>':''}</div>`}</div>`;
 }
+const PARAM_TABS=[['listes','📋 Listes'],['membres','👥 Membres'],['sauvegarde','💾 Sauvegarde'],['compte','🔑 Mon compte']];
 function renderParam(){
+  if(!PARAM_TABS.some(t=>t[0]===PARAM.tab)) PARAM.tab='listes';
+  const head=`<div class="gymhead"><div><h2 class="name">Paramètres</h2><div class="meta">${esc(CLUB.nom)} · listes de l’application, accès au club, sauvegardes et compte</div></div></div>`
+    +`<div class="tabs">${PARAM_TABS.map(([k,l])=>`<button class="tab ${PARAM.tab===k?'on':''}" data-prm-tab="${k}">${l}</button>`).join('')}</div>`;
+  if(PARAM.tab==='membres'){ setTimeout(()=>{ if(document.getElementById('memBox')&&!document.getElementById('memBox').dataset.ld){ document.getElementById('memBox').dataset.ld=1; renderMembers() } },0);
+    return head+`<div id="memBox"><div class="card">Chargement…</div></div>` }
+  if(PARAM.tab==='sauvegarde') return head+`<div class="work">
+    <div class="card"><h3>⤓ Sauvegarde complète</h3><div class="hint" style="margin-bottom:10px">Télécharge un fichier avec toutes les gymnastes, les équipes et les mouvements. À faire de temps en temps et à garder en lieu sûr.</div><button type="button" class="btn primary" id="bExport">⤓ Télécharger la sauvegarde</button></div>
+    <div class="card"><h3>⤒ Importer</h3><div class="hint" style="margin-bottom:10px">Recharge une sauvegarde complète, ou une ou plusieurs fiches gymnaste (fichiers .json). Les gymnastes sont ajoutées au club.</div><button type="button" class="btn" id="bImport">⤒ Choisir un fichier…</button></div></div>`;
+  if(PARAM.tab==='compte') return head+`<div class="card"><h3>Mon compte</h3>
+    <div class="lgrid"><div><div class="hint">E-mail</div><b>${esc(SESSION?.user?.email||'')}</b></div><div><div class="hint">Club</div><b>${esc(CLUB.nom)}</b></div><div><div class="hint">Rôle</div><b>${ROLE_LBL[ROLE]||''}</b></div></div>
+    <div class="lfoot" style="margin-top:14px"><button type="button" class="btn" id="bLogout">Se déconnecter</button></div></div>`;
+  return head+renderParamLists();
+}
+function renderParamLists(){
   licEnsure();
   const wide=window.innerWidth>900, ed=ROLE==='admin';
   if(wide&&!PARAM.sel) PARAM.sel='lieux';
@@ -3616,7 +3630,7 @@ function renderParam(){
   const list=`<div class="card glist"><div class="gitems">${items}</div></div>`;
   const back=wide?'':`<button type="button" class="btn sm" data-prm-sel="" style="margin-bottom:8px">← Tous les paramètres</button>`;
   const body=wide?`<div class="gman">${list}<div class="gform">${paramEdHtml(PARAM.sel||'lieux')}</div></div>`:(PARAM.sel?back+paramEdHtml(PARAM.sel):list);
-  return `<div class="gymhead"><div><h2 class="name">Paramètres</h2><div class="meta">Les listes utilisées dans l’application, communes à tout le club</div></div></div>${warn}${body}`;
+  return `${warn}${body}`;
 }
 function paramRerender(){ const el=document.getElementById('prmEd'); if(el&&UI.view==='param') el.outerHTML=paramEdHtml(el.dataset.k); }
 function paramCheck(k,v){
@@ -3640,6 +3654,9 @@ async function paramSave(k){
   PARAM.busy=false;
 }
 document.addEventListener('click',async ev=>{
+  const tb=ev.target.closest&&ev.target.closest('[data-prm-tab]');
+  if(tb){ const bx=document.getElementById('prmEd'); if(bx){ const kk=bx.dataset.k, v=paramRead(kk); if(JSON.stringify(v)!==JSON.stringify(PARAM.draft[kk]??paramVal(kk))) PARAM.draft[kk]=v }
+    PARAM.tab=tb.dataset.prmTab; renderMain(); const on=document.querySelector('[data-prm-tab].on'); if(on&&on.parentNode.scrollWidth>on.parentNode.clientWidth) on.parentNode.scrollLeft=on.offsetLeft-on.parentNode.clientWidth/2+on.offsetWidth/2; return }
   const t=ev.target.closest&&ev.target.closest('[data-prm-sel],[data-prm-add],[data-prm-del],[data-prm-mv],[data-prm-save],[data-prm-cancel],[data-prm-reset]'); if(!t) return;
   const d=t.dataset, box=document.getElementById('prmEd'), k=box&&box.dataset.k;
   if(d.prmSel!==undefined){ if(box&&k) { const v=paramRead(k); if(JSON.stringify(v)!==JSON.stringify(PARAM.draft[k]??paramVal(k))) PARAM.draft[k]=v }
