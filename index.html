@@ -3949,6 +3949,7 @@ function ufGymHtml(gid){
       <div class="hint">On note chaque saut, puis la valorisation s’ajoute à la meilleure des deux notes.${ev.best?` Meilleur saut : <b>${ufN(ev.base)}</b>.`:''}</div></div>`;
   } else {
     comp=`<div class="card"><h3>Enchaînement (${ev.main.length} élément${ev.main.length>1?'s':''})</h3>${ev.els.length?`<div class="ufels">${ev.els.map((x,i)=>ufElRow(x,i,ev.els.length,ev,ro)).join('')}</div>`:'<div class="empty">Ajoute les éléments dans l’ordre de l’enchaînement.</div>'}
+      ${ev.nMax&&ev.nDist>ev.nMax?`<div class="warn" style="margin-top:8px">${ev.nDist} éléments : pas plus de ${ev.nMax} en ${evo}. Retire ${ev.nDist-ev.nMax===1?'un élément':(ev.nDist-ev.nMax)+' éléments'} pour valider le tronc commun.</div>`:''}
       ${ev.bad.length?`<div class="warn" style="margin-top:8px">${ev.bad.length} élément(s) hors des paliers autorisés en ${evo}.</div>`:''}</div>`;
   }
   const cat=ufCatalog(ag,ev,d,ro);
@@ -4002,7 +4003,8 @@ document.addEventListener('click',async ev=>{
   if(d.ufGdel){ const g=S.gyms.find(x=>x.id===d.ufGdel); if(!confirm(`Retirer ${gymName(g)} de la compétition UFOLEP ? Ses mouvements UFOLEP sont gardés.`)) return;
     try{ chk(await sb.from('ufolep_engagements').delete().eq('licencie_id',d.ufGdel).eq('saison',SAISON)); UF.eng=UF.eng.filter(x=>x.licencie_id!==d.ufGdel); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
   const gid=UF.sel, ag=UF.ag; if(!gid) return;
-  if(d.ufAddel){ ufSetMv(gid,ag,m=>{ m.els=(m.els||[]).concat([d.ufAddel]) }); toast('Ajouté : '+UF_BY[d.ufAddel][3]); keep(); return }
+  if(d.ufAddel){ ufSetMv(gid,ag,m=>{ m.els=(m.els||[]).concat([d.ufAddel]) }); const e2=ufEval(ag,ufEvo(gid,ag),ufMv(gid,ag));
+    toast(e2.nMax&&e2.nDist>e2.nMax?`Ajouté : ${UF_BY[d.ufAddel][3]} — attention, ${e2.nDist} éléments (maximum ${e2.nMax})`:'Ajouté : '+UF_BY[d.ufAddel][3]); keep(); return }
   if(d.ufSetsaut!==undefined&&UF.pick){ ufSetMv(gid,ag,m=>{ const s=(m.sauts||[]).slice(); s[+d.ufSetsaut]=UF.pick; m.sauts=[s[0]||null,s[1]||null] }); keep(); return }
   if(d.ufDel!==undefined){ ufSetMv(gid,ag,m=>{ m.els.splice(+d.ufDel,1) }); renderMain(); return }
   if(d.ufMv){ const i=+d.i, j=i+(+d.ufMv); ufSetMv(gid,ag,m=>{ if(j>=0&&j<m.els.length) [m.els[i],m.els[j]]=[m.els[j],m.els[i]] }); renderMain(); return }
