@@ -740,7 +740,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .ufck{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;margin-bottom:4px;background:#f6f7f9;font-size:13px;cursor:pointer}
 .ufck.on{background:#e8f6ee}.ufck.drop{background:#f1f3f5}.ufck input{margin-top:2px}.ufck>span:first-of-type{flex:1}
 .ufpts{margin-left:auto;font-weight:700;font-size:12px;white-space:nowrap;color:var(--muted)}
-.ufscore{float:right;font-size:18px;font-weight:800;color:var(--accent)}
+.ufscore{float:right;font-size:18px;font-weight:800;color:var(--accent)}.ufscore small{font-size:13px;color:var(--muted);font-weight:600}
 .nvsub{flex:0 0 auto;margin:2px 0 8px 22px;padding:6px 0 6px 10px;border-left:2px solid var(--accent-soft);display:flex;flex-direction:column;gap:1px}
 .nvsub input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:6px 9px;margin-bottom:4px;border:1px solid var(--line);border-radius:8px}
 .nvsubh{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:8px 0 2px}
@@ -3736,7 +3736,7 @@ function ufEval(ag,evo,d){
   const match=(s,e)=>(!s.ar||s.ar.includes(e[2]))&&(e[2]!=='mou'||(s.ar&&s.ar.includes('mou')))&&(s.min==null||(ufPn(e[4])!=null&&ufPn(e[4])>=s.min))
     &&(!s.sec||e[5]===s.sec)&&(!s.nosec||e[5]!==s.nosec)&&(!s.re||new RegExp(s.re,'i').test(e[6]))&&(!s.val||isVal(e))&&isAut(e);
   const auto=s=>{ if(!s) return null;
-    if(s.nb) return main.length>=s.nb[0]&&main.length<=s.nb[1];
+    if(s.nb){ const n=new Set(main.map(e=>e[0])).size; return n>=s.nb[0]&&n<=s.nb[1] }
     if(s.arches) return new Set(main.filter(e=>e[4]!=='N'&&isAut(e)).map(e=>e[2])).size>=s.arches;
     if(s.sens){ const ac=main.filter(e=>UF_AC.includes(e[2])&&isAut(e)&&(!s.val||isVal(e))); return ac.some(e=>e[5]==='avant')&&ac.some(e=>e[5]==='arriere') }
     if(s.saut2) return els.length===2&&els[0][0]!==els[1][0]&&els.every(e=>e[4]!=='N'&&isAut(e))&&els.some(isVal);
@@ -3750,7 +3750,9 @@ function ufEval(ag,evo,d){
   const bad=main.filter(e=>!isAut(e));
   let base=0, best=null;
   if(ag==='saut'){ const vals=els.filter(isAut).map(e=>({e,v:UF_SAUT_VAL[e[4]]??null})).filter(x=>x.v!=null); best=vals.sort((a,b)=>b.v-a.v)[0]||null; base=best?best.v:0 }
-  return {R,evo,els,main,tc,v,ch:R.ch,ptsTc,ptsV,base,best,bad,isAut,isVal,total:base+ptsTc+ptsV,tcOk:tc.every(x=>x.ok),empty:!els.length};
+  const nDist=new Set(main.map(e=>e[0])).size, nMax=R.tc.reduce((a,[,sp])=>sp&&sp.nb?sp.nb[1]:a,0), nMin=R.tc.reduce((a,[,sp])=>sp&&sp.nb?sp.nb[0]:a,0);
+  tc.forEach(x=>{ if(R.tc[+x.k.slice(2)][1]&&R.tc[+x.k.slice(2)][1].nb) x.t+=` (${nDist} compté${nDist>1?'s':''}${nDist!==main.length?', répétitions comptées une fois':''})` });
+  return {nDist,nMin,nMax,R,evo,els,main,tc,v,ch:R.ch,ptsTc,ptsV,base,best,bad,isAut,isVal,total:base+ptsTc+ptsV,tcOk:tc.every(x=>x.ok),empty:!els.length};
 }
 const ufTotal=gid=>UF_AG.reduce((a,[ag])=>{ const d=ufMv(gid,ag); return a+(d&&((d.els||[]).length||(d.sauts||[]).length)?ufEval(ag,ufEvo(gid,ag),d).total:0) },0);
 const ufN=n=>(Math.round(n*100)/100).toLocaleString('fr-FR');
@@ -3906,7 +3908,7 @@ function ufCatalog(ag,ev,d,ro){
 }
 function renderUMvt(){
   ufEnsure(); licEnsure();
-  const T='Mouvements UFOLEP', sub=`Saison ${SAISON} · composition, vérification du programme et note estimée`;
+  const T='Mouvements UFOLEP', sub=`Saison ${SAISON} · composition, vérification du programme et note de départ`;
   const w=ufWait(T,sub); if(w) return w;
   const gs=ufGyms(), wide=window.innerWidth>900, side=ufSideMenu();
   if(UF.sel&&!gs.some(g=>g.id===UF.sel)) UF.sel=null;
@@ -3919,7 +3921,7 @@ function renderUMvt(){
   const back=wide?'':`<button type="button" class="btn sm" data-uf-sel="" style="margin-bottom:8px">← Toutes les gymnastes</button>`;
   const body=side?(UF.sel?ufGymHtml(UF.sel):`<div class="card"><div class="empty">👈 Choisis une gymnaste dans le menu à gauche, sous « Mouvements ».</div></div>`)
     :wide?`<div class="gman">${list}<div class="gform">${UF.sel?ufGymHtml(UF.sel):''}</div></div>`:(UF.sel?back+ufGymHtml(UF.sel):list);
-  return ufHead(T,sub)+`<div class="hint" style="margin-bottom:10px">⚠ Note estimée : la brochure UFOLEP ne chiffre pas le tronc commun ni les valorisations. Barème utilisé : ${ufN(UF_BAREME.tc)} pt par exigence du tronc commun, ${ufN(UF_BAREME.vs)} pts par valorisation (*), ${ufN(UF_BAREME.v)} pts par autre valorisation (réglable dans Paramètres). Les fautes d’exécution ne sont pas comptées.</div>`+body;
+  return ufHead(T,sub)+`<div class="hint" style="margin-bottom:10px">Barème de la brochure (p. 24) : ${ufN(UF_BAREME.tc)} pt par exigence du tronc commun, ${ufN(UF_BAREME.vs)} pts par valorisation (*), ${ufN(UF_BAREME.v)} pts par autre valorisation, soit au maximum 13 en A, 14 en B1, 15 en B2, B3 et C. Note de départ, sans les fautes d’exécution.</div>`+body;
 }
 const ufSideMenu=()=>window.innerWidth>=1100;
 function ufSubList(){
@@ -3950,17 +3952,17 @@ function ufGymHtml(gid){
       ${ev.bad.length?`<div class="warn" style="margin-top:8px">${ev.bad.length} élément(s) hors des paliers autorisés en ${evo}.</div>`:''}</div>`;
   }
   const cat=ufCatalog(ag,ev,d,ro);
-  const checks=`<div class="card"><h3>Vérification · note estimée <span class="ufscore">${ufN(ev.total)}</span></h3>
+  const checks=`<div class="card"><h3>Vérification · note de départ <span class="ufscore">${ufN(ev.total)}${ag==='saut'?'':`<small> / ${ufN(ev.tc.length*UF_BAREME.tc+(ev.ch?[...ev.v].sort((a,b)=>b.pts-a.pts).slice(0,ev.ch):ev.v).reduce((a,x)=>a+x.pts,0))}</small>`}</span></h3>
     ${ev.tc.length?`<h4>Tronc commun ${ev.tcOk?'<span class="lb ok">complet</span>':'<span class="lb warn">incomplet</span>'} <span class="ufpts">${ufN(ev.ptsTc)} pt</span></h4>${ev.tc.map(x=>ufCheckRow(x,ro,false)).join('')}`:''}
     ${ag==='saut'?`<h4>Valeur du saut <span class="ufpts">${ufN(ev.base)} pt</span></h4>`:''}
     <h4>Valorisations${ev.ch?` (${ev.ch} meilleures retenues)`:''} <span class="ufpts">${ufN(ev.ptsV)} pt</span></h4>${ev.v.map(x=>ufCheckRow(x,ro,true)).join('')||'<div class="hint">Aucune valorisation pour cette évolution.</div>'}
     <div class="hint" style="margin-top:8px">« automatique » : vérifié d’après les éléments de l’enchaînement (tu peux corriger en cochant ou décochant). « à cocher » : liaisons, positions, aides… à valider par l’entraîneur.</div></div>`;
-  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total estimé ${ufN(ufTotal(gid))}</div></div>${tabs}<div style="flex:1"></div>${ufSideMenu()&&!UF.menu?'<button type="button" class="btn sm" data-uf-menu="1">👥 Changer de gymnaste</button>':''}</div>`
+  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total ${ufN(ufTotal(gid))}</div></div>${tabs}<div style="flex:1"></div>${ufSideMenu()&&!UF.menu?'<button type="button" class="btn sm" data-uf-menu="1">👥 Changer de gymnaste</button>':''}</div>`
     +`<div class="lfoot" style="margin:0 0 12px;flex-wrap:wrap">${evoSel}</div><div class="ufgrid"><div class="ufa">${comp}</div><div class="ufb">${checks}</div><div class="ufc">${cat}</div></div>`;
 }
 function renderUSum(){
   ufEnsure();
-  const T='Résumé UFOLEP', sub=`Saison ${SAISON} · notes estimées par agrès (sans les fautes d’exécution)`;
+  const T='Résumé UFOLEP', sub=`Saison ${SAISON} · notes de départ par agrès (sans les fautes d’exécution)`;
   const w=ufWait(T,sub); if(w) return w;
   const gs=ufGyms();
   const cell=(gid,ag)=>{ const d=ufMv(gid,ag); if(!d||!((d.els||[]).length||(d.sauts||[]).length)) return '<td class="hint">—</td>';
@@ -3970,7 +3972,7 @@ function renderUSum(){
   const groups=[...UF.eq.map(t=>[t,gs.filter(g=>ufEng(g.id).equipe_id===t.id)]),[null,gs.filter(g=>!ufEng(g.id).equipe_id)]].filter(([,l])=>l.length);
   return ufHead(T,sub)+(groups.length?groups.map(([t,l])=>`<div class="card"><h3>${t?esc(t.nom)+` <span class="lb ok">${t.evolution}</span>`:'Sans équipe'}${t?` <span class="ufscore">${ufN(l.reduce((a,g)=>a+ufTotal(g.id),0))}</span>`:''}</h3><div class="ltwrap"><table class="ltb">${head}<tbody>${l.map(tr).join('')}</tbody></table></div></div>`).join('')
     :'<div class="card"><div class="empty">Aucune gymnaste engagée.</div></div>')
-    +'<div class="hint">⚠️ tronc commun incomplet · ⛔ élément hors des paliers autorisés. Total d’équipe : somme des notes estimées de ses gymnastes. « Sans équipe » : gymnastes engagées à placer dans une équipe.</div>';
+    +'<div class="hint">⚠️ tronc commun incomplet · ⛔ élément hors des paliers autorisés. Total d’équipe : somme des notes de départ de ses gymnastes. « Sans équipe » : gymnastes engagées à placer dans une équipe.</div>';
 }
 
 /* ---------- actions ---------- */
@@ -4049,7 +4051,7 @@ const PARAM_SECS=[
   ['liens','Liens de parenté','Seuls les libellés se modifient : les liens fonctionnent par paires (parent et enfant, frère ou sœur…).'],
   ['modeles','Modèles de messages','Dans Messages et WhatsApp. {club} est remplacé par le nom du club et {saison} par la saison.'],
   ['reglages','Réglages','Seuils d’alerte et zone des vacances scolaires.'],
-  ['bareme_ufolep','Barème UFOLEP (estimation)','La brochure UFOLEP ne chiffre pas le tronc commun ni les valorisations : ces points servent à estimer la note des mouvements UFOLEP. Le saut garde les valeurs de la brochure.']];
+  ['bareme_ufolep','Barème UFOLEP','Points du tronc commun et des valorisations (brochure GAF 2026-2030, p. 24). Le saut garde la valeur de chaque saut (9 à 14).']];
 const paramSec=k=>PARAM_SECS.find(x=>x[0]===k)||PARAM_SECS[0];
 const paramVal=k=>PARAM.vals[k]!==undefined?PARAM.vals[k]:PARAM_DEF[k];
 const paramCache=()=>'fa-param-'+(CLUB&&CLUB.id);
@@ -4124,7 +4126,7 @@ function paramEdHtml(k){
     body=`<div class="lgrid"><label>Points par exigence du tronc commun remplie<input type="number" name="tc" min="0" max="20" step="0.1" value="${B.tc}" ${dis}></label>
       <label>Points par valorisation principale (*)<input type="number" name="vs" min="0" max="20" step="0.1" value="${B.vs}" ${dis}></label>
       <label>Points par autre valorisation<input type="number" name="v" min="0" max="20" step="0.1" value="${B.v}" ${dis}></label></div>
-      <div class="hint" style="margin-top:8px">Valeurs par défaut : 1, 3 et 2 points (à confirmer avec le règlement UFOLEP). En B et C, seules les 4 meilleures valorisations comptent.</div>`;
+      <div class="hint" style="margin-top:8px">Valeurs de la brochure : 1, 3 et 2 points. En A : tronc commun 4 + valorisations 9 = 13. En B1 : 4 + 10 = 14. En B2, B3 et C : 5 + 10 = 15 (4 valorisations retenues).</div>`;
   } else if(k==='reglages'){ const R=Object.assign({},PARAM_DEF.reglages,v||{}), dis=ro?'disabled':'';
     body=`<div class="lgrid"><label>Alerte d’absences : à partir de combien d’absences non excusées d’affilée<input type="number" name="seuil" min="1" max="20" value="${R.seuil}" ${dis}></label>
       <label>Document bientôt périmé : combien de jours avant sa date de validité<input type="number" name="alerte" min="0" max="365" value="${R.alerte}" ${dis}></label>
