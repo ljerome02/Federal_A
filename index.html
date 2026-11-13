@@ -764,7 +764,9 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .ufleg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}.ufleg .sw{display:inline-block;width:14px;height:10px;border-radius:3px}
 .ufleg .sw.v{background:#bfe7ee}.ufleg .sw.a{background:#e3f5f8;border:1px solid #cfe9ee}.ufleg .sw.n{background:#f1f2f4;border:1px solid #e1e4e8}
 .ufleg .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent)}
-.uflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:6px}
+.uflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px}
+.uflow{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafbfc}.uflow.nom{background:#fbf7ff;border-color:#e6dcf5}
+.uflg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}.uflg .ufchip{margin:0;font-size:13px;line-height:1.35}
 .ufchip{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px 8px;margin-bottom:4px;cursor:pointer;font:inherit;font-size:12.5px;color:inherit}
 .ufchip.off{opacity:.55}.ufchip.in{border-color:var(--accent);background:var(--accent-soft)}.ufchip.pk{border-color:#e0a100;box-shadow:0 0 0 2px #f6d58a}
 .ufsaut{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}.ufsaut label{flex:1 1 260px}.ufsaut select{width:100%}
@@ -3839,7 +3841,9 @@ function ufArcSvg(ag,ar,ev,d,pick){
   const sec=UF_ARC_SEC[ag+'.'+ar];
   if(sec){ const a=sec[0]*Math.PI/180, r=R0+6*w+6;
     s+=`<line x1="${cx+R0*Math.cos(a)}" y1="${cy-R0*Math.sin(a)}" x2="${cx+r*Math.cos(a)}" y2="${cy-r*Math.sin(a)}" stroke="#7c8792" stroke-width="2.5" stroke-dasharray="8 6"/>`;
-    const lab=(t,ang,anchor)=>t?`<text x="${cx+(r+6)*Math.cos(ang)}" y="${cy-(r+6)*Math.sin(ang)}" class="ufars" text-anchor="${anchor}">${t}</text>`:'';
+    const lab=(t,ang,anchor)=>{ if(!t) return ''; let x=cx+(r+6)*Math.cos(ang), y=cy-(r+6)*Math.sin(ang);
+      if(anchor==='start'&&x>W-130){ x=W-6; anchor='end'; y=Math.min(y,cy-r*Math.sin(ang)-14) } if(anchor==='end'&&x<130){ x=6; anchor='start'; y=Math.min(y,cy-r*Math.sin(ang)-14) }
+      return `<text x="${x}" y="${y}" class="ufars" text-anchor="${anchor}">${t}</text>` };
     s+=lab(sec[1],Math.max(6,sec[0]/2)*Math.PI/180,'start')+lab(sec[2],Math.min(174,(sec[0]+180)/2)*Math.PI/180,'end') }
   /* étiquettes : position de la brochure, puis écartées pour ne pas se chevaucher */
   const CW=200,LH=19;
@@ -3871,7 +3875,7 @@ function ufArcHtml(ag,ev,d,ro){
       ${ro?'':ag==='saut'?`<button class="btn sm primary" data-uf-setsaut="0">Saut 1</button><button class="btn sm primary" data-uf-setsaut="1">Saut 2</button>`:`<button class="btn sm primary" data-uf-addel="${pick[0]}">+ Ajouter à l’enchaînement</button>`}</div>`
     :`<div class="ufinfo empty">Touche un élément de l’arche pour voir sa description${ro?'':' et l’ajouter'}.</div>`;
   const tabs=`<div class="ufarcs">${arcs.map(k=>`<button type="button" class="btn sm ${k===ar?'on':''}" data-uf-arc="${k}">${esc(UF_ARCH[ag][k])}</button>`).join('')}</div>`;
-  const low=t=>{ const l=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar&&(t==='N'?e[4]==='N':/^PR/.test(e[4])&&!UF_POS[e[0]])); return l.length?`<div class="uflow"><div class="ufcgh">${t==='N'?'Nomades':'Pré-requis'}</div>${l.map(e=>`<button type="button" class="ufchip ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b> ${esc(e[6].length>48?e[6].slice(0,46)+'…':e[6])}</button>`).join('')}</div>`:'' };
+  const low=t=>{ const l=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar&&(t==='N'?e[4]==='N':/^PR/.test(e[4])&&!UF_POS[e[0]])); return l.length?`<div class="uflow ${t==='N'?'nom':'pre'}"><div class="ufcgh">${t==='N'?'Nomades <span class="hint">· éléments isolés, non valorisables</span>':'Pré-requis'}</div><div class="uflg">${l.map(e=>`<button type="button" class="ufchip ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b> ${esc(e[6])}</button>`).join('')}</div></div>`:'' };
   const legend=`<div class="hint ufleg"><span class="sw v"></span> palier valorisable <span class="sw a"></span> autorisé <span class="sw n"></span> non autorisé en ${ev.evo} · <span class="dot"></span> dans l’enchaînement</div>`;
   /* liste complète des éléments de l'arche, par palier, à côté du dessin */
   const els=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar), aut=ev.R.aut.split(' '), val=ev.R.val.split(' ');
@@ -3881,7 +3885,7 @@ function ufArcHtml(ag,ev,d,ro){
       const col=k==='N'?'#fff':val.includes(k)?'#bfe7ee':aut.includes(k)?'#e3f5f8':'#f1f2f4';
       return `<div class="ufalh"><span class="sw" style="background:${col};border:1px solid #d5dde3"></span>${k==='N'?'Nomades':k==='PR'?'Pré-requis':'Palier '+k}${k!=='N'&&k!=='PR'?` · ${val.includes(k)?'valorisable':aut.includes(k)?'autorisé':'non autorisé'}`:''}</div>`
         +l.map(e=>`<button type="button" class="ufai ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b><span>${esc(e[6])}${e[5]?` <span class="ufs">· ${UF_SEC[e[5]]}</span>`:''}</span></button>`).join('') }).join('');
-  return tabs+info+(ar==='pr'?`<div class="ufal" id="ufAl">${list}</div>`:`<div class="ufarcw">${ufArcSvg(ag,ar,ev,d,pick&&pick[0])}</div>${legend}<details class="ufald" ${UF.lst?'open':''}><summary>Liste des éléments de l’arche, par palier</summary><div class="ufal" id="ufAl">${list}</div></details>`);
+  return tabs+info+(ar==='pr'?`<div class="ufal" id="ufAl">${list}</div>`:`<div class="ufarcw">${ufArcSvg(ag,ar,ev,d,pick&&pick[0])}</div>${legend}<div class="uflows">${low('PR')}${low('N')}</div><details class="ufald" ${UF.lst?'open':''}><summary>Liste des éléments de l’arche, par palier</summary><div class="ufal" id="ufAl">${list}</div></details>`);
 }
 
 function ufCatalog(ag,ev,d,ro){
