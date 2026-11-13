@@ -716,7 +716,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .pmsg{flex-direction:column;align-items:stretch}.pmhd{display:flex;gap:8px;align-items:center}.pmhd input{flex:1}.pmsg textarea{width:100%;font:inherit}
 .ccf{margin-bottom:8px}
 /* compétition UFOLEP */
-.ufgrid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c";gap:0 14px;align-items:start}
+.ufgrid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "c" "b";gap:0 14px;align-items:start}
 .ufa{grid-area:a}.ufb{grid-area:b}.ufc{grid-area:c}
 @media (min-width:1500px){ .ufgrid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-areas:"a b" "c b"} }
 .ufcat input[type=search]{min-width:0}.ufcat select{width:auto}
@@ -732,6 +732,25 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .ufck.on{background:#e8f6ee}.ufck.drop{background:#f1f3f5}.ufck input{margin-top:2px}.ufck>span:first-of-type{flex:1}
 .ufpts{margin-left:auto;font-weight:700;font-size:12px;white-space:nowrap;color:var(--muted)}
 .ufscore{float:right;font-size:18px;font-weight:800;color:var(--accent)}
+.ufcath{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ufcath h3{margin:0;flex:1}.ufsw{display:flex;gap:4px}
+.ufsw .btn.on,.ufarcs .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ufarcs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ufinfo{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:#fff8e6;border:1px solid #f3dca2;margin-bottom:8px;min-height:50px}
+.ufinfo.empty{background:#f6f7f9;border-color:var(--line);color:var(--muted);font-size:13px}.ufinfo .ufit{flex:1 1 260px;min-width:0;font-size:14px}
+.okc{color:#14733a}.badc{color:#b42318}
+.ufarcw{width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}.ufarc{width:100%;min-width:600px;height:auto;display:block}
+.ufarl{font-size:15px;font-weight:700;fill:#7c8792;text-anchor:middle}.ufars{font-size:16px;font-weight:700;fill:#55606b}
+.ufnd{cursor:pointer}.ufnd circle{fill:#fff;stroke:var(--accent);stroke-width:2.5}.ufnd text{font-size:14px;font-weight:700;fill:#1f2933;text-anchor:middle;pointer-events:none}
+.ufnd:hover circle,.ufnd:focus circle{stroke-width:4;outline:none}.ufnd:focus{outline:none}
+.ufnd.off circle{stroke:#b8bfc7;fill:#f4f5f7}.ufnd.off text{fill:#98a1ab}
+.ufnd.in circle{fill:var(--accent);stroke:var(--accent-ink)}.ufnd.in text{fill:#fff}
+.ufnd.pk circle{stroke:#e0a100;stroke-width:5}
+.ufleg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}.ufleg .sw{display:inline-block;width:14px;height:10px;border-radius:3px}
+.ufleg .sw.v{background:#bfe7ee}.ufleg .sw.a{background:#e3f5f8;border:1px solid #cfe9ee}.ufleg .sw.n{background:#f1f2f4;border:1px solid #e1e4e8}
+.ufleg .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.uflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:6px}
+.ufchip{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px 8px;margin-bottom:4px;cursor:pointer;font:inherit;font-size:12.5px;color:inherit}
+.ufchip.off{opacity:.55}.ufchip.in{border-color:var(--accent);background:var(--accent-soft)}.ufchip.pk{border-color:#e0a100;box-shadow:0 0 0 2px #f6d58a}
 .ufsaut{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}.ufsaut label{flex:1 1 260px}.ufsaut select{width:100%}
 .ccin{display:contents}.ccsep{width:1px;align-self:stretch;background:var(--line);margin:2px 4px}
 .bur{display:grid;gap:8px}.burr{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:baseline}
@@ -1616,7 +1635,7 @@ function renderMain(){
   if(UI.view==='comm'){ m.innerHTML=renderComm(); return }
   if(UI.view==='param'){ m.innerHTML=renderParam(); return }
   if(UI.view==='uteams'){ m.innerHTML=renderUTeams(); return }
-  if(UI.view==='umvt'){ m.innerHTML=renderUMvt(); return }
+  if(UI.view==='umvt'){ m.innerHTML=renderUMvt(); const aw=m.querySelector('.ufarcw'); if(aw&&aw.scrollWidth>aw.clientWidth){ const pk=aw.querySelector('.ufnd.pk circle'); aw.scrollLeft=pk?+pk.getAttribute('cx')/1000*aw.scrollWidth-aw.clientWidth/2:(aw.scrollWidth-aw.clientWidth)/2 } return }
   if(UI.view==='usum'){ m.innerHTML=renderUSum(); return }
   if(UI.view==='lic'){ m.innerHTML=navBar()+renderLic(); return }
   if(UI.view==='pres'){ m.innerHTML=navBar()+renderPres(); return }
@@ -3636,8 +3655,9 @@ const UF_BY=Object.fromEntries(UF_ELS.map(e=>[e[0],e]));
 const ufPn=p=>p==='N'?null:/^PR/.test(p)?0:+p.slice(1);
 const ufPk=p=>/^PR/.test(p)?'PR':p;
 const ufPl=p=>p==='N'?'Nomade':/^PR/.test(p)?(p==='PR'?'Pré-requis':p):p;
+const UF_POS={"renv23-44":[2.99,48],"renv23-45":[3.97,44],"renv23-46":[5.0,63],"renv23-48":[7.01,60],"renv23-19":[1.87,140],"renv23-21":[2.95,141],"renv23-25":[4.86,150],"renv23-26":[5.01,126],"renv23-28":[5.81,140],"renv23-35":[7.01,127],"renv23-70n":[7.0,144],"renv23-1n":[0.19,157],"rond24-54":[2.77,172],"rond24-56":[5.77,172],"rond24-55":[4.73,172],"rond24-49":[4.11,113],"rond24-50":[5.04,109],"rond24-51":[6.07,109],"rond24-53":[7.25,107],"rond24-13":[2.89,86],"rond24-19":[4.79,36],"rond24-55n":[4.97,86],"rond24-66n":[5.99,85],"rond24-56n":[5.81,40],"rond24-76n":[6.85,38],"rond24-75n":[7.07,86],"bav25-115":[2.0,150],"bav25-137":[5.06,148],"bav25-140":[6.01,131],"bav25-142":[6.97,152],"bav25-143":[6.99,127],"bav25-117":[1.96,103],"bav25-44":[2.89,95],"bav25-124":[4.88,97],"bav25-127":[5.99,94],"bav25-130":[6.94,93],"bav25-154":[2.85,34],"bav25-157":[3.96,58],"bav25-157+":[4.98,57],"bav25-163":[5.92,46],"bav25-166":[6.91,62],"bav25-168":[6.79,45],"bav25-6n":[0.22,156],"bav25-8n":[3.93,101],"bar26-141":[4.85,147],"bar26-144":[6.91,152],"bar26-116":[1.94,114],"bar26-136":[4.98,113],"bar26-139":[7.0,113],"bar26-52":[2.8,51],"bar26-55":[4.77,51],"bar26-58":[6.78,52],"bar26-132":[6.88,77],"bar26-12n":[0.26,158],"bar26-14n":[1.97,82],"app27-51":[4.88,75],"app27-15":[4.0,97],"app27-56":[4.82,55],"app27-23":[4.95,90],"app27-46":[3.75,37],"app27-53":[5.96,43],"app27-1nb":[0.16,154],"app27-3n":[2.92,74],"app27-2n":[2.01,79],"app27-25":[5.03,129],"ela28-68":[1.97,99],"ela28-70":[0.26,147],"ela28-71":[4.02,77],"ela28-73":[4.95,83],"ela28-79":[5.98,86],"ela28-27":[5.9,151],"ela28-82":[5.92,67],"ela28-76":[4.98,67],"rot29-9n":[3.82,153],"rot29-91":[0.29,158],"rot29-103":[5.98,110],"rot29-11n":[6.91,93],"rot29-100":[4.02,114],"rot29-107":[5.96,127],"rot29-98":[3.04,91],"rot29-10n":[3.93,65],"rot29-106":[5.9,82],"rot29-4n":[5.0,50],"rot29-150":[1.91,31],"rot29-156":[2.8,29],"rot29-121":[2.1,61],"atr30-150":[1.93,154],"atr30-154":[2.93,157],"atr30-155":[3.04,119],"atr30-169":[3.94,114],"atr30-174":[4.97,114],"atr30-110":[3.96,50],"atr30-107":[1.97,47],"atr30-104":[2.98,51],"atr30-26n":[2.83,28],"atr30-1n":[0.18,142],"piv31-73":[0.58,164],"piv31-76":[2.09,77],"piv31-40n":[3.01,75],"piv31-74":[2.0,129],"piv31-91":[5.04,126],"piv31-82":[4.0,73],"piv31-85":[5.04,72],"piv31-88":[5.99,71],"ac132-193":[1.84,167],"ac132-201":[2.82,164],"ac132-203":[3.81,164],"ac132-214":[5.84,161],"ac132-214b":[6.87,143],"ac132-209":[4.82,162],"ac132-181/182":[6.05,119],"ac132-186":[7.01,118],"ac132-187":[4.94,76],"ac132-4n":[2.01,57],"ac132-188":[5.92,73],"ac132-191":[6.91,61],"ac132-192":[6.99,75],"ac132-218":[6.94,85],"ac132-199":[2.79,44],"ac132-211":[4.98,25],"ac132-210":[4.97,46],"ac132-215":[5.93,47],"ac132-217":[6.9,44],"ac132-5n":[-0.0,143],"ac233-146":[0.62,159],"ac233-152":[2.95,172],"ac233-152+":[3.88,173],"ac233-196":[2.83,149],"ac233-200":[3.72,151],"ac233-164":[4.79,165],"ac233-164+":[5.78,166],"ac233-184":[6.87,168],"ac233-190":[6.96,154],"ac233-197":[2.92,120],"ac233-159":[4.02,133],"ac233-159+":[5.04,151],"ac233-160":[3.91,88],"ac233-160+":[4.89,88],"ac233-165":[4.95,129],"ac233-202":[4.89,108],"ac233-212":[6.01,115],"ac233-185":[6.97,115],"ac233-153":[2.89,36],"ac233-153+":[3.9,33],"ac233-166":[4.8,20],"ac233-166+":[5.83,19],"ac233-168":[4.89,39],"ac233-168+":[5.87,38],"ac233-175":[6.85,38],"ac233-150+":[3.01,65],"ac233-154+":[3.99,65],"mou34-152":[0.61,158],"mou34-18n":[1.94,162],"mou34-20n":[2.88,152],"mou34-185":[6.85,153],"mou34-21n":[3.97,145],"mou34-159":[2.15,124],"mou34-19n":[3.01,118],"mou34-22n":[4.0,80],"mou34-184":[4.95,77],"mou34-190":[6.09,75],"mou34-24n":[2.03,52],"mou34-23n":[3.85,39],"mou34-175":[4.85,37],"mou34-192":[6.78,35],"mou34-187":[4.89,56],"sa135-25n":[0.32,159],"sa135-28n":[1.81,159],"sa135-32n":[3.94,72],"sa135-27n":[2.83,161],"sa135-54":[2.95,99],"sa135-62":[3.97,128],"sa135-69":[5.89,126],"sa135-67":[4.92,72],"sa135-70":[6.01,72],"sa135-71":[6.99,69],"sa135-56":[2.91,45],"sa135-45":[1.78,43],"sa236-38":[0.49,155],"sa236-55":[3.77,155],"sa236-44":[1.85,43],"sa236-66":[4.8,58],"sa236-26":[5.9,59],"sa236-46":[2.01,142],"sa236-49":[2.99,136],"sa236-63":[5.89,135],"sa236-52":[2.99,92],"sa236-58":[4.03,87],"sa236-68":[5.99,85],"sa236-61":[3.78,24],"sa236-57":[3.94,47],"sa236-64":[5.95,43],"ent37-1":[0.81,165],"ent37-3":[1.23,123],"ent37-12":[3.02,152],"ent37-5":[2.0,156],"ent37-16":[4.06,151],"ent37-19":[4.97,150],"ent37-10":[3.14,122],"ent37-22":[5.03,118],"ent37-25":[6.96,115],"ent37-26":[6.97,129],"ent37-11":[2.1,87],"ent37-35n":[4.79,36],"ent37-34n":[6.78,33],"ent37-36n":[5.86,71],"ac138-103":[2.01,170],"ac138-97":[2.04,130],"ac138-99":[2.13,46],"ac138-104":[2.89,42],"ac138-169":[3.9,48],"ac138-106":[3.81,21],"ac138-82n":[2.77,20],"ac138-109":[4.8,24],"ac138-112":[5.81,22],"ac138-172":[4.86,76],"ac138-178":[5.9,86],"ac138-184":[6.91,88],"ac138-188":[6.9,74],"ac138-179":[5.87,69],"ac138-180":[5.98,109],"ac138-180+":[6.94,127],"ac138-174":[4.86,128],"ac138-173":[4.91,149],"ac138-170+":[3.87,142],"ac138-170":[2.91,145],"ac138-185":[6.93,103],"ac138-61":[2.91,111],"ac138-80":[6.96,142],"ac138-78":[6.93,116],"ac138-105":[5.86,50],"ac138-101":[5.74,36],"ac138-70n":[0.19,156],"ac138-189":[6.82,49],"ac239-148":[2.76,160],"ac239-146":[1.84,170],"ac239-148+":[3.74,161],"ac239-149":[1.91,32],"ac239-152":[3.04,63],"ac239-155":[2.99,34],"ac239-155+":[3.96,30],"ac239-153":[3.07,86],"ac239-151":[2.03,88],"ac239-154":[3.1,113],"ac239-154+":[4.05,111],"ac239-158":[4.98,132],"ac239-158+":[5.98,134],"ac239-177":[4.77,161],"ac239-175":[4.89,28],"ac239-182":[5.03,86],"ac239-8":[0.1,139],"atr40-121":[0.56,165],"atr40-127":[3.07,122],"atr40-124":[2.06,124],"atr40-126b":[4.05,76],"atr40-126":[3.02,75],"atr40-130":[6.04,75],"atr40-128":[4.98,67],"atr40-2":[2.09,83],"atr40-12":[4.97,81],"atr40-15":[4.77,42],"atr40-16":[5.01,121],"atr40-84n":[3.96,121],"atr40-23":[5.87,119],"atr40-31":[7.03,110],"atr40-29":[6.99,126],"cer41-131":[0.03,151],"cer41-139":[2.03,111],"cer41-137":[2.98,55],"cer41-142":[4.2,87],"cer41-154":[4.94,118],"cer41-157":[5.22,87],"cer41-160":[6.07,123],"cer41-159":[4.03,152],"cer41-163":[5.04,154],"sou42-11":[3.94,46],"sou42-20":[5.18,77],"sou42-24":[4.85,145],"sou42-33":[7.16,96],"sou42-34":[7.12,72],"sou42-27":[6.14,75],"sou42-25":[6.15,95],"sou42-32":[6.02,149],"sou42-37":[2.15,32],"sou42-40":[2.93,26],"sou42-81":[4.09,97],"sou42-73":[2.07,51],"sou42-78":[3.07,50],"piv43-4":[0.71,161],"piv43-10":[4.14,88],"piv43-9":[3.11,88],"piv43-86n":[2.0,91],"piv43-14":[3.13,112],"piv43-13":[5.12,86],"piv43-17":[4.09,140],"piv43-18":[4.09,108],"piv43-19":[4.05,57],"piv43-22":[6.09,85],"piv43-23":[7.09,135],"sa244-37":[2.93,149],"sa244-41":[3.81,164],"sa244-69n":[2.8,170],"sa244-49":[3.88,145],"sa244-48":[4.94,165],"sa244-68":[5.84,164],"sa244-69":[4.86,143],"sa244-34":[3.93,118],"sa244-43":[4.88,115],"sa244-44":[3.97,88],"sa244-64":[5.86,117],"sa244-61":[5.92,93],"sa244-50":[4.05,68],"sa244-53":[4.94,94],"sa244-28":[1.97,59],"sa244-40":[3.04,80],"sa244-38":[2.86,47],"sa244-58":[3.85,44],"sa244-66":[4.76,43],"sa244-65":[5.06,58],"sa244-56":[4.94,77],"sa244-121":[0.03,149],"sa244-122":[2.88,114],"sa145-27":[1.88,49],"sa145-32":[2.01,85],"sa145-29":[0.31,150],"sa145-73n":[3.88,78],"sa145-36":[2.89,52],"sa145-39":[3.81,46],"sa145-51":[5.01,104],"sa145-52":[4.79,46],"sa145-54":[4.91,136],"sa145-45":[3.88,118],"sa145-60":[4.91,120],"sa145-67":[5.98,103],"sa145-62":[5.03,83],"sa145-71":[5.93,127],"sa145-55":[4.88,160],"sa145-128":[2.88,116],"sa145-35":[1.9,161],"sa145-42":[3.78,154],"sa145-70":[6.12,84],"sa145-72":[6.96,102]};
 let UF_BAREME={tc:1,vs:3,v:2};   // modifiable dans Paramètres › Listes › Barème UFOLEP
-let UF={club:null,loaded:false,loading:false,ok:null,err:'',eq:[],eng:[],mv:{},sel:null,ag:'barres',q:'',arf:'',all:false,cq:''};
+let UF={club:null,loaded:false,loading:false,ok:null,err:'',eq:[],eng:[],mv:{},sel:null,ag:'barres',q:'',arf:'',all:false,cq:'',cv:'arc',arc:{},pick:null};
 const ufEdit=()=>(ROLE==='admin'||ROLE==='entraineur')&&UF.ok&&!OFFLINE;
 const ufEng=gid=>UF.eng.find(x=>x.licencie_id===gid);
 const ufTeam=id=>UF.eq.find(x=>x.id===id);
@@ -3757,12 +3777,61 @@ function ufCheckRow(x,ro,isV){
   return `<label class="ufck ${x.ok?'on':''} ${isV&&x.ok&&!x.kept?'drop':''}"><input type="checkbox" data-uf-ok="${x.k}" ${x.ok?'checked':''} ${ro?'disabled':''}>
     <span>${x.star?'<b title="Valorisation principale">(*)</b> ':''}${esc(x.t)}<span class="hint"> · ${how}</span></span>${isV?`<span class="ufpts">${x.ok?(x.kept?'+'+ufN(x.pts):'non retenue'):ufN(x.pts)+' pt'}</span>`:''}</label>`;
 }
-function ufCatalog(ag,ev){
+/* ---------- arches dessinées, éléments cliquables ---------- */
+/* secteurs : [angle de séparation, secteur à droite, secteur à gauche] */
+const UF_ARC_SEC={'barres.bav':[75,'Sorties',''],'barres.rot':[32,'Sorties',''],'poutre.ac1':[90,'En arrière','En avant'],'poutre.ac2':[42,'En arrière','En avant'],
+  'poutre.atr':[45,'Maintien','ATR'],'sol.ac1':[90,'En arrière','En avant'],'sol.ac2':[33,'En arrière','En avant'],'sol.sou':[58,'Souplesse','Maintien'],
+  'saut.renv':[95,'Latéral','Avant'],'saut.rond':[95,'Saut de mains','Rondade']};
+function ufArcSvg(ag,ar,ev,d,pick){
+  const W=1000,cx=500,cy=505,R0=92,w=61, aut=ev.R.aut.split(' '), val=ev.R.val.split(' ');
+  const rad=rc=>rc<1.5?R0*0.45:R0+(Math.min(rc,7.45)-1.5)*w;
+  const used=new Set(ag==='saut'?(d.sauts||[]):(d.els||[]));
+  let s=`<svg viewBox="0 0 ${W} 540" class="ufarc" role="img" aria-label="Arche ${esc(UF_ARCH[ag][ar])}">`;
+  for(let p=7;p>=2;p--){ const k='P'+p, r1=R0+(p-1)*w, col=val.includes(k)?'#bfe7ee':aut.includes(k)?'#e3f5f8':'#f1f2f4';
+    s+=`<path d="M${cx-r1},${cy} A${r1},${r1} 0 0 1 ${cx+r1},${cy} Z" fill="${col}" stroke="#fff" stroke-width="3"/>`;
+    s+=`<text x="${cx-R0-(p-1.5)*w}" y="${cy+22}" class="ufarl">${k}</text><text x="${cx+R0+(p-1.5)*w}" y="${cy+22}" class="ufarl">${k}</text>` }
+  s+=`<path d="M${cx-R0},${cy} A${R0},${R0} 0 0 1 ${cx+R0},${cy} Z" fill="${val.includes('P1')?'#bfe7ee':aut.includes('P1')?'#e3f5f8':'#f1f2f4'}" stroke="#fff" stroke-width="3"/><text x="${cx}" y="${cy+22}" class="ufarl">P1</text>`;
+  const sec=UF_ARC_SEC[ag+'.'+ar];
+  if(sec){ const a=sec[0]*Math.PI/180, r=R0+6*w+8;
+    s+=`<line x1="${cx+R0*Math.cos(a)}" y1="${cy-R0*Math.sin(a)}" x2="${cx+r*Math.cos(a)}" y2="${cy-r*Math.sin(a)}" stroke="#7c8792" stroke-width="2" stroke-dasharray="6 5"/>`;
+    const lab=(t,ang,anchor)=>t?`<text x="${cx+(r+4)*Math.cos(ang)}" y="${cy-(r+4)*Math.sin(ang)}" class="ufars" text-anchor="${anchor}">${t}</text>`:'';
+    s+=lab(sec[1],Math.max(8,sec[0]/2)*Math.PI/180,'start')+lab(sec[2],Math.min(172,(sec[0]+180)/2)*Math.PI/180,'end') }
+  /* positions d'après la brochure, écartées si deux pastilles se chevauchent */
+  const nodes=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar&&UF_POS[e[0]]).map(e=>{ const [rc,a]=UF_POS[e[0]]; return {e,r:rad(rc),a:Math.max(4,Math.min(176,a))} });
+  for(let it=0;it<60;it++){ let moved=false;
+    for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++){ const A=nodes[i],B=nodes[j];
+      const ax=A.r*Math.cos(A.a*Math.PI/180), ay=A.r*Math.sin(A.a*Math.PI/180), bx=B.r*Math.cos(B.a*Math.PI/180), by=B.r*Math.sin(B.a*Math.PI/180);
+      if(Math.hypot(ax-bx,ay-by)<40){ const st=1.6*(60/Math.max(A.r,60)); if(A.a>=B.a){ A.a=Math.min(176,A.a+st); B.a=Math.max(4,B.a-st) } else { A.a=Math.max(4,A.a-st); B.a=Math.min(176,B.a+st) } moved=true } }
+    if(!moved) break }
+  nodes.forEach(({e,r,a})=>{ const x=cx+r*Math.cos(a*Math.PI/180), y=cy-r*Math.sin(a*Math.PI/180), ok=ev.isAut(e), u=used.has(e[0]), num=e[3].replace(' new','').replace(' bis','b');
+    s+=`<g class="ufnd ${ok?'':'off'} ${u?'in':''} ${pick===e[0]?'pk':''}" data-uf-pick="${e[0]}" tabindex="0" role="button" aria-label="${esc(e[3]+' '+e[6])}"><title>${esc(ufPl(e[4])+' · '+e[3]+' – '+e[6])}</title>
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="19"/><text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}">${esc(num)}</text></g>` });
+  return s+'</svg>';
+}
+function ufArcHtml(ag,ev,d,ro){
+  const arcs=Object.keys(UF_ARCH[ag]).filter(k=>k!=='pr'||ag==='saut');
+  let ar=(UF.arc||{})[ag]; if(!arcs.includes(ar)) ar=arcs.find(k=>k!=='pr')||arcs[0];
+  const pick=UF.pick&&UF_BY[UF.pick]&&UF_BY[UF.pick][1]===ag?UF_BY[UF.pick]:null;
+  const used=ag==='saut'?(d.sauts||[]):(d.els||[]), n=pick?used.filter(x=>x===pick[0]).length:0;
+  const info=pick?`<div class="ufinfo"><span class="ufp">${ufPl(pick[4])}</span><div class="ufit"><b>${esc(pick[3])}</b> ${esc(pick[6])}
+      <div class="hint">${esc(UF_ARCH[ag][pick[2]]||'')}${pick[5]?' · '+UF_SEC[pick[5]]:''} · ${ev.isAut(pick)?(ev.isVal(pick)?`<b class="okc">autorisé et valorisable en ${ev.evo}</b>`:`autorisé en ${ev.evo}, non valorisable`):`<b class="badc">non autorisé en ${ev.evo}</b>`}${ag==='saut'&&UF_SAUT_VAL[pick[4]]!=null?' · valeur '+UF_SAUT_VAL[pick[4]]:''}${n?` · déjà ${n>1?n+' fois ':''}dans l’enchaînement`:''}</div></div>
+      ${ro?'':ag==='saut'?`<button class="btn sm primary" data-uf-setsaut="0">Saut 1</button><button class="btn sm primary" data-uf-setsaut="1">Saut 2</button>`:`<button class="btn sm primary" data-uf-addel="${pick[0]}">+ Ajouter à l’enchaînement</button>`}</div>`
+    :`<div class="ufinfo empty">Touche un élément de l’arche pour voir sa description${ro?'':' et l’ajouter'}.</div>`;
+  const tabs=`<div class="ufarcs">${arcs.map(k=>`<button type="button" class="btn sm ${k===ar?'on':''}" data-uf-arc="${k}">${esc(UF_ARCH[ag][k])}</button>`).join('')}</div>`;
+  const low=t=>{ const l=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar&&(t==='N'?e[4]==='N':/^PR/.test(e[4])&&!UF_POS[e[0]])); return l.length?`<div class="uflow"><div class="ufcgh">${t==='N'?'Nomades':'Pré-requis'}</div>${l.map(e=>`<button type="button" class="ufchip ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b> ${esc(e[6].length>48?e[6].slice(0,46)+'…':e[6])}</button>`).join('')}</div>`:'' };
+  const legend=`<div class="hint ufleg"><span class="sw v"></span> palier valorisable <span class="sw a"></span> autorisé <span class="sw n"></span> non autorisé en ${ev.evo} · <span class="dot"></span> dans l’enchaînement</div>`;
+  return tabs+info+(ar==='pr'?'':`<div class="ufarcw">${ufArcSvg(ag,ar,ev,d,pick&&pick[0])}</div>`)+legend+`<div class="uflows">${low('PR')}${low('N')}</div>`;
+}
+
+function ufCatalog(ag,ev,d,ro){
+  const arcOnly=ro||ag==='saut', mode=arcOnly?'arc':UF.cv;
+  const sw=arcOnly?'':`<div class="ufsw"><button type="button" class="btn sm ${mode==='arc'?'on':''}" data-uf-cv="arc">🌈 Arches</button><button type="button" class="btn sm ${mode==='list'?'on':''}" data-uf-cv="list">☰ Liste</button></div>`;
+  if(mode==='arc') return `<div class="card ufcat"><div class="ufcath"><h3>${ag==='saut'?'Arches du saut':ro?'Arches':'Ajouter un élément'}</h3>${sw}</div>${ufArcHtml(ag,ev,d,ro)}</div>`;
   const R=ev.R, q=norm(UF.cq||''), arf=UF.arf, aut=R.aut.split(' ');
   const list=UF_ELS.filter(e=>e[1]===ag&&(!arf||e[2]===arf)&&(UF.all||e[4]==='N'||aut.includes(ufPk(e[4])))&&(!q||norm(e[3]+' '+e[6]).includes(q)));
   const by={}; list.forEach(e=>(by[e[2]]??=[]).push(e));
   const ord=e=>e[4]==='N'?99:ufPn(e[4]);
-  return `<div class="card ufcat"><h3>Ajouter un élément</h3>
+  return `<div class="card ufcat"><div class="ufcath"><h3>Ajouter un élément</h3>${sw}</div>
     <div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px"><input type="search" id="ufCq" placeholder="Rechercher (nom ou numéro)…" value="${esc(UF.cq||'')}" style="flex:1 1 180px" autocomplete="off">
       <select id="ufArf" aria-label="Arche"><option value="">Toutes les arches</option>${Object.entries(UF_ARCH[ag]).filter(([k])=>k!=='pr').map(([k,l])=>`<option value="${k}" ${arf===k?'selected':''}>${l}</option>`).join('')}</select>
       <label class="cbx"><input type="checkbox" id="ufAll" ${UF.all?'checked':''}> Paliers non autorisés aussi</label></div>
@@ -3801,7 +3870,7 @@ function ufGymHtml(gid){
     comp=`<div class="card"><h3>Enchaînement (${ev.main.length} élément${ev.main.length>1?'s':''})</h3>${ev.els.length?`<div class="ufels">${ev.els.map((x,i)=>ufElRow(x,i,ev.els.length,ev,ro)).join('')}</div>`:'<div class="empty">Ajoute les éléments dans l’ordre de l’enchaînement.</div>'}
       ${ev.bad.length?`<div class="warn" style="margin-top:8px">${ev.bad.length} élément(s) hors des paliers autorisés en ${evo}.</div>`:''}</div>`;
   }
-  const cat=ag!=='saut'&&!ro?ufCatalog(ag,ev):'';
+  const cat=ufCatalog(ag,ev,d,ro);
   const checks=`<div class="card"><h3>Vérification · note estimée <span class="ufscore">${ufN(ev.total)}</span></h3>
     ${ev.tc.length?`<h4>Tronc commun ${ev.tcOk?'<span class="lb ok">complet</span>':'<span class="lb warn">incomplet</span>'} <span class="ufpts">${ufN(ev.ptsTc)} pt</span></h4>${ev.tc.map(x=>ufCheckRow(x,ro,false)).join('')}`:''}
     ${ag==='saut'?`<h4>Valeur du saut <span class="ufpts">${ufN(ev.base)} pt</span></h4>`:''}
@@ -3832,12 +3901,16 @@ document.addEventListener('submit',async ev=>{
     UF.eq.push(r.data[0]); UF.eq.sort((x,y)=>norm(x.nom).localeCompare(norm(y.nom))); toast('Équipe créée'); renderMain() }catch(e){ toast('Erreur : '+e.message) }
 });
 document.addEventListener('click',async ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-uf-reload],[data-uf-tdel],[data-uf-add],[data-uf-addall],[data-uf-gdel],[data-uf-open],[data-uf-sel],[data-uf-ag],[data-uf-addel],[data-uf-mv],[data-uf-del]'); if(!t) return;
+  const t=ev.target.closest&&ev.target.closest('[data-uf-pick],[data-uf-arc],[data-uf-cv],[data-uf-setsaut],[data-uf-reload],[data-uf-tdel],[data-uf-add],[data-uf-addall],[data-uf-gdel],[data-uf-open],[data-uf-sel],[data-uf-ag],[data-uf-addel],[data-uf-mv],[data-uf-del]'); if(!t) return;
   const d=t.dataset;
   if(d.ufReload){ UF.loaded=false; UF.loading=false; renderMain(); return }
   if(d.ufOpen){ ev.preventDefault(); UI.view='umvt'; UF.sel=d.ufOpen; render(); window.scrollTo(0,0); return }
   if(d.ufSel!==undefined){ UF.sel=d.ufSel||null; renderMain(); if(window.innerWidth<=900) window.scrollTo(0,0); return }
-  if(d.ufAg){ UF.ag=d.ufAg; UF.arf=''; UF.cq=''; renderMain(); return }
+  if(d.ufAg){ UF.ag=d.ufAg; UF.arf=''; UF.cq=''; UF.pick=null; renderMain(); return }
+  const keep=()=>{ const y=window.scrollY; renderMain(); window.scrollTo(0,y) };
+  if(d.ufPick){ UF.pick=UF.pick===d.ufPick?null:d.ufPick; keep(); return }
+  if(d.ufArc){ UF.arc[UF.ag]=d.ufArc; UF.pick=null; keep(); return }
+  if(d.ufCv){ UF.cv=d.ufCv; keep(); return }
   if(!ufEdit()) return;
   if(d.ufTdel){ const tm=ufTeam(d.ufTdel); if(!confirm(`Supprimer l’équipe « ${tm.nom} » ? Les gymnastes restent engagées, sans équipe.`)) return;
     try{ chk(await sb.from('ufolep_equipes').delete().eq('id',d.ufTdel)); UF.eq=UF.eq.filter(x=>x.id!==d.ufTdel); UF.eng.forEach(e=>{ if(e.equipe_id===d.ufTdel) e.equipe_id=null }); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
@@ -3846,7 +3919,8 @@ document.addEventListener('click',async ev=>{
   if(d.ufGdel){ const g=S.gyms.find(x=>x.id===d.ufGdel); if(!confirm(`Retirer ${gymName(g)} de la compétition UFOLEP ? Ses mouvements UFOLEP sont gardés.`)) return;
     try{ chk(await sb.from('ufolep_engagements').delete().eq('licencie_id',d.ufGdel).eq('saison',SAISON)); UF.eng=UF.eng.filter(x=>x.licencie_id!==d.ufGdel); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
   const gid=UF.sel, ag=UF.ag; if(!gid) return;
-  if(d.ufAddel){ ufSetMv(gid,ag,m=>{ m.els=(m.els||[]).concat([d.ufAddel]) }); const y=window.scrollY; renderMain(); window.scrollTo(0,y); return }
+  if(d.ufAddel){ ufSetMv(gid,ag,m=>{ m.els=(m.els||[]).concat([d.ufAddel]) }); toast('Ajouté : '+UF_BY[d.ufAddel][3]); keep(); return }
+  if(d.ufSetsaut!==undefined&&UF.pick){ ufSetMv(gid,ag,m=>{ const s=(m.sauts||[]).slice(); s[+d.ufSetsaut]=UF.pick; m.sauts=[s[0]||null,s[1]||null] }); keep(); return }
   if(d.ufDel!==undefined){ ufSetMv(gid,ag,m=>{ m.els.splice(+d.ufDel,1) }); renderMain(); return }
   if(d.ufMv){ const i=+d.i, j=i+(+d.ufMv); ufSetMv(gid,ag,m=>{ if(j>=0&&j<m.els.length) [m.els[i],m.els[j]]=[m.els[j],m.els[i]] }); renderMain(); return }
 });
@@ -3865,6 +3939,7 @@ document.addEventListener('change',async ev=>{
   if(d.ufOk){ const ev2=ufEval(ag,ufEvo(gid,ag),ufMv(gid,ag)||{}), row=[...ev2.tc,...ev2.v].find(x=>x.k===d.ufOk);
     ufSetMv(gid,ag,m=>{ m.ok=m.ok||{}; if(row&&!row.man&&row.auto===t.checked) delete m.ok[d.ufOk]; else m.ok[d.ufOk]=t.checked }); renderMain(); return }
 });
+document.addEventListener('keydown',ev=>{ const g=ev.target.closest&&ev.target.closest('g[data-uf-pick]'); if(g&&(ev.key==='Enter'||ev.key===' ')){ ev.preventDefault(); g.dispatchEvent(new MouseEvent('click',{bubbles:true})) } });
 document.addEventListener('input',ev=>{
   const t=ev.target;
   if(t.id==='ufQ'){ UF.q=t.value; const pos=t.selectionStart; renderMain(); const q=document.getElementById('ufQ'); if(q){ q.focus(); q.setSelectionRange(pos,pos) } }
