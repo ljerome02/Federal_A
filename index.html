@@ -732,6 +732,11 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .ufck.on{background:#e8f6ee}.ufck.drop{background:#f1f3f5}.ufck input{margin-top:2px}.ufck>span:first-of-type{flex:1}
 .ufpts{margin-left:auto;font-weight:700;font-size:12px;white-space:nowrap;color:var(--muted)}
 .ufscore{float:right;font-size:18px;font-weight:800;color:var(--accent)}
+.nvsub{flex:0 0 auto;margin:2px 0 8px 22px;padding:6px 0 6px 10px;border-left:2px solid var(--accent-soft);display:flex;flex-direction:column;gap:1px}
+.nvsub input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:6px 9px;margin-bottom:4px;border:1px solid var(--line);border-radius:8px}
+.nvsubh{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:8px 0 2px}
+.nvsubi{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:5px 8px;font:inherit;font-size:13.5px;color:inherit;cursor:pointer}
+.nvsubi:hover{background:#f2f4f6}.nvsubi.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}.nvsubn{color:var(--muted);font-size:12px}
 .ufcath{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ufcath h3{margin:0;flex:1}.ufsw{display:flex;gap:4px}
 .ufsw .btn.on,.ufarcs .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .ufarcs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
@@ -1749,6 +1754,7 @@ function indivBlock(g,rank){
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('[data-nav],[data-sum],[data-eqdel],[data-eqrm]'); if(!t) return; const d=t.dataset;
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
+    if(d.nav==='umvt'&&typeof UF!=='undefined') UF.menu=true;
     UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav==='manage' ? 'lic' : d.nav;
     if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
     render(); return }
@@ -3201,6 +3207,7 @@ function paintNav(){
       :`<button class="nvi ${act===x[0]?'on':''} ${pri.includes(x[0])?'pri':''}" data-nav="${x[0]}" title="${esc(x[1])}"><span class="nvic" style="--c:${x[3]}">${x[2]}</span><span class="nvl"><span class="nl">${x[1]}</span><span class="ns">${x[4]||x[1]}</span></span>${badge[x[0]]?`<span class="nvb">${badge[x[0]]}</span>`:''}</button>`).join('')
     +`<button class="nvi nvmore ${pri.includes(act)||!L.some(x=>x[0]===act)?'':'on'}" id="nvMore" type="button" aria-label="Plus de rubriques"><span class="nvic">⋯</span><span class="nvl"><span class="nl">Plus</span><span class="ns">Plus</span></span></button>`
     +`<div class="nvfoot">Saison ${SAISON}</div>`;
+  if(typeof ufSubHtml==='function'){ const h=ufSubHtml(), b=el.querySelector('.nvi[data-nav=umvt]'); if(h&&b) b.insertAdjacentHTML('afterend',h) }
 }
 document.addEventListener('click',ev=>{
   const n=document.getElementById('snav'); if(!n) return;
@@ -3841,17 +3848,29 @@ function renderUMvt(){
   ufEnsure(); licEnsure();
   const T='Mouvements UFOLEP', sub=`Saison ${SAISON} · composition, vérification du programme et note estimée`;
   const w=ufWait(T,sub); if(w) return w;
-  const gs=ufGyms(), wide=window.innerWidth>900;
+  const gs=ufGyms(), wide=window.innerWidth>900, side=ufSideMenu();
   if(UF.sel&&!gs.some(g=>g.id===UF.sel)) UF.sel=null;
-  if(wide&&!UF.sel&&gs.length) UF.sel=gs[0].id;
+  if(wide&&!side&&!UF.sel&&gs.length) UF.sel=gs[0].id;
   if(!gs.length) return ufHead(T,sub)+`<div class="card"><div class="empty">Aucune gymnaste engagée. Commence par <button class="btn sm" data-nav="uteams">engager des gymnastes</button>.</div></div>`;
   const q=norm(UF.q||'');
   const items=gs.filter(g=>!q||norm(gymName(g)).includes(q)).map(g=>{ const e=ufEng(g.id), t=ufTeam(e.equipe_id);
     return `<button type="button" class="gli ${UF.sel===g.id?'on':''}" data-uf-sel="${g.id}"><span class="gln"><b>${esc(g.nom||'')} ${esc(g.prenom||'')}</b><span class="glc">${ufN(ufTotal(g.id))}</span></span><span class="glh">${t?esc(t.nom):'<span class="lb warn">sans équipe</span>'} · ${ufEvo(g.id,'barres')}</span></button>` }).join('');
   const list=`<div class="card glist"><div class="glhd"><input type="search" id="ufQ" placeholder="Rechercher…" value="${esc(UF.q||'')}" autocomplete="off"></div><div class="gitems">${items||'<div class="empty">Aucune gymnaste.</div>'}</div></div>`;
   const back=wide?'':`<button type="button" class="btn sm" data-uf-sel="" style="margin-bottom:8px">← Toutes les gymnastes</button>`;
-  const body=wide?`<div class="gman">${list}<div class="gform">${UF.sel?ufGymHtml(UF.sel):''}</div></div>`:(UF.sel?back+ufGymHtml(UF.sel):list);
+  const body=side?(UF.sel?ufGymHtml(UF.sel):`<div class="card"><div class="empty">👈 Choisis une gymnaste dans le menu à gauche, sous « Mouvements ».</div></div>`)
+    :wide?`<div class="gman">${list}<div class="gform">${UF.sel?ufGymHtml(UF.sel):''}</div></div>`:(UF.sel?back+ufGymHtml(UF.sel):list);
   return ufHead(T,sub)+`<div class="hint" style="margin-bottom:10px">⚠ Note estimée : la brochure UFOLEP ne chiffre pas le tronc commun ni les valorisations. Barème utilisé : ${ufN(UF_BAREME.tc)} pt par exigence du tronc commun, ${ufN(UF_BAREME.vs)} pts par valorisation (*), ${ufN(UF_BAREME.v)} pts par autre valorisation (réglable dans Paramètres). Les fautes d’exécution ne sont pas comptées.</div>`+body;
+}
+const ufSideMenu=()=>window.innerWidth>=1100;
+function ufSubList(){
+  const q=norm(UF.sq||''), gs=ufGyms().filter(g=>!q||norm(gymName(g)).includes(q));
+  const groups=[...UF.eq.map(t=>[t,gs.filter(g=>ufEng(g.id).equipe_id===t.id)]),[null,gs.filter(g=>!ufEng(g.id).equipe_id)]].filter(([,l])=>l.length);
+  return groups.map(([t,l])=>`<div class="nvsubh">${t?esc(t.nom)+' · '+t.evolution:'Sans équipe'}</div>`+l.map(g=>`<button type="button" class="nvsubi ${UF.sel===g.id?'on':''}" data-uf-sel="${g.id}"><span>${esc(g.nom||'')} ${esc(g.prenom||'')}</span><span class="nvsubn">${ufN(ufTotal(g.id))}</span></button>`).join('')).join('')
+    ||'<div class="nvsubh">Aucune gymnaste</div>';
+}
+function ufSubHtml(){
+  if(UI.view!=='umvt'||!ufSideMenu()||!UF.loaded||!UF.ok||!UF.eng.length||!(UF.menu||!UF.sel)) return '';
+  return `<div class="nvsub" id="ufSub"><input type="search" id="ufSq" placeholder="Rechercher une gymnaste…" value="${esc(UF.sq||'')}" autocomplete="off"><div id="ufSubL">${ufSubList()}</div></div>`;
 }
 function ufGymHtml(gid){
   const g=S.gyms.find(x=>x.id===gid); if(!g) return '';
@@ -3876,7 +3895,7 @@ function ufGymHtml(gid){
     ${ag==='saut'?`<h4>Valeur du saut <span class="ufpts">${ufN(ev.base)} pt</span></h4>`:''}
     <h4>Valorisations${ev.ch?` (${ev.ch} meilleures retenues)`:''} <span class="ufpts">${ufN(ev.ptsV)} pt</span></h4>${ev.v.map(x=>ufCheckRow(x,ro,true)).join('')||'<div class="hint">Aucune valorisation pour cette évolution.</div>'}
     <div class="hint" style="margin-top:8px">« automatique » : vérifié d’après les éléments de l’enchaînement (tu peux corriger en cochant ou décochant). « à cocher » : liaisons, positions, aides… à valider par l’entraîneur.</div></div>`;
-  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total estimé ${ufN(ufTotal(gid))}</div></div></div>`
+  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total estimé ${ufN(ufTotal(gid))}</div></div>${ufSideMenu()&&!UF.menu?'<div style="flex:1"></div><button type="button" class="btn sm" data-uf-menu="1">👥 Changer de gymnaste</button>':''}</div>`
     +tabs+`<div class="lfoot" style="margin:8px 0 12px;flex-wrap:wrap">${evoSel}</div><div class="ufgrid"><div class="ufa">${comp}</div><div class="ufb">${checks}</div><div class="ufc">${cat}</div></div>`;
 }
 function renderUSum(){
@@ -3901,11 +3920,12 @@ document.addEventListener('submit',async ev=>{
     UF.eq.push(r.data[0]); UF.eq.sort((x,y)=>norm(x.nom).localeCompare(norm(y.nom))); toast('Équipe créée'); renderMain() }catch(e){ toast('Erreur : '+e.message) }
 });
 document.addEventListener('click',async ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-uf-pick],[data-uf-arc],[data-uf-cv],[data-uf-setsaut],[data-uf-reload],[data-uf-tdel],[data-uf-add],[data-uf-addall],[data-uf-gdel],[data-uf-open],[data-uf-sel],[data-uf-ag],[data-uf-addel],[data-uf-mv],[data-uf-del]'); if(!t) return;
+  const t=ev.target.closest&&ev.target.closest('[data-uf-menu],[data-uf-pick],[data-uf-arc],[data-uf-cv],[data-uf-setsaut],[data-uf-reload],[data-uf-tdel],[data-uf-add],[data-uf-addall],[data-uf-gdel],[data-uf-open],[data-uf-sel],[data-uf-ag],[data-uf-addel],[data-uf-mv],[data-uf-del]'); if(!t) return;
   const d=t.dataset;
   if(d.ufReload){ UF.loaded=false; UF.loading=false; renderMain(); return }
   if(d.ufOpen){ ev.preventDefault(); UI.view='umvt'; UF.sel=d.ufOpen; render(); window.scrollTo(0,0); return }
-  if(d.ufSel!==undefined){ UF.sel=d.ufSel||null; renderMain(); if(window.innerWidth<=900) window.scrollTo(0,0); return }
+  if(d.ufSel!==undefined){ UF.sel=d.ufSel||null; if(UF.sel) UF.menu=false; renderMain(); window.scrollTo(0,0); return }
+  if(d.ufMenu){ UF.menu=true; renderMain(); const q=document.getElementById('ufSq'); if(q) q.focus(); return }
   if(d.ufAg){ UF.ag=d.ufAg; UF.arf=''; UF.cq=''; UF.pick=null; renderMain(); return }
   const keep=()=>{ const y=window.scrollY; renderMain(); window.scrollTo(0,y) };
   if(d.ufPick){ UF.pick=UF.pick===d.ufPick?null:d.ufPick; keep(); return }
@@ -3942,6 +3962,7 @@ document.addEventListener('change',async ev=>{
 document.addEventListener('keydown',ev=>{ const g=ev.target.closest&&ev.target.closest('g[data-uf-pick]'); if(g&&(ev.key==='Enter'||ev.key===' ')){ ev.preventDefault(); g.dispatchEvent(new MouseEvent('click',{bubbles:true})) } });
 document.addEventListener('input',ev=>{
   const t=ev.target;
+  if(t.id==='ufSq'){ UF.sq=t.value; const l=document.getElementById('ufSubL'); if(l) l.innerHTML=ufSubList(); return }
   if(t.id==='ufQ'){ UF.q=t.value; const pos=t.selectionStart; renderMain(); const q=document.getElementById('ufQ'); if(q){ q.focus(); q.setSelectionRange(pos,pos) } }
   if(t.id==='ufCq'){ UF.cq=t.value; const pos=t.selectionStart; renderMain(); const q=document.getElementById('ufCq'); if(q){ q.focus(); q.setSelectionRange(pos,pos) } }
 });
