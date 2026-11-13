@@ -746,6 +746,10 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .nvsubh{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:8px 0 2px}
 .nvsubi{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:5px 8px;font:inherit;font-size:13.5px;color:inherit;cursor:pointer}
 .nvsubi:hover{background:#f2f4f6}.nvsubi.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}.nvsubn{color:var(--muted);font-size:12px}
+.crtb td,.crtb th{vertical-align:top}.crag{white-space:nowrap}.crag .crin{margin:0 2px 0 0;padding:4px 5px;font-size:13px}.crnn{display:inline-block;min-width:54px;text-align:right;padding-left:4px}
+.crtot{white-space:nowrap}.crtb td:nth-last-child(2){white-space:nowrap}.crbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crag .crin{width:50px}.crg{min-width:150px}.crrow{cursor:pointer}.crrow:hover{background:#f6f8fa}
+.crks{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.crk{border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:120px;background:#fafbfc}.crk b{font-size:20px}
+.crsvg{width:100%;max-width:640px;height:auto;display:block;margin:6px 0 10px}.crsl{font-size:12px;font-weight:700;fill:var(--accent-ink)}.crsx{font-size:11px;fill:#7c8792}
 .ufcath{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ufcath h3{margin:0;flex:1}.ufsw{display:flex;gap:4px}
 .ufsw .btn.on,.ufarcs .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .ufarcs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
@@ -1655,6 +1659,7 @@ function renderMain(){
   if(UI.view==='uteams'){ m.innerHTML=renderUTeams(); return }
   if(UI.view==='umvt'){ m.innerHTML=renderUMvt(); const aw=m.querySelector('.ufarcw'); if(aw&&aw.scrollWidth>aw.clientWidth){ const pk=aw.querySelector('.ufnd.pk rect'); aw.scrollLeft=pk?(+pk.getAttribute('x')+100)/1640*aw.scrollWidth-aw.clientWidth/2:(aw.scrollWidth-aw.clientWidth)/2 } return }
   if(UI.view==='usum'){ m.innerHTML=renderUSum(); return }
+  if(UI.view==='cresf'||UI.view==='cresu'){ m.innerHTML=renderCRes(); return }
   if(UI.view==='lic'){ m.innerHTML=navBar()+renderLic(); return }
   if(UI.view==='pres'){ m.innerHTML=navBar()+renderPres(); return }
   if(UI.view==='teams'){ m.innerHTML=navBar()+renderTeams(); return }
@@ -3217,8 +3222,8 @@ function navList(){
     ['sec','Le club'],['lic','Adhérents','👥','#ffeede'],['pres','Groupes','✅','#e6f4ea']];
   if(licPay()) L.push(['sec','Finances'],['pay','Paiements','💶','#fff3e2']);
   L.push(['sec','Communication'],['comm','Messages et WhatsApp','✉️','#efe8ff','Messages'],
-    ['sec','Compétition FFG'],['teams','Équipes','🏅','#fde8f1'],['gym','Mouvements','✏️','#e6f0f0'],['summary','Résumé','📊','#eef1f5'],
-    ['sec','Compétition UFOLEP'],['uteams','Équipes','🏆','#e7f5ff','Équipes UFOLEP'],['umvt','Mouvements','🤸','#e6f4ea','Mouvements UFOLEP'],['usum','Résumé','📋','#fff3e2','Résumé UFOLEP'],
+    ['sec','Compétition FFG'],['teams','Équipes','🏅','#fde8f1'],['gym','Mouvements','✏️','#e6f0f0'],['summary','Résumé','📊','#eef1f5'],['cresf','Résultats','🏆','#fff3d6','Résultats FFG'],
+    ['sec','Compétition UFOLEP'],['uteams','Équipes','🏆','#e7f5ff','Équipes UFOLEP'],['umvt','Mouvements','🤸','#e6f4ea','Mouvements UFOLEP'],['usum','Résumé','📋','#fff3e2','Résumé UFOLEP'],['cresu','Résultats','🥇','#fff3d6','Résultats UFOLEP'],
     ['sec','Analyse'],['stats','Statistiques','📈','#e7f5ff'],
     ['sec','Réglages'],['param','Paramètres','⚙️','#eef1f5']);
   return L;
@@ -3708,7 +3713,7 @@ const ufHasUfo=gid=>LIC.loaded&&!LIC.err&&LIC.lic&&!!licOf(gid,'UFOLEP');
 function ufEnsure(){
   if(!CLUB) return false;
   if(UF.club!==CLUB.id){ UF={...UF,club:CLUB.id,loaded:false,loading:false,ok:null,eq:[],eng:[],mv:{},sel:null} }
-  if(!UF.loaded&&!UF.loading) ufLoad().then(()=>{ if(['uteams','umvt','usum'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input:not([type=checkbox]),textarea'))) renderMain() });
+  if(!UF.loaded&&!UF.loading) ufLoad().then(()=>{ if(['uteams','umvt','usum','cresu'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input:not([type=checkbox]),textarea'))) renderMain() });
   return UF.loaded;
 }
 async function ufLoad(){
@@ -4030,6 +4035,229 @@ document.addEventListener('input',ev=>{
   if(t.id==='ufSq'){ UF.sq=t.value; const l=document.getElementById('ufSubL'); if(l) l.innerHTML=ufSubList(); return }
   if(t.id==='ufQ'){ UF.q=t.value; const pos=t.selectionStart; renderMain(); const q=document.getElementById('ufQ'); if(q){ q.focus(); q.setSelectionRange(pos,pos) } }
   if(t.id==='ufCq'){ UF.cq=t.value; const pos=t.selectionStart; renderMain(); const q=document.getElementById('ufCq'); if(q){ q.focus(); q.setSelectionRange(pos,pos) } }
+});
+
+/* ================= RÉSULTATS DES COMPÉTITIONS (FFG et UFOLEP) ================= */
+/* Une compétition : notes par gymnaste et par agrès (D, E, pénalités), total, classement ;
+   classement des équipes. Statistiques par gymnaste et par catégorie. */
+const CR_MAX={FFG:8,UFOLEP:4};
+const CR_AG=[['saut','Saut'],['barres','Barres'],['poutre','Poutre'],['sol','Sol']];
+const CR_NIV=['Départemental','Régional','Interrégional','National','Autre'];
+/* FFG : note = D + E − pénalités ; UFOLEP : note = note de départ − fautes − pénalités */
+const CR_LBL={FFG:['D','E','Pén.'],UFOLEP:['Départ','Fautes','Pén.']};
+let CR={club:null,loaded:false,loading:false,ok:null,err:'',comps:[],res:[],eqs:[],tab:{FFG:'comp',UFOLEP:'comp'},sel:{FFG:null,UFOLEP:null},gsel:{FFG:null,UFOLEP:null}};
+const crFed=()=>UI.view==='cresu'?'UFOLEP':'FFG';
+const crEdit=()=>(ROLE==='admin'||ROLE==='entraineur')&&CR.ok&&!OFFLINE;
+const crNum=v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(',','.')); return Number.isFinite(n)?n:null };
+const crF=n=>n==null?'—':(Math.round(n*1000)/1000).toLocaleString('fr-FR',{maximumFractionDigits:3});
+const crNote=(fed,x)=>{ if(!x) return null; const d=crNum(x.d), e=crNum(x.e), p=crNum(x.p)||0;
+  if(e==null) return crNum(x.n);   // la note se calcule dès que E (ou les fautes) est saisi
+  return Math.round(((fed==='FFG'?(d||0)+(e||0):(d||0)-(e||0))-p)*1000)/1000 };
+const crTotal=(fed,r)=>{ const v=CR_AG.map(([a])=>crNote(fed,(r.notes||{})[a])).filter(x=>x!=null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)*1000)/1000:null };
+const crComps=fed=>CR.comps.filter(c=>c.federation===fed).sort((a,b)=>(a.date_comp||'9').localeCompare(b.date_comp||'9')||a.nom.localeCompare(b.nom));
+const crResOf=cid=>CR.res.filter(r=>r.competition_id===cid);
+const crGymComps=(fed,gid)=>crComps(fed).filter(c=>CR.res.some(r=>r.competition_id===c.id&&r.licencie_id===gid));
+const crRk=n=>n===1?'1<sup>re</sup>':n+'<sup>e</sup>';
+const crDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'date ?';
+function crEnsure(){
+  if(!CLUB) return false;
+  if(CR.club!==CLUB.id) CR={...CR,club:CLUB.id,loaded:false,loading:false,ok:null,comps:[],res:[],eqs:[],sel:{FFG:null,UFOLEP:null}};
+  if(!CR.loaded&&!CR.loading) crLoad().then(()=>{ if(['cresf','cresu'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input,select,textarea'))) renderMain() });
+  return CR.loaded;
+}
+async function crLoad(){
+  CR.loading=true;
+  try{
+    const [a,b,c]=await withTimeout(Promise.all([sb.from('competitions').select('*').eq('club_id',CLUB.id).eq('saison',SAISON),
+      sb.from('competition_resultats').select('*').eq('club_id',CLUB.id),sb.from('competition_equipes').select('*').eq('club_id',CLUB.id)]),15000);
+    if(a.error||b.error||c.error){ CR.ok=false; CR.err=(a.error||b.error||c.error).message }
+    else{ CR.ok=true; CR.comps=a.data; const ids=new Set(a.data.map(x=>x.id)); CR.res=b.data.filter(r=>ids.has(r.competition_id)); CR.eqs=c.data.filter(r=>ids.has(r.competition_id));
+      lsSet('fa-comp-'+CLUB.id,{comps:CR.comps,res:CR.res,eqs:CR.eqs}) }
+  }catch(e){ const k=lsGet('fa-comp-'+CLUB.id); if(k){ CR.comps=k.comps||[]; CR.res=k.res||[]; CR.eqs=k.eqs||[]; CR.ok=true } else { CR.ok=false; CR.err=e.message } }
+  CR.loaded=true; CR.loading=false;
+}
+/* catégorie et équipe d'une gymnaste au moment de l'engager dans une compétition */
+function crCatOf(fed,gid){
+  if(fed==='FFG'){ const g=S.gyms.find(x=>x.id===gid), t=g&&S.teams.find(x=>x.id===g.team);
+    return t?{equipe_ref:t.id,equipe:t.name,categorie:`${progOf(t).l}${CATS_A.some(c=>c[0]===t.cat)?' '+catName(t.cat):''}`}:{equipe_ref:null,equipe:null,categorie:null} }
+  const e=typeof ufEng==='function'?ufEng(gid):null, t=e&&ufTeam(e.equipe_id);
+  return t?{equipe_ref:t.id,equipe:t.nom,categorie:'Évolution '+(e.evolution||t.evolution)}:{equipe_ref:null,equipe:null,categorie:e&&e.evolution?'Évolution '+e.evolution:null};
+}
+/* note de départ connue par l'application (pour pré-remplir D) */
+function crDepart(fed,gid,ag){
+  try{ if(fed==='FFG'){ const r=compute(gid,ag); return r&&r.nd?Math.round(r.nd*1000)/1000:null }
+    const d=ufMv(gid,ag); if(!d||!((d.els||[]).length||(d.sauts||[]).length)) return null; return ufEval(ag,ufEvo(gid,ag),d).total }catch(e){ return null }
+}
+const CR_T={};
+function crSaveRes(r){
+  r.total=crTotal(crCompFed(r.competition_id),r);
+  const k=r.competition_id+'|'+r.licencie_id; clearTimeout(CR_T[k]);
+  CR_T[k]=setTimeout(async()=>{ try{ chk(await sb.from('competition_resultats').upsert({competition_id:r.competition_id,licencie_id:r.licencie_id,club_id:CLUB.id,categorie:r.categorie,equipe:r.equipe,notes:r.notes||{},total:r.total,rang:r.rang,nb_classes:r.nb_classes,updated_at:new Date().toISOString()},{onConflict:'competition_id,licencie_id'}));
+    lsSet('fa-comp-'+CLUB.id,{comps:CR.comps,res:CR.res,eqs:CR.eqs}) }catch(e){ toast('Erreur : '+e.message) } },500);
+}
+const crCompFed=cid=>(CR.comps.find(c=>c.id===cid)||{}).federation||'FFG';
+async function crSaveEq(q){ try{ chk(await sb.from('competition_equipes').upsert({...q,club_id:CLUB.id,updated_at:new Date().toISOString()},{onConflict:'competition_id,equipe_ref'})) }catch(e){ toast('Erreur : '+e.message) } }
+
+/* ---------- pages ---------- */
+function renderCRes(){
+  crEnsure(); ufEnsure&&crFed()==='UFOLEP'&&ufEnsure();
+  const fed=crFed(), T=`Résultats ${fed}`, sub=`Saison ${SAISON} · au maximum ${CR_MAX[fed]} compétitions par gymnaste`;
+  const head=`<div class="gymhead"><div><h2 class="name">${T}</h2><div class="meta">${sub}</div></div><div style="flex:1"></div><button class="btn sm" data-cr-reload="1">↻ Actualiser</button></div>`;
+  if(!CR.loaded) return head+'<div class="card">Chargement…</div>';
+  if(CR.ok===false) return head+`<div class="warn">Pour enregistrer les résultats, lance le script <b>migration-competitions.sql</b> dans Supabase (SQL Editor), puis « Actualiser ».<br><span class="hint">${esc(CR.err||'')}</span></div>`;
+  const tab=CR.tab[fed];
+  const tabs=`<div class="tabs">${[['comp','🏟️ Compétitions'],['gym','👤 Par gymnaste'],['cat','📊 Par catégorie']].map(([k,l])=>`<button class="tab ${tab===k?'on':''}" data-cr-tab="${k}">${l}</button>`).join('')}</div>`;
+  const body=tab==='gym'?crGymHtml(fed):tab==='cat'?crCatHtml(fed):(CR.sel[fed]&&CR.comps.some(c=>c.id===CR.sel[fed])?crCompHtml(fed,CR.sel[fed]):crListHtml(fed));
+  return head+tabs+body;
+}
+function crListHtml(fed){
+  const cs=crComps(fed), ed=crEdit();
+  const rows=cs.map(c=>{ const rs=crResOf(c.id), best=rs.filter(r=>r.rang).sort((a,b)=>a.rang-b.rang)[0], eq=CR.eqs.filter(q=>q.competition_id===c.id&&q.rang);
+    return `<tr class="crrow" data-cr-open="${c.id}"><td>${crDate(c.date_comp)}</td><td><b>${esc(c.nom)}</b>${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td><td>${esc(c.niveau||'')}</td><td>${rs.length}</td>
+      <td>${best?`${crRk(best.rang)} ${esc(gymName(S.gyms.find(g=>g.id===best.licencie_id)||{}))}`:'—'}</td><td>${eq.map(q=>`${esc(q.nom)} : ${crRk(q.rang)}${q.nb_classes?'/'+q.nb_classes:''}`).join('<br>')||'—'}</td></tr>` }).join('');
+  return `<div class="card"><h3>Compétitions ${fed} de la saison (${cs.length})</h3>${cs.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Date</th><th>Compétition</th><th>Niveau</th><th>Gymnastes</th><th>Meilleur classement</th><th>Équipes</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucune compétition saisie pour l’instant.</div>'}
+    ${ed?`<form id="fCr" class="lfoot" style="margin-top:12px;flex-wrap:wrap"><input name="nom" placeholder="Nom de la compétition" required style="flex:2 1 220px"><input name="date" type="date" aria-label="Date"><input name="lieu" placeholder="Lieu" style="flex:1 1 140px">
+      <select name="niveau" aria-label="Niveau">${CR_NIV.map(n=>`<option>${n}</option>`).join('')}</select><button class="btn primary">+ Nouvelle compétition</button></form>`:''}</div>`;
+}
+function crCompHtml(fed,cid){
+  const c=CR.comps.find(x=>x.id===cid), ed=crEdit(), dis=ed?'':'disabled', L=CR_LBL[fed];
+  const rs=crResOf(cid).map(r=>({r,g:S.gyms.find(x=>x.id===r.licencie_id)})).filter(x=>x.g);
+  const cats=[...new Set(rs.map(x=>x.r.categorie||'Sans catégorie'))].sort();
+  const inp=(gid,ag,f,v,w)=>`<input class="crin" inputmode="decimal" data-cr-n="${gid}|${ag}|${f}" value="${v==null?'':String(v).replace('.',',')}" ${dis} style="width:${w||52}px" aria-label="${f}">`;
+  const row=({r,g})=>{ const n=r.notes||{}, nb=crGymComps(fed,g.id).length;
+    return `<tr><td class="crg"><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${nb>CR_MAX[fed]?` <span class="lb bad" title="Plus de ${CR_MAX[fed]} compétitions">${nb}/${CR_MAX[fed]}</span>`:''}<div class="hint">${esc(r.equipe||'individuelle')}</div></td>
+      ${CR_AG.map(([a])=>{ const x=n[a]||{}, auto=crNum(x.e)!=null, nn=crNote(fed,x);
+        return `<td class="crag">${inp(g.id,a,'d',x.d)}${inp(g.id,a,'e',x.e)}${inp(g.id,a,'p',x.p,44)}<span class="crnn">${auto?`<b>${crF(nn)}</b>`:inp(g.id,a,'n',x.n,60)}</span></td>` }).join('')}
+      <td class="crtot"><b>${crF(crTotal(fed,r))}</b></td>
+      <td><input class="crin" inputmode="numeric" data-cr-rk="${g.id}|rang" value="${r.rang??''}" ${dis} style="width:46px" aria-label="Rang"> / <input class="crin" inputmode="numeric" data-cr-rk="${g.id}|nb_classes" value="${r.nb_classes??''}" ${dis} style="width:46px" aria-label="Nombre de classées"></td>
+      <td>${ed?`<button class="btn sm" data-cr-rm="${g.id}" aria-label="Retirer">✕</button>`:''}</td></tr>` };
+  const hd=`<thead><tr><th>Gymnaste</th>${CR_AG.map(([,l])=>`<th class="crag">${l}<div class="hint">${L.join(' · ')} · note</div></th>`).join('')}<th>Total</th><th>Rang / classées</th><th></th></tr></thead>`;
+  const tables=cats.map(cat=>`<h4 style="margin:14px 0 6px">${esc(cat)}</h4><div class="ltwrap"><table class="ltb crtb">${hd}<tbody>${rs.filter(x=>(x.r.categorie||'Sans catégorie')===cat).sort((a,b)=>byName(a.g,b.g)).map(row).join('')}</tbody></table></div>`).join('');
+  /* équipes : celles du club représentées dans cette compétition */
+  const teams=[...new Map(rs.filter(x=>x.r.equipe).map(x=>{ const cc=crCatOf(fed,x.g.id); return [cc.equipe_ref||x.r.equipe,{ref:cc.equipe_ref||x.r.equipe,nom:x.r.equipe,cat:x.r.categorie}] })).values()];
+  const eqRow=t=>{ const q=CR.eqs.find(e=>e.competition_id===cid&&e.equipe_ref===t.ref)||{};
+    return `<tr><td><b>${esc(t.nom)}</b><div class="hint">${esc(t.cat||'')}</div></td><td><input class="crin" inputmode="decimal" data-cr-eq="${esc(t.ref)}|total" value="${q.total==null?'':String(q.total).replace('.',',')}" ${dis} style="width:80px" aria-label="Total de l’équipe">
+      ${ed&&fed==='FFG'?`<button class="btn sm" data-cr-eqcalc="${esc(t.ref)}" title="Somme des ${progOf(S.teams.find(x=>x.id===t.ref)).kept} meilleures notes par agrès">Calculer</button>`:''}</td>
+      <td><input class="crin" inputmode="numeric" data-cr-eq="${esc(t.ref)}|rang" value="${q.rang??''}" ${dis} style="width:46px" aria-label="Rang"> / <input class="crin" inputmode="numeric" data-cr-eq="${esc(t.ref)}|nb_classes" value="${q.nb_classes??''}" ${dis} style="width:46px" aria-label="Équipes classées"></td></tr>` };
+  const already=new Set(rs.map(x=>x.g.id));
+  const teamList=fed==='FFG'?S.teams.map(t=>[t.id,t.name]):(UF.eq||[]).map(t=>[t.id,t.nom+' ('+t.evolution+')']);
+  const gymList=(fed==='FFG'?S.gyms:(typeof ufGyms==='function'?ufGyms():[])).filter(g=>!already.has(g.id)).sort(byName);
+  return `<div class="card"><div class="crbar"><button class="btn sm" data-cr-back="1">← Toutes les compétitions</button><div style="flex:1"></div>${ed?'<button class="btn sm" data-cr-del="1">Supprimer la compétition</button>':''}</div>
+    <div class="lgrid" style="margin-top:10px"><label>Nom<input data-cr-c="nom" value="${esc(c.nom)}" ${dis}></label><label>Date<input type="date" data-cr-c="date_comp" value="${c.date_comp||''}" ${dis}></label>
+      <label>Lieu<input data-cr-c="lieu" value="${esc(c.lieu||'')}" ${dis}></label><label>Niveau<select data-cr-c="niveau" ${dis}>${CR_NIV.map(n=>`<option ${c.niveau===n?'selected':''}>${n}</option>`).join('')}</select></label></div></div>
+    <div class="card"><h3>Résultats individuels (${rs.length})</h3>
+      <div class="hint" style="margin:-4px 0 8px">${fed==='FFG'?'Note = D + E − pénalités.':'Note = note de départ − fautes − pénalités.'} La note se calcule dès que ${L[1]} est saisi. Si tu n’as que la note finale, laisse ${L[1]} vide et saisis-la dans la dernière case.</div>
+      ${ed?`<div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px"><select id="crTeam" aria-label="Équipe"><option value="">— Ajouter une équipe —</option>${teamList.map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join('')}</select><button class="btn sm" data-cr-addteam="1">+ Équipe</button>
+        <select id="crGym" aria-label="Gymnaste"><option value="">— Ajouter une gymnaste —</option>${gymList.map(g=>`<option value="${g.id}">${esc(gymName(g))}</option>`).join('')}</select><button class="btn sm" data-cr-addgym="1">+ Gymnaste</button>
+        ${rs.length?`<button class="btn sm" data-cr-prefill="1" title="Recopie dans ${L[0]} la note de départ calculée par l’application, quand ${L[0]} est vide">Pré-remplir ${L[0]}</button>`:''}</div>`:''}
+      ${tables||'<div class="empty">Ajoute les gymnastes engagées (par équipe ou une par une).</div>'}</div>
+    ${teams.length?`<div class="card"><h3>Classement des équipes</h3><div class="ltwrap"><table class="ltb"><thead><tr><th>Équipe</th><th>Total</th><th>Rang / équipes classées</th></tr></thead><tbody>${teams.map(eqRow).join('')}</tbody></table></div></div>`:''}`;
+}
+/* ---------- statistiques ---------- */
+function crSpark(vals,labels){
+  const pts=vals.map((v,i)=>[i,v]).filter(p=>p[1]!=null); if(pts.length<2) return '';
+  const W=520,H=150,P=28, mn=Math.min(...pts.map(p=>p[1])), mx=Math.max(...pts.map(p=>p[1])), rg=mx-mn||1;
+  const X=i=>P+i*(W-2*P)/Math.max(1,vals.length-1), Y=v=>H-P-(v-mn)/rg*(H-2*P);
+  return `<svg viewBox="0 0 ${W} ${H}" class="crsvg" role="img" aria-label="Évolution du total"><polyline fill="none" stroke="var(--accent)" stroke-width="3" points="${pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')}"/>
+    ${pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="5" fill="var(--accent)"/><text x="${X(p[0])}" y="${Y(p[1])-10}" text-anchor="middle" class="crsl">${crF(p[1])}</text>`).join('')}
+    ${labels.map((l,i)=>`<text x="${X(i)}" y="${H-6}" text-anchor="middle" class="crsx">${esc(l)}</text>`).join('')}</svg>`;
+}
+const crAvg=a=>{ const v=a.filter(x=>x!=null); return v.length?v.reduce((s,x)=>s+x,0)/v.length:null };
+function crGymHtml(fed){
+  const gs=[...new Set(CR.res.filter(r=>crCompFed(r.competition_id)===fed).map(r=>r.licencie_id))].map(id=>S.gyms.find(g=>g.id===id)).filter(Boolean).sort(byName);
+  if(!gs.length) return '<div class="card"><div class="empty">Aucun résultat saisi pour l’instant.</div></div>';
+  let gid=CR.gsel[fed]; if(!gs.some(g=>g.id===gid)) gid=CR.gsel[fed]=gs[0].id;
+  const cs=crGymComps(fed,gid), rows=cs.map(c=>({c,r:CR.res.find(r=>r.competition_id===c.id&&r.licencie_id===gid)}));
+  const L=CR_LBL[fed];
+  const tr=rows.map(({c,r})=>`<tr><td>${crDate(c.date_comp)}</td><td><b>${esc(c.nom)}</b><div class="hint">${esc(c.niveau||'')}${r.categorie?' · '+esc(r.categorie):''}</div></td>
+    ${CR_AG.map(([a])=>{ const x=(r.notes||{})[a]||{}, n=crNote(fed,x); return `<td title="${L[0]} ${crF(crNum(x.d))} · ${L[1]} ${crF(crNum(x.e))} · ${L[2]} ${crF(crNum(x.p))}">${crF(n)}${crNum(x.d)!=null?`<div class="hint">${crF(crNum(x.d))} · ${crF(crNum(x.e))}</div>`:''}</td>` }).join('')}
+    <td><b>${crF(crTotal(fed,r))}</b></td><td>${r.rang?`${crRk(r.rang)}${r.nb_classes?' / '+r.nb_classes:''}`:'—'}</td></tr>`).join('');
+  const tots=rows.map(x=>crTotal(fed,x.r)), ranks=rows.map(x=>x.r.rang).filter(Boolean);
+  const per=CR_AG.map(([a,l])=>{ const xs=rows.map(x=>(x.r.notes||{})[a]||{}); return {a,l,n:crAvg(xs.map(x=>crNote(fed,x))),best:Math.max(...xs.map(x=>crNote(fed,x)??-1)),d:crAvg(xs.map(x=>crNum(x.d))),e:crAvg(xs.map(x=>crNum(x.e))),p:crAvg(xs.map(x=>crNum(x.p)))} });
+  const lost=per.map(x=>({l:x.l,v:fed==='FFG'?(x.e==null?null:10-x.e+(x.p||0)):(x.e==null?null:x.e+(x.p||0))})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
+  const card=(t,v,s)=>`<div class="crk"><div class="hint">${t}</div><b>${v}</b>${s?`<div class="hint">${s}</div>`:''}</div>`;
+  return `<div class="card"><div class="lfoot" style="flex-wrap:wrap"><label class="cbx">Gymnaste <select id="crGsel">${gs.map(g=>`<option value="${g.id}" ${g.id===gid?'selected':''}>${esc(gymName(g))}</option>`).join('')}</select></label>
+      <span class="lb ${cs.length>CR_MAX[fed]?'bad':'ok'}">${cs.length} / ${CR_MAX[fed]} compétitions</span></div>
+    <div class="crks">${card('Meilleur total',crF(Math.max(...tots.filter(x=>x!=null)))||'—')}${card('Total moyen',crF(crAvg(tots)))}${card('Meilleur classement',ranks.length?crRk(Math.min(...ranks)):'—')}${card('Podiums',ranks.filter(r=>r<=3).length)}
+      ${tots.filter(x=>x!=null).length>1?card('Progression',(()=>{ const t=tots.filter(x=>x!=null), dlt=t[t.length-1]-t[0]; return (dlt>=0?'+':'')+crF(dlt) })(),'de la 1re à la dernière'):''}</div>
+    ${crSpark(tots,rows.map(x=>crDate(x.c.date_comp)))}
+    <div class="ltwrap"><table class="ltb"><thead><tr><th>Date</th><th>Compétition</th>${CR_AG.map(([,l])=>`<th>${l}</th>`).join('')}<th>Total</th><th>Classement</th></tr></thead><tbody>${tr}</tbody>
+      <tfoot><tr><th></th><th>Moyenne</th>${per.map(x=>`<th>${crF(x.n)}</th>`).join('')}<th>${crF(crAvg(tots))}</th><th></th></tr></tfoot></table></div></div>
+    <div class="card"><h3>Par agrès</h3><div class="ltwrap"><table class="ltb"><thead><tr><th>Agrès</th><th>Note moyenne</th><th>Meilleure</th><th>${L[0]} moyen</th><th>${L[1]} moyen${fed==='FFG'?' (sur 10)':''}</th><th>${L[2]} moyennes</th></tr></thead>
+      <tbody>${per.map(x=>`<tr><td>${x.l}</td><td><b>${crF(x.n)}</b></td><td>${x.best<0?'—':crF(x.best)}</td><td>${crF(x.d)}</td><td>${crF(x.e)}</td><td>${crF(x.p)}</td></tr>`).join('')}</tbody></table></div>
+      ${lost.length?`<div class="hint" style="margin-top:8px">Où elle perd le plus de points en exécution : ${lost.map(x=>`<b>${x.l}</b> (${crF(x.v)})`).join(', ')}.</div>`:''}</div>`;
+}
+function crCatHtml(fed){
+  const cs=crComps(fed); const rs=CR.res.filter(r=>crCompFed(r.competition_id)===fed);
+  if(!rs.length) return '<div class="card"><div class="empty">Aucun résultat saisi pour l’instant.</div></div>';
+  const cats=[...new Set(rs.map(r=>r.categorie||'Sans catégorie'))].sort();
+  return cats.map(cat=>{ const rr=rs.filter(r=>(r.categorie||'Sans catégorie')===cat), cc=cs.filter(c=>rr.some(r=>r.competition_id===c.id));
+    const gyms=[...new Set(rr.map(r=>r.licencie_id))].map(id=>S.gyms.find(g=>g.id===id)).filter(Boolean).sort(byName);
+    const cell=(c,g)=>{ const r=rr.find(x=>x.competition_id===c.id&&x.licencie_id===g.id); return r?`<td>${crF(crTotal(fed,r))}${r.rang?`<div class="hint">${crRk(r.rang)}${r.nb_classes?'/'+r.nb_classes:''}</div>`:''}</td>`:'<td class="hint">—</td>' };
+    const avgAg=CR_AG.map(([a,l])=>[l,crAvg(rr.map(r=>crNote(fed,(r.notes||{})[a])))]);
+    const pod=gyms.map(g=>[g,rr.filter(r=>r.licencie_id===g.id&&r.rang&&r.rang<=3).length]).filter(x=>x[1]);
+    const teams=CR.eqs.filter(q=>q.categorie===cat&&cc.some(c=>c.id===q.competition_id));
+    return `<div class="card"><h3>${esc(cat)} <span class="hint">· ${gyms.length} gymnaste(s), ${cc.length} compétition(s)</span></h3>
+      <div class="ltwrap"><table class="ltb"><thead><tr><th>Gymnaste</th>${cc.map(c=>`<th>${esc(c.nom)}<div class="hint">${crDate(c.date_comp)}</div></th>`).join('')}<th>Moyenne</th><th>Meilleur rang</th></tr></thead>
+        <tbody>${gyms.map(g=>{ const mine=rr.filter(r=>r.licencie_id===g.id), rk=mine.map(r=>r.rang).filter(Boolean); return `<tr><td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td>${cc.map(c=>cell(c,g)).join('')}<td><b>${crF(crAvg(mine.map(r=>crTotal(fed,r))))}</b></td><td>${rk.length?crRk(Math.min(...rk)):'—'}</td></tr>` }).join('')}</tbody></table></div>
+      <div class="crks" style="margin-top:10px">${avgAg.map(([l,v])=>`<div class="crk"><div class="hint">${l} (moyenne)</div><b>${crF(v)}</b></div>`).join('')}</div>
+      ${pod.length?`<div class="hint" style="margin-top:6px">Podiums : ${pod.map(([g,n])=>`${esc(gymName(g))} ×${n}`).join(', ')}</div>`:''}
+      ${teams.length?`<h4 style="margin:12px 0 6px">Équipes</h4><div class="ltwrap"><table class="ltb"><thead><tr><th>Équipe</th>${cc.map(c=>`<th>${esc(c.nom)}</th>`).join('')}</tr></thead><tbody>${[...new Set(teams.map(q=>q.equipe_ref))].map(ref=>{ const qs=teams.filter(q=>q.equipe_ref===ref); return `<tr><td><b>${esc(qs[0].nom)}</b></td>${cc.map(c=>{ const q=qs.find(x=>x.competition_id===c.id); return q?`<td>${crF(q.total==null?null:+q.total)}${q.rang?`<div class="hint">${crRk(q.rang)}${q.nb_classes?'/'+q.nb_classes:''}</div>`:''}</td>`:'<td class="hint">—</td>' }).join('')}</tr>` }).join('')}</tbody></table></div>`:''}</div>` }).join('');
+}
+
+/* ---------- actions ---------- */
+async function crAddGyms(fed,cid,ids){
+  const over=ids.filter(id=>crGymComps(fed,id).length>=CR_MAX[fed]);
+  if(over.length&&!confirm(`${over.map(id=>gymName(S.gyms.find(g=>g.id===id))).join(', ')} : déjà ${CR_MAX[fed]} compétitions ${fed} cette saison. Ajouter quand même ?`)) ids=ids.filter(id=>!over.includes(id));
+  for(const id of ids){ if(CR.res.some(r=>r.competition_id===cid&&r.licencie_id===id)) continue;
+    const cc=crCatOf(fed,id), r={competition_id:cid,licencie_id:id,club_id:CLUB.id,categorie:cc.categorie,equipe:cc.equipe,notes:{},total:null,rang:null,nb_classes:null};
+    try{ chk(await sb.from('competition_resultats').insert({...r})); CR.res.push(r) }catch(e){ toast('Erreur : '+e.message); break } }
+  renderMain();
+}
+document.addEventListener('submit',async ev=>{
+  if(ev.target.id!=='fCr') return; ev.preventDefault(); const f=ev.target.elements, fed=crFed();
+  try{ const r=chk(await sb.from('competitions').insert({club_id:CLUB.id,saison:SAISON,federation:fed,nom:f.nom.value.trim(),date_comp:f.date.value||null,lieu:f.lieu.value.trim()||null,niveau:f.niveau.value}).select('*'));
+    CR.comps.push(r.data[0]); CR.sel[fed]=r.data[0].id; toast('Compétition créée'); renderMain() }catch(e){ toast('Erreur : '+e.message) }
+});
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-cr-reload],[data-cr-tab],[data-cr-open],[data-cr-back],[data-cr-del],[data-cr-addteam],[data-cr-addgym],[data-cr-rm],[data-cr-prefill],[data-cr-eqcalc]'); if(!t) return;
+  const d=t.dataset, fed=crFed(), cid=CR.sel[fed];
+  if(d.crReload){ CR.loaded=false; CR.loading=false; renderMain(); return }
+  if(d.crTab){ CR.tab[fed]=d.crTab; renderMain(); return }
+  if(d.crOpen){ CR.sel[fed]=d.crOpen; renderMain(); window.scrollTo(0,0); return }
+  if(d.crBack){ CR.sel[fed]=null; renderMain(); return }
+  if(!crEdit()) return;
+  if(d.crDel){ const c=CR.comps.find(x=>x.id===cid); if(!confirm(`Supprimer « ${c.nom} » et tous ses résultats ?`)) return;
+    try{ chk(await sb.from('competitions').delete().eq('id',cid)); CR.comps=CR.comps.filter(x=>x.id!==cid); CR.res=CR.res.filter(r=>r.competition_id!==cid); CR.eqs=CR.eqs.filter(q=>q.competition_id!==cid); CR.sel[fed]=null; renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
+  if(d.crAddteam){ const tid=document.getElementById('crTeam').value; if(!tid) return;
+    const ids=fed==='FFG'?S.gyms.filter(g=>g.team===tid).map(g=>g.id):UF.eng.filter(e=>e.equipe_id===tid).map(e=>e.licencie_id); await crAddGyms(fed,cid,ids); return }
+  if(d.crAddgym){ const id=document.getElementById('crGym').value; if(id) await crAddGyms(fed,cid,[id]); return }
+  if(d.crRm){ if(!confirm('Retirer cette gymnaste de la compétition (ses notes seront effacées) ?')) return;
+    try{ chk(await sb.from('competition_resultats').delete().eq('competition_id',cid).eq('licencie_id',d.crRm)); CR.res=CR.res.filter(r=>!(r.competition_id===cid&&r.licencie_id===d.crRm)); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
+  if(d.crPrefill){ let n=0; crResOf(cid).forEach(r=>{ let ch=false; CR_AG.forEach(([a])=>{ const x=(r.notes||={})[a]||={}; if(crNum(x.d)==null&&crNum(x.n)==null){ const v=crDepart(fed,r.licencie_id,a); if(v!=null){ x.d=v; ch=true; n++ } } }); if(ch) crSaveRes(r) });
+    toast(n?`${n} note(s) de départ recopiée(s)`:'Aucune note de départ connue à recopier'); renderMain(); return }
+  if(d.crEqcalc){ const tm=S.teams.find(x=>x.id===d.crEqcalc), kept=progOf(tm).kept, rs=crResOf(cid).filter(r=>(S.gyms.find(g=>g.id===r.licencie_id)||{}).team===d.crEqcalc);
+    const tot=Math.round(CR_AG.reduce((s,[a])=>s+rs.map(r=>crNote(fed,(r.notes||{})[a])).filter(x=>x!=null).sort((x,y)=>y-x).slice(0,kept).reduce((u,v)=>u+v,0),0)*1000)/1000;
+    let q=CR.eqs.find(e=>e.competition_id===cid&&e.equipe_ref===d.crEqcalc); if(!q){ q={competition_id:cid,equipe_ref:d.crEqcalc,nom:tm.name,categorie:crCatOf(fed,rs[0]&&rs[0].licencie_id).categorie,total:null,rang:null,nb_classes:null}; CR.eqs.push(q) }
+    q.total=tot; await crSaveEq(q); toast(`Total : ${crF(tot)} (${kept} meilleures notes par agrès)`); renderMain(); return }
+});
+document.addEventListener('change',async ev=>{
+  const t=ev.target, d=t.dataset; if(!t.closest||!t.closest('#main')) return;
+  const fed=crFed(), cid=CR.sel[fed];
+  if(t.id==='crGsel'){ CR.gsel[fed]=t.value; renderMain(); return }
+  if(!crEdit()) return;
+  if(d.crC){ const c=CR.comps.find(x=>x.id===cid), v=t.value.trim()||null; if(d.crC==='nom'&&!v) return; try{ chk(await sb.from('competitions').update({[d.crC]:v}).eq('id',cid)); c[d.crC]=v }catch(e){ toast('Erreur : '+e.message) } return }
+  if(d.crN){ const [gid,a,f]=d.crN.split('|'), r=CR.res.find(x=>x.competition_id===cid&&x.licencie_id===gid); if(!r) return;
+    const v=crNum(t.value); if(t.value.trim()&&v==null){ toast('Nombre invalide'); return }
+    r.notes=r.notes||{}; r.notes[a]=r.notes[a]||{}; if(v==null) delete r.notes[a][f]; else r.notes[a][f]=v; crSaveRes(r);
+    /* mise à jour sur place, pour garder le curseur dans la case suivante */
+    const tr=t.closest('tr'), x=r.notes[a], auto=crNum(x.e)!=null, cell=t.closest('td').querySelector('.crnn');
+    if(f!=='n'&&cell) cell.innerHTML=auto?`<b>${crF(crNote(fed,x))}</b>`:`<input class="crin" inputmode="decimal" data-cr-n="${gid}|${a}|n" value="${x.n==null?'':String(x.n).replace('.',',')}" style="width:60px" aria-label="n">`;
+    const tc=tr&&tr.querySelector('.crtot'); if(tc) tc.innerHTML=`<b>${crF(crTotal(fed,r))}</b>`; return }
+  if(d.crRk){ const [gid,f]=d.crRk.split('|'), r=CR.res.find(x=>x.competition_id===cid&&x.licencie_id===gid); const v=parseInt(t.value,10); r[f]=v>0?v:null; crSaveRes(r); return }
+  if(d.crEq){ const [ref,f]=d.crEq.split('|'); let q=CR.eqs.find(e=>e.competition_id===cid&&e.equipe_ref===ref);
+    if(!q){ const r=crResOf(cid).find(x=>crCatOf(fed,x.licencie_id).equipe_ref===ref||x.equipe===ref); q={competition_id:cid,equipe_ref:ref,nom:r?r.equipe:ref,categorie:r?r.categorie:null,total:null,rang:null,nb_classes:null}; CR.eqs.push(q) }
+    q[f]=f==='total'?crNum(t.value):(parseInt(t.value,10)>0?parseInt(t.value,10):null); await crSaveEq(q); return }
 });
 
 /* ================= PARAMÈTRES DU CLUB ================= */
