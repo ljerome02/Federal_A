@@ -718,7 +718,16 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 /* compétition UFOLEP */
 .ufgrid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "c" "b";gap:0 14px;align-items:start}
 .ufa{grid-area:a}.ufb{grid-area:b}.ufc{grid-area:c}
-@media (min-width:1500px){ .ufgrid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-areas:"a b" "c b"} }
+@media (min-width:1500px){ .ufgrid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-areas:"a b" "c c"} }
+.uftabs{margin:0;border-bottom:0}.uftabs .tab{padding:6px 12px}
+.ufarcbox{display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
+@media (min-width:1250px){ .ufarcbox{grid-template-columns:minmax(0,1.05fr) minmax(300px,1fr)} }
+.ufal{max-height:560px;overflow:auto;padding-right:4px}
+.ufalh{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 4px;display:flex;gap:6px;align-items:center}
+.ufalh:first-child{margin-top:0}.ufalh .sw{display:inline-block;width:12px;height:12px;border-radius:3px}
+.ufai{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px 9px;margin-bottom:4px;cursor:pointer;font:inherit;font-size:13.5px;line-height:1.35;color:inherit}
+.ufai:hover{border-color:var(--accent)}.ufai.off{opacity:.55}.ufai.in{border-color:var(--accent);background:var(--accent-soft)}.ufai.pk{border-color:#e0a100;box-shadow:0 0 0 2px #f6d58a}
+.ufai b{white-space:nowrap}.ufai .ufs{color:var(--muted);font-size:12px}
 .ufcat input[type=search]{min-width:0}.ufcat select{width:auto}
 .ufels{display:flex;flex-direction:column;gap:6px}
 .ufel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:#fff}
@@ -3846,7 +3855,15 @@ function ufArcHtml(ag,ev,d,ro){
   const tabs=`<div class="ufarcs">${arcs.map(k=>`<button type="button" class="btn sm ${k===ar?'on':''}" data-uf-arc="${k}">${esc(UF_ARCH[ag][k])}</button>`).join('')}</div>`;
   const low=t=>{ const l=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar&&(t==='N'?e[4]==='N':/^PR/.test(e[4])&&!UF_POS[e[0]])); return l.length?`<div class="uflow"><div class="ufcgh">${t==='N'?'Nomades':'Pré-requis'}</div>${l.map(e=>`<button type="button" class="ufchip ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b> ${esc(e[6].length>48?e[6].slice(0,46)+'…':e[6])}</button>`).join('')}</div>`:'' };
   const legend=`<div class="hint ufleg"><span class="sw v"></span> palier valorisable <span class="sw a"></span> autorisé <span class="sw n"></span> non autorisé en ${ev.evo} · <span class="dot"></span> dans l’enchaînement</div>`;
-  return tabs+info+(ar==='pr'?'':`<div class="ufarcw">${ufArcSvg(ag,ar,ev,d,pick&&pick[0])}</div>`)+legend+`<div class="uflows">${low('PR')}${low('N')}</div>`;
+  /* liste complète des éléments de l'arche, par palier, à côté du dessin */
+  const els=UF_ELS.filter(e=>e[1]===ag&&e[2]===ar), aut=ev.R.aut.split(' '), val=ev.R.val.split(' ');
+  const pk=e=>e[4]==='N'?'N':/^PR/.test(e[4])?'PR':e[4];
+  const order=['P1','P2','P3','P4','P5','P6','P7','PR','N'];
+  const list=order.map(k=>{ const l=els.filter(e=>pk(e)===k); if(!l.length) return '';
+      const col=k==='N'?'#fff':val.includes(k)?'#bfe7ee':aut.includes(k)?'#e3f5f8':'#f1f2f4';
+      return `<div class="ufalh"><span class="sw" style="background:${col};border:1px solid #d5dde3"></span>${k==='N'?'Nomades':k==='PR'?'Pré-requis':'Palier '+k}${k!=='N'&&k!=='PR'?` · ${val.includes(k)?'valorisable':aut.includes(k)?'autorisé':'non autorisé'}`:''}</div>`
+        +l.map(e=>`<button type="button" class="ufai ${ev.isAut(e)?'':'off'} ${used.includes(e[0])?'in':''} ${pick&&pick[0]===e[0]?'pk':''}" data-uf-pick="${e[0]}"><b>${esc(e[3])}</b><span>${esc(e[6])}${e[5]?` <span class="ufs">· ${UF_SEC[e[5]]}</span>`:''}</span></button>`).join('') }).join('');
+  return tabs+info+`<div class="ufarcbox">${ar==='pr'?'':`<div><div class="ufarcw">${ufArcSvg(ag,ar,ev,d,pick&&pick[0])}</div>${legend}</div>`}<div class="ufal" id="ufAl">${list}</div></div>`;
 }
 
 function ufCatalog(ag,ev,d,ro){
@@ -3894,7 +3911,7 @@ function ufSubHtml(){
 function ufGymHtml(gid){
   const g=S.gyms.find(x=>x.id===gid); if(!g) return '';
   const ag=UF.ag, evo=ufEvo(gid,ag), d=ufMv(gid,ag)||{}, ev=ufEval(ag,evo,d), ro=!ufEdit(), e=ufEng(gid)||{}, t=ufTeam(e.equipe_id);
-  const tabs=`<div class="tabs">${UF_AG.map(([k,,s])=>{ const dd=ufMv(gid,k), has=dd&&((dd.els||[]).length||(dd.sauts||[]).length); return `<button class="tab ${ag===k?'on':''}" data-uf-ag="${k}">${s}<span class="v">${has?ufN(ufEval(k,ufEvo(gid,k),dd).total):'—'}</span></button>` }).join('')}</div>`;
+  const tabs=`<div class="tabs uftabs">${UF_AG.map(([k,,s])=>{ const dd=ufMv(gid,k), has=dd&&((dd.els||[]).length||(dd.sauts||[]).length); return `<button class="tab ${ag===k?'on':''}" data-uf-ag="${k}">${s}<span class="v">${has?ufN(ufEval(k,ufEvo(gid,k),dd).total):'—'}</span></button>` }).join('')}</div>`;
   const evoDef=e.evolution||(t&&t.evolution)||'A1';
   const evoSel=`<label class="cbx">Évolution <select data-uf-evo="1" ${ro?'disabled':''}>${UF_EVOS.map(x=>`<option value="${x}" ${evo===x?'selected':''}>${x}${x===evoDef&&!d.evo?' (engagement)':''}</option>`).join('')}</select></label>
     <span class="hint">Paliers autorisés : ${ev.R.aut} · valorisables : ${ev.R.val}${ev.ch?` · ${ev.ch} valorisations retenues parmi ${ev.v.length}`:''}</span>`;
@@ -3914,8 +3931,8 @@ function ufGymHtml(gid){
     ${ag==='saut'?`<h4>Valeur du saut <span class="ufpts">${ufN(ev.base)} pt</span></h4>`:''}
     <h4>Valorisations${ev.ch?` (${ev.ch} meilleures retenues)`:''} <span class="ufpts">${ufN(ev.ptsV)} pt</span></h4>${ev.v.map(x=>ufCheckRow(x,ro,true)).join('')||'<div class="hint">Aucune valorisation pour cette évolution.</div>'}
     <div class="hint" style="margin-top:8px">« automatique » : vérifié d’après les éléments de l’enchaînement (tu peux corriger en cochant ou décochant). « à cocher » : liaisons, positions, aides… à valider par l’entraîneur.</div></div>`;
-  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total estimé ${ufN(ufTotal(gid))}</div></div>${ufSideMenu()&&!UF.menu?'<div style="flex:1"></div><button type="button" class="btn sm" data-uf-menu="1">👥 Changer de gymnaste</button>':''}</div>`
-    +tabs+`<div class="lfoot" style="margin:8px 0 12px;flex-wrap:wrap">${evoSel}</div><div class="ufgrid"><div class="ufa">${comp}</div><div class="ufb">${checks}</div><div class="ufc">${cat}</div></div>`;
+  return `<div class="gymhead" style="margin-bottom:6px"><div><h2 class="name" style="font-size:20px">${esc(gymName(g))}</h2><div class="meta">${t?esc(t.nom)+' · ':'sans équipe · '}total estimé ${ufN(ufTotal(gid))}</div></div>${tabs}<div style="flex:1"></div>${ufSideMenu()&&!UF.menu?'<button type="button" class="btn sm" data-uf-menu="1">👥 Changer de gymnaste</button>':''}</div>`
+    +`<div class="lfoot" style="margin:0 0 12px;flex-wrap:wrap">${evoSel}</div><div class="ufgrid"><div class="ufa">${comp}</div><div class="ufb">${checks}</div><div class="ufc">${cat}</div></div>`;
 }
 function renderUSum(){
   ufEnsure();
@@ -3946,8 +3963,9 @@ document.addEventListener('click',async ev=>{
   if(d.ufSel!==undefined){ UF.sel=d.ufSel||null; if(UF.sel) UF.menu=false; renderMain(); window.scrollTo(0,0); return }
   if(d.ufMenu){ UF.menu=true; renderMain(); const q=document.getElementById('ufSq'); if(q) q.focus(); return }
   if(d.ufAg){ UF.ag=d.ufAg; UF.arf=''; UF.cq=''; UF.pick=null; renderMain(); return }
-  const keep=()=>{ const y=window.scrollY; renderMain(); window.scrollTo(0,y) };
-  if(d.ufPick){ UF.pick=UF.pick===d.ufPick?null:d.ufPick; keep(); return }
+  const keep=()=>{ const y=window.scrollY, al=document.getElementById('ufAl'), st=al?al.scrollTop:0; renderMain(); window.scrollTo(0,y); const al2=document.getElementById('ufAl'); if(al2) al2.scrollTop=st };
+  if(d.ufPick){ UF.pick=UF.pick===d.ufPick?null:d.ufPick; keep();
+    if(t.tagName.toLowerCase()==='g'&&UF.pick){ const al=document.getElementById('ufAl'), it=al&&al.querySelector(`.ufai[data-uf-pick="${UF.pick}"]`); if(it) al.scrollTop=it.offsetTop-al.offsetTop-al.clientHeight/3 } return }
   if(d.ufArc){ UF.arc[UF.ag]=d.ufArc; UF.pick=null; keep(); return }
   if(d.ufCv){ UF.cv=d.ufCv; keep(); return }
   if(!ufEdit()) return;
