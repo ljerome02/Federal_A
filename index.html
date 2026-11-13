@@ -1487,7 +1487,7 @@ document.addEventListener('click',ev=>{
   if(t.id==='bGymSave'){ exportGym(S.gyms.find(x=>x.id===UI.gym)); return }
   if(d.rteam){ ev.stopPropagation(); const tm=S.teams.find(x=>x.id===d.rteam); const n=prompt("Nom de l'équipe",tm.name); if(n){tm.name=n.trim();render()} return }
   if(d.dteam){ ev.stopPropagation(); const tm=S.teams.find(x=>x.id===d.dteam); if(confirm(`Supprimer l'équipe « ${tm.name} » ? Les gymnastes sont conservées (sans équipe).`)){ S.teams=S.teams.filter(x=>x!==tm); S.gyms.forEach(g=>{if(g.team===tm.id)g.team=null}); if(UI.team===tm.id){UI.team=null;UI.view='gym'} render() } return }
-  if(d.gym){ UI.gym=d.gym; UI.view='gym'; render(); return }
+  if(d.gym){ UI.gym=d.gym; UI.view='gym'; UI.gmenu=false; render(); window.scrollTo(0,0); return }
   if(d.team){ UI.team=d.team; UI.view='team'; UI.ttab=UI.ttab||'recap'; render(); return }
   if(d.tab){ UI.tab=d.tab; UI.q=''; render(); return }
   if(d.sec){ UI.sec[ag]=d.sec; renderMain(); return }
@@ -1755,6 +1755,7 @@ document.addEventListener('click',ev=>{
   const t=ev.target.closest('[data-nav],[data-sum],[data-eqdel],[data-eqrm]'); if(!t) return; const d=t.dataset;
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
     if(d.nav==='umvt'&&typeof UF!=='undefined') UF.menu=true;
+    if(d.nav==='gym') UI.gmenu=true;
     UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav==='manage' ? 'lic' : d.nav;
     if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
     render(); return }
@@ -1789,8 +1790,25 @@ document.addEventListener('submit',ev=>{
 renderSide=function(){};            // pas de menu latéral
 const rosterOrder=()=>[...S.teams.slice().sort(byTeamName).flatMap(t=>S.gyms.filter(g=>g.team===t.id).sort(byName)),...S.gyms.filter(g=>!hasTeam(g)).sort(byName)];
 function miniNotes(g){ const f=(k,l)=>{ const c=compute(g.id,k); return `${l} ${c.empty?'—':f2(c.nd)}` }; return `${yr(g)?yr(g)+' · ':''}${f('saut','S')} · ${f('barres','B')} · ${f('poutre','P')} · ${f('sol','Sol')}` }
+/* Mouvements FFG : liste des gymnastes en sous-menu du menu latéral (grand écran) */
+const ffgSide=()=>window.innerWidth>=1100;
+function ffgSubList(){
+  const q=norm(UI.gsq||'');
+  const groups=[...S.teams.slice().sort(byTeamName).map(t=>[t.name,S.gyms.filter(g=>g.team===t.id).sort(byName)]),['Sans équipe',S.gyms.filter(g=>!hasTeam(g)).sort(byName)]]
+    .map(([n,l])=>[n,l.filter(g=>!q||norm(gymName(g)).includes(q)||norm(n).includes(q))]).filter(x=>x[1].length);
+  return groups.map(([n,l])=>`<div class="nvsubh">${esc(n)}</div>`+l.map(g=>`<button type="button" class="nvsubi ${UI.gym===g.id?'on':''}" data-gym="${g.id}"><span>${esc(gymName(g))}</span><span class="nvsubn">${f2(totalGym(g.id))}</span></button>`).join('')).join('')
+    ||'<div class="nvsubh">Aucune gymnaste</div>';
+}
+function ffgSubHtml(){
+  if(UI.view!=='gym'||!ffgSide()||!S.gyms.length||!(UI.gmenu||!S.gyms.some(g=>g.id===UI.gym))) return '';
+  return `<div class="nvsub" id="gSub"><input type="search" id="gSq" placeholder="Rechercher une gymnaste…" value="${esc(UI.gsq||'')}" autocomplete="off"><div id="gSubL">${ffgSubList()}</div></div>`;
+}
+document.addEventListener('input',ev=>{ if(ev.target.id!=='gSq') return; UI.gsq=ev.target.value; const l=document.getElementById('gSubL'); if(l) l.innerHTML=ffgSubList() });
+document.addEventListener('click',ev=>{ if(!ev.target.closest||!ev.target.closest('[data-gmenu]')) return; UI.gmenu=true; renderMain(); const q=document.getElementById('gSq'); if(q) q.focus() });
 function pickerBar(){
   if(!S.gyms.length) return '';
+  if(UI.view==='gym'&&ffgSide()) return S.gyms.some(g=>g.id===UI.gym)?`<div class="pick"><button class="btn sm" data-gstep="-1">‹ Précédente</button>${UI.gmenu?'':'<button class="btn sm" data-gmenu="1">👥 Changer de gymnaste</button>'}<button class="btn sm" data-gstep="1">Suivante ›</button></div>`
+    :`<div class="card" style="margin-bottom:12px"><div class="empty">👈 Choisis une gymnaste dans le menu à gauche, sous « Mouvements ».</div></div>`;
   if(UI.view==='team'){ const ts=S.teams.slice().sort(byTeamName); return `<div class="pick"><label>Équipe <select id="pickTeam">${ts.map(t=>`<option value="${t.id}" ${UI.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label></div>` }
   const groups=[...S.teams.slice().sort(byTeamName).map(t=>[t.name,S.gyms.filter(g=>g.team===t.id).sort(byName)]),['Sans équipe',S.gyms.filter(g=>!hasTeam(g)).sort(byName)]].filter(x=>x[1].length);
   return `<div class="pick"><button class="btn sm" data-gstep="-1">‹ Précédente</button><label>Gymnaste <select id="pickGym"><option value="">— Choisir une gymnaste —</option>${groups.map(([n,l])=>`<optgroup label="${esc(n)}">${l.map(g=>`<option value="${g.id}" ${UI.gym===g.id?'selected':''}>${esc(gymName(g))}</option>`).join('')}</optgroup>`).join('')}</select></label><button class="btn sm" data-gstep="1">Suivante ›</button></div>`;
@@ -1819,7 +1837,7 @@ function mvSummary(t){
 }
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-gstep]'); if(!b) return; const o=rosterOrder(); if(!o.length) return;
-  const i=o.findIndex(g=>g.id===UI.gym); UI.gym=o[(i+(+b.dataset.gstep)+o.length)%o.length].id; UI.view='gym'; render();
+  const i=o.findIndex(g=>g.id===UI.gym); UI.gym=o[(i+(+b.dataset.gstep)+o.length)%o.length].id; UI.view='gym'; render(); window.scrollTo(0,0);
 });
 document.addEventListener('change',ev=>{
   const t=ev.target;
@@ -3207,6 +3225,7 @@ function paintNav(){
       :`<button class="nvi ${act===x[0]?'on':''} ${pri.includes(x[0])?'pri':''}" data-nav="${x[0]}" title="${esc(x[1])}"><span class="nvic" style="--c:${x[3]}">${x[2]}</span><span class="nvl"><span class="nl">${x[1]}</span><span class="ns">${x[4]||x[1]}</span></span>${badge[x[0]]?`<span class="nvb">${badge[x[0]]}</span>`:''}</button>`).join('')
     +`<button class="nvi nvmore ${pri.includes(act)||!L.some(x=>x[0]===act)?'':'on'}" id="nvMore" type="button" aria-label="Plus de rubriques"><span class="nvic">⋯</span><span class="nvl"><span class="nl">Plus</span><span class="ns">Plus</span></span></button>`
     +`<div class="nvfoot">Saison ${SAISON}</div>`;
+  { const h=ffgSubHtml(), b=el.querySelector('.nvi[data-nav=gym]'); if(h&&b) b.insertAdjacentHTML('afterend',h) }
   if(typeof ufSubHtml==='function'){ const h=ufSubHtml(), b=el.querySelector('.nvi[data-nav=umvt]'); if(h&&b) b.insertAdjacentHTML('afterend',h) }
 }
 document.addEventListener('click',ev=>{
