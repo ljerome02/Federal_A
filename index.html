@@ -4529,13 +4529,37 @@ function crCatHtml(fed){
 }
 
 /* ---------- actions ---------- */
-async function crAddGyms(fed,cid,ids){
+/* Q : recopie dans la compétition suivante (même fédération et formule, niveau au-dessus) */
+function crNextComp(c){ const nx=crNext(c.niveau); if(!nx) return {nx:null,c:null};
+  const l=CR.comps.filter(x=>x.id!==c.id&&x.federation===c.federation&&crForm(x)===crForm(c)&&x.niveau===nx).sort((a,b)=>(a.date_comp||'9').localeCompare(b.date_comp||'9'));
+  return {nx,c:l.find(x=>!c.date_comp||!x.date_comp||x.date_comp>=c.date_comp)||l[0]||null} }
+async function crQualifyCopy(fed,cid,gids,on){
+  const c=CR.comps.find(x=>x.id===cid); if(!c||!gids.length) return; let {nx,c:n}=crNextComp(c);
+  if(!nx){ toast('Qualification enregistrée (pas de niveau au-dessus)'); return }
+  if(on){
+    if(!n){ if(!confirm(`Aucune compétition ${nx} ${fed==='FFG'?'('+CR_FORM[crForm(c)].toLowerCase()+') ':''}n’existe encore. La créer pour y recopier ${gids.length>1?'les gymnastes qualifiées':'la gymnaste qualifiée'} ?`)) return;
+      try{ const r=chk(await sb.from('competitions').insert({club_id:CLUB.id,saison:SAISON,federation:fed,nom:`${nx}${fed==='FFG'?' '+(crForm(c)==='indiv'?'individuel':'par équipe'):''}`,date_comp:null,lieu:null,niveau:nx,...(fed==='FFG'?{formule:crForm(c)}:{})}).select('*')); n=r.data[0]; CR.comps.push(n) }
+      catch(e){ toast('Erreur : '+e.message); return } }
+    const add=gids.filter(id=>!CR.res.some(r=>r.competition_id===n.id&&r.licencie_id===id));
+    if(add.length) await crAddGyms(fed,n.id,add,true);
+    toast(add.length?`${add.length>1?add.length+' gymnastes recopiées':'Gymnaste recopiée'} dans « ${n.nom} »${n.date_comp?' ('+crDate(n.date_comp)+')':''}`:`Déjà présente${gids.length>1?'s':''} dans « ${n.nom} »`);
+  } else if(n){
+    /* on retire de la compétition suivante seulement si rien n'y a encore été saisi */
+    /* encore qualifiée ici, elle-même ou par son équipe : on la laisse */
+    const still=id=>{ const r=CR.res.find(x=>x.competition_id===cid&&x.licencie_id===id); return !!(r&&(r.qualifie||(r.equipe&&CR.eqs.some(q=>q.competition_id===cid&&q.qualifie&&(q.nom===r.equipe||q.equipe_ref===crCatOf(fed,id,crFormOf(cid)).equipe_ref))))) };
+    gids=gids.filter(id=>!still(id)); if(!gids.length){ toast('Qualification retirée (toujours qualifiée avec son équipe)'); return }
+    const rm=CR.res.filter(r=>r.competition_id===n.id&&gids.includes(r.licencie_id)&&r.rang==null&&!Object.values(r.notes||{}).some(x=>x&&Object.keys(x).length));
+    for(const r of rm){ try{ chk(await sb.from('competition_resultats').delete().eq('competition_id',n.id).eq('licencie_id',r.licencie_id)); CR.res=CR.res.filter(x=>x!==r) }catch(e){ toast('Erreur : '+e.message); return } }
+    const kept=gids.length-rm.length; toast(rm.length?`Retirée${rm.length>1?'s':''} de « ${n.nom} »`+(kept?` (${kept} gardée${kept>1?'s':''} : notes déjà saisies)`:''):kept&&CR.res.some(r=>r.competition_id===n.id&&gids.includes(r.licencie_id))?`Gardée${kept>1?'s':''} dans « ${n.nom} » : des notes y sont déjà saisies`:'Qualification retirée');
+  }
+}
+async function crAddGyms(fed,cid,ids,quiet){
   const over=ids.filter(id=>crGymComps(fed,id).length>=CR_MAX[fed]);
   if(over.length&&!confirm(`${over.map(id=>gymName(S.gyms.find(g=>g.id===id))).join(', ')} : déjà ${CR_MAX[fed]} compétitions ${fed} cette saison. Ajouter quand même ?`)) ids=ids.filter(id=>!over.includes(id));
   for(const id of ids){ if(CR.res.some(r=>r.competition_id===cid&&r.licencie_id===id)) continue;
     const cc=crCatOf(fed,id,crFormOf(cid)), r={competition_id:cid,licencie_id:id,club_id:CLUB.id,categorie:cc.categorie,equipe:cc.equipe,notes:{},total:null,rang:null,nb_classes:null};
     try{ chk(await sb.from('competition_resultats').insert({...r})); CR.res.push(r) }catch(e){ toast('Erreur : '+e.message); break } }
-  renderMain();
+  if(!quiet) renderMain();
 }
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fCr') return; ev.preventDefault(); const f=ev.target.elements, fed=crFed();
@@ -4558,10 +4582,14 @@ document.addEventListener('click',async ev=>{
     await crAddGyms(fed,cid,S.gyms.filter(g=>!done.has(g.id)&&g.compet!=='aucune'&&indivCat(ageOf(g))===l).map(g=>g.id)); return }
   if(d.crAddgym){ const id=document.getElementById('crGym').value; if(id) await crAddGyms(fed,cid,[id]); return }
   if(d.crQ){ const r=CR.res.find(x=>x.competition_id===cid&&x.licencie_id===d.crQ); if(!r) return; r.qualifie=!r.qualifie; crSaveRes(r);
-    const c=CR.comps.find(x=>x.id===cid); t.classList.toggle('on',r.qualifie); t.setAttribute('aria-pressed',r.qualifie); t.title=crQTitle(c,r.qualifie); return }
+    const c=CR.comps.find(x=>x.id===cid); t.classList.toggle('on',r.qualifie); t.setAttribute('aria-pressed',r.qualifie); t.title=crQTitle(c,r.qualifie);
+    await crQualifyCopy(fed,cid,[r.licencie_id],r.qualifie); return }
   if(d.crQe){ const ref=d.crQe; let q=CR.eqs.find(e=>e.competition_id===cid&&e.equipe_ref===ref);
     if(!q){ const r=crResOf(cid).find(x=>crCatOf(fed,x.licencie_id,crFormOf(cid)).equipe_ref===ref||x.equipe===ref); q={competition_id:cid,equipe_ref:ref,nom:r?r.equipe:ref,categorie:r?r.categorie:null,total:null,rang:null,nb_classes:null}; CR.eqs.push(q) }
-    q.qualifie=!q.qualifie; await crSaveEq(q); const c=CR.comps.find(x=>x.id===cid); t.classList.toggle('on',q.qualifie); t.setAttribute('aria-pressed',q.qualifie); t.title=crQTitle(c,q.qualifie); return }
+    q.qualifie=!q.qualifie; await crSaveEq(q); const c=CR.comps.find(x=>x.id===cid); t.classList.toggle('on',q.qualifie); t.setAttribute('aria-pressed',q.qualifie); t.title=crQTitle(c,q.qualifie);
+    /* toute l'équipe engagée dans cette compétition passe à l'étape suivante */
+    const gids=crResOf(cid).filter(r=>crCatOf(fed,r.licencie_id,crFormOf(cid)).equipe_ref===ref||r.equipe===q.nom).map(r=>r.licencie_id);
+    await crQualifyCopy(fed,cid,gids,q.qualifie); return }
   if(d.crRm){ if(!confirm('Retirer cette gymnaste de la compétition (ses notes seront effacées) ?')) return;
     try{ chk(await sb.from('competition_resultats').delete().eq('competition_id',cid).eq('licencie_id',d.crRm)); CR.res=CR.res.filter(r=>!(r.competition_id===cid&&r.licencie_id===d.crRm)); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
   if(d.crPrefill){ let n=0; crResOf(cid).forEach(r=>{ let ch=false; CR_AG.forEach(([a])=>{ const x=(r.notes||={})[a]||={}; if(crNum(x.d)==null&&crNum(x.n)==null){ const v=crDepart(fed,r.licencie_id,a,cid); if(v!=null){ x.d=v; ch=true; n++ } } }); if(ch) crSaveRes(r) });
