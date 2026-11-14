@@ -750,6 +750,11 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .crtot{white-space:nowrap}.crtb td:nth-last-child(2){white-space:nowrap}.crbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crag .crin{width:50px}.crg{min-width:150px}.crrow{cursor:pointer}.crrow:hover{background:#f6f8fa}
 .crks{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.crk{border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:120px;background:#fafbfc}.crk b{font-size:20px}
 .crsvg{width:100%;max-width:640px;height:auto;display:block;margin:6px 0 10px}.crsl{font-size:12px;font-weight:700;fill:var(--accent-ink)}.crsx{font-size:11px;fill:#7c8792}
+.barb{display:block;width:100%;text-align:left;background:transparent;border:0;padding:4px 6px;margin:0 -6px;border-radius:8px;cursor:pointer;font:inherit;color:inherit}
+.barb:hover{background:#f2f4f7}.barx{color:var(--accent);font-weight:800;margin-left:4px}
+.moneyb{display:flex;flex-direction:column;align-items:flex-start;background:var(--bg);border:1px solid transparent;padding:9px 12px;border-radius:12px;cursor:pointer;font:inherit;color:inherit;text-align:left}.moneyb:hover{border-color:var(--accent)}
+.statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
+.statgym{font-size:22px;line-height:28px;text-align:center;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 .ufcath{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ufcath h3{margin:0;flex:1}.ufsw{display:flex;gap:4px}
 .ufsw .btn.on,.ufarcs .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .ufarcs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
@@ -1653,7 +1658,7 @@ function renderMain(){
   const m=document.getElementById('main');
   if(UI.view==='home'){ m.innerHTML=renderHome(); return }
   if(UI.view==='pay'&&licPay()){ m.innerHTML=renderPay(); return }
-  if(UI.view==='stats'){ m.innerHTML=renderStats(); return }
+  if(UI.view==='stats'){ m.innerHTML=renderStats(); if(STAT.det) statMapDraw(); return }
   if(UI.view==='comm'){ m.innerHTML=renderComm(); return }
   if(UI.view==='param'){ m.innerHTML=renderParam(); return }
   if(UI.view==='uteams'){ m.innerHTML=renderUTeams(); return }
@@ -1774,6 +1779,7 @@ document.addEventListener('click',ev=>{
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
     if(d.nav==='umvt'&&typeof UF!=='undefined') UF.menu=true;
     if(d.nav==='gym') UI.gmenu=true;
+    if(d.nav==='stats') STAT.det=null;
     UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav==='manage' ? 'lic' : d.nav;
     if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
     render(); return }
@@ -3265,7 +3271,7 @@ const payDate=iso=>iso?String(iso).split('-').reverse().join('/'):'—';
 const modeLbl=m=>(LIC_MODES.find(x=>x[0]===m)||[0,m||''])[1];
 const hasLic=(g,f)=>!!licOf(g.id,f);
 const bars=(rows,color)=>{ const mx=Math.max(1,...rows.map(r=>r[1]));
-  return rows.length?`<div class="bars">${rows.map(([l,n,c])=>`<div class="bar"><div class="bl"><span title="${esc(l)}">${esc(l)}</span><b>${n}</b></div><div class="bt"><i style="width:${Math.round(100*n/mx)}%;${c||color?`--bc:${c||color}`:''}"></i></div></div>`).join('')}</div>`:'<div class="empty">Aucune donnée.</div>' };
+  return rows.length?`<div class="bars">${rows.map(([l,n,c,k])=>`<${k?`button type="button" class="bar barb" data-stat-det="${esc(k)}" data-stat-lbl="${esc(l)}" title="Voir le détail"`:'div class="bar"'}><div class="bl"><span title="${esc(l)}">${esc(l)}</span><b>${n}${k?' <span class="barx">›</span>':''}</b></div><div class="bt"><i style="width:${Math.round(100*n/mx)}%;${c||color?`--bc:${c||color}`:''}"></i></div></${k?'button':'div'}>`).join('')}</div>`:'<div class="empty">Aucune donnée.</div>' };
 const BAR_COLORS=['#5b5fc7','#e5a823','#17a2b8','#e0577d','#2fa56a','#8a63d2','#f08a3c','#6b7a8c'];
 function payTotals(){
   let du=0,prevu=0,enc=0,imp=0,nr=0,tard=0,tardMt=0; const t=isoToday();
@@ -3432,7 +3438,7 @@ function assidFiche(gid){
 }
 
 /* ---------- statistiques ---------- */
-const STAT={hist:null,loading:false,club:null};
+const STAT={hist:null,loading:false,club:null,det:null,map:null};
 async function statHist(){
   if(STAT.club!==(CLUB&&CLUB.id)){ STAT.club=CLUB&&CLUB.id; STAT.hist=null; STAT.loading=false }
   if(STAT.loading||STAT.hist!==null||!CLUB) return;
@@ -3454,22 +3460,23 @@ function renderStats(){
   if(!CLUB) return '';
   const ready=licEnsure(), T='Statistiques', sub=`Saison ${SAISON} · répartition des licenciés`; statHist();
   if(!ready) return licWait(T,sub);
+  if(STAT.det) return statDetHtml();
   const n=S.gyms.length, ages=S.gyms.map(ageOf).filter(a=>a!=null), moy=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null;
   const sx=k=>S.gyms.filter(g=>(LIC.info[g.id]||{}).sexe===k).length, nf=sx('F'), nm=sx('M');
   const mineurs=S.gyms.filter(g=>{ const a=ageOf(g); return a!=null&&a<18 }).length;
   const tile=(ic,num,l,tb,ti)=>`<div class="tile" style="--tb:${tb};--ti:${ti}"><span class="ti">${ic}</span><span class="tn">${num}</span><span class="tl2">${l}</span></div>`;
   const tiles=tile('👥',n,'Adhérents','#eaeeff','#3b3fa8')+tile('🎂',moy==null?'—':moy.toFixed(1).replace('.',','),'Âge moyen (ans)','#fff1d6','#8a5a00')+tile('🧒',mineurs,'Mineurs','#e0f4fb','#0b6b85')
     +(LIC.ext&&(nf||nm)?tile('⚥',`${nf} / ${nm}`,'Filles / garçons','#fde8f1','#a1245f'):'');
-  const ageRows=AGE_B.map(([l,a,b],i)=>[l,S.gyms.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length]]).filter(r=>r[1]>0);
-  const inconnu=S.gyms.filter(g=>ageOf(g)==null).length; if(inconnu) ageRows.push(['Âge inconnu',inconnu,'#b9c1ca']);
+  const ageRows=AGE_B.map(([l,a,b],i)=>[l,S.gyms.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length],'age|'+i]).filter(r=>r[1]>0);
+  const inconnu=S.gyms.filter(g=>ageOf(g)==null).length; if(inconnu) ageRows.push(['Âge inconnu',inconnu,'#b9c1ca','age|x']);
   const both=S.gyms.filter(g=>hasLic(g,'FFG')&&hasLic(g,'UFOLEP')).length, ff=S.gyms.filter(g=>hasLic(g,'FFG')).length-both, uu=S.gyms.filter(g=>hasLic(g,'UFOLEP')).length-both, none=S.gyms.filter(g=>!LIC_FEDS.some(f=>hasLic(g,f))).length;
-  const fedRows=[['FFG seule',ff,'#5b5fc7'],['UFOLEP seule',uu,'#e5a823'],['Les deux fédérations',both,'#2fa56a'],['Sans licence',none,'#b9c1ca']].filter(r=>r[1]>0);
-  const grpRows=LIC.grp?LIC.grp.map((x,i)=>[x.nom,S.gyms.filter(g=>LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)).length,BAR_COLORS[i%BAR_COLORS.length]]):[];
-  if(LIC.grp){ const sg=S.gyms.filter(g=>needsGroup(g)&&!licGroupes(g.id).length).length; if(sg) grpRows.push(['Sans groupe',sg,'#b9c1ca']) }
+  const fedRows=[['FFG seule',ff,'#5b5fc7','fed|ffg'],['UFOLEP seule',uu,'#e5a823','fed|ufo'],['Les deux fédérations',both,'#2fa56a','fed|both'],['Sans licence',none,'#b9c1ca','fed|none']].filter(r=>r[1]>0);
+  const grpRows=LIC.grp?LIC.grp.map((x,i)=>[x.nom,S.gyms.filter(g=>LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)).length,BAR_COLORS[i%BAR_COLORS.length],'grp|'+x.id]):[];
+  if(LIC.grp){ const sg=S.gyms.filter(g=>needsGroup(g)&&!licGroupes(g.id).length).length; if(sg) grpRows.push(['Sans groupe',sg,'#b9c1ca','grp|none']) }
   const villes={}; S.gyms.forEach(g=>{ const v=((LIC.info[g.id]||{}).ville||'').trim().toUpperCase(); if(v) villes[v]=(villes[v]||0)+1 });
-  const vilRows=Object.entries(villes).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,8).map(([v,k],i)=>[v,k,BAR_COLORS[i%BAR_COLORS.length]]);
-  const eqRows=S.teams.slice().sort(byTeamName).map((t,i)=>[t.name,S.gyms.filter(g=>g.team===t.id).length,BAR_COLORS[i%BAR_COLORS.length]]);
-  const se=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)).length; if(se&&S.teams.length) eqRows.push(['Sans équipe',se,'#b9c1ca']);
+  const vilRows=Object.entries(villes).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,8).map(([v,k],i)=>[v,k,BAR_COLORS[i%BAR_COLORS.length],'ville|'+v]);
+  const eqRows=S.teams.slice().sort(byTeamName).map((t,i)=>[t.name,S.gyms.filter(g=>g.team===t.id).length,BAR_COLORS[i%BAR_COLORS.length],'team|'+t.id]);
+  const se=S.gyms.filter(g=>!S.teams.some(t=>t.id===g.team)).length; if(se&&S.teams.length) eqRows.push(['Sans équipe',se,'#b9c1ca','team|none']);
   const comp=S.gyms.filter(g=>!licIssues(g).length).length;
   let hist='<div class="hint">Chargement de l’historique…</div>';
   if(STAT.hist){ const by={}; STAT.hist.forEach(r=>{ const o=by[r.saison]||(by[r.saison]={all:new Set(),FFG:new Set(),UFOLEP:new Set()}); o.all.add(r.licencie_id); if(o[r.federation]) o[r.federation].add(r.licencie_id) });
@@ -3477,19 +3484,109 @@ function renderStats(){
     hist=ss.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Saison</th><th>Licenciés</th><th>FFG</th><th>UFOLEP</th><th>Évolution</th></tr></thead><tbody>${ss.map((k,i)=>{ const d=i?by[k].all.size-by[ss[i-1]].all.size:null;
       return `<tr><td><b>${esc(k)}</b></td><td>${by[k].all.size}</td><td>${by[k].FFG.size}</td><td>${by[k].UFOLEP.size}</td><td>${d==null?'—':`<span class="lb ${d>0?'ok':d<0?'bad':'no'}">${d>0?'+':''}${d}</span>`}</td></tr>` }).join('')}</tbody></table></div><div class="hint">Nombre de licenciés ayant une licence FFG ou UFOLEP enregistrée pour la saison.</div>`:'<div class="empty">Aucune licence enregistrée.</div>';
   }
-  return licHead(T,sub,'<button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
-    +`<div class="tiles">${tiles}</div><div class="statg">
+  return licHead(T,sub,'<button class="btn sm" data-stat-det="all|" data-stat-lbl="Tous">🗺️ Carte des adhérents</button> <button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
+    +`<div class="hint" style="margin:-6px 0 10px">Clique sur une ligne (une tranche d’âge, un groupe, une commune…) pour voir le détail.</div><div class="tiles">${tiles}</div><div class="statg">
       <div class="card"><h3>Par tranche d’âge</h3>${bars(ageRows)}</div>
       <div class="card"><h3>Par fédération</h3>${bars(fedRows)}</div>
-      ${LIC.fct?`<div class="card"><h3>Par rôle dans l’association</h3>${bars(FCT.map(([k,l,bg,fg])=>[l,S.gyms.filter(g=>fctHas(g.id,k)).length,fg]).filter(r=>r[1]>0))}</div>`:''}
+      ${LIC.fct?`<div class="card"><h3>Par rôle dans l’association</h3>${bars(FCT.map(([k,l,bg,fg])=>[l,S.gyms.filter(g=>fctHas(g.id,k)).length,fg,'role|'+k]).filter(r=>r[1]>0))}</div>`:''}
       ${grpRows.length?`<div class="card"><h3>Par groupe d’entraînement</h3>${bars(grpRows)}</div>`:''}
       ${eqRows.length?`<div class="card"><h3>Par équipe de compétition</h3>${bars(eqRows)}</div>`:''}
-      ${vilRows.length?`<div class="card"><h3>Par commune</h3>${bars(vilRows)}</div>`:''}
-      <div class="card"><h3>Dossiers</h3><div class="money"><div><span>Complets</span><b>${comp}</b></div><div><span>À traiter</span><b>${n-comp}</b></div></div>
+      ${vilRows.length?`<div class="card"><h3>Par commune</h3>${bars(vilRows)}<button class="btn sm" data-stat-det="all|" data-stat-lbl="Tous" style="margin-top:8px">🗺️ Carte de toutes les communes</button></div>`:''}
+      <div class="card"><h3>Dossiers</h3><div class="money"><button type="button" class="moneyb" data-stat-det="doss|ok" data-stat-lbl="Complets"><span>Complets</span><b>${comp}</b></button><button type="button" class="moneyb" data-stat-det="doss|todo" data-stat-lbl="À traiter"><span>À traiter</span><b>${n-comp}</b></button></div>
         <div class="pbar"><i style="width:${n?Math.round(100*comp/n):0}%;background:#2fa56a"></i></div><div class="hint">${n?Math.round(100*comp/n):0} % des dossiers sont complets.</div></div>
       <div class="card"><h3>Évolution d’une saison à l’autre</h3>${hist}</div></div>`;
 }
 document.addEventListener('click',ev=>{ if(ev.target.closest&&ev.target.closest('[data-stat-csv]')) exportLicencies() });
+
+/* ---------- statistiques : vue détaillée d'une case (adhérents, répartition, carte) ---------- */
+/* Les communes sont placées sur la carte avec le géocodage de la Géoplateforme IGN (data.geopf.fr, ex-API Adresse) :
+   seuls le nom de la commune et son code postal sont envoyés, jamais l'adresse d'un adhérent. */
+let GYM_ADR={};   // adresses des lieux d'entraînement (Paramètres › Listes › Adresses des gymnases)
+const statFilter=(kind,key)=>g=>{ const inf=LIC.info[g.id]||{};
+  if(kind==='all') return true;
+  if(kind==='age'){ const x=ageOf(g); if(key==='x') return x==null; const b=AGE_B[+key]; return x!=null&&x>=b[1]&&x<=b[2] }
+  if(kind==='fed'){ const f=hasLic(g,'FFG'), u=hasLic(g,'UFOLEP'); return key==='both'?f&&u:key==='ffg'?f&&!u:key==='ufo'?u&&!f:!LIC_FEDS.some(x=>hasLic(g,x)) }
+  if(kind==='role') return fctHas(g.id,key);
+  if(kind==='grp') return key==='none'?needsGroup(g)&&!licGroupes(g.id).length:LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===key);
+  if(kind==='team') return key==='none'?!S.teams.some(t=>t.id===g.team):g.team===key;
+  if(kind==='ville') return (inf.ville||'').trim().toUpperCase()===key;
+  if(kind==='doss') return key==='ok'?!licIssues(g).length:licIssues(g).length>0;
+  return false };
+const statKindLbl={all:'Tous les adhérents',age:'Tranche d’âge',fed:'Fédération',role:'Rôle',grp:'Groupe d’entraînement',team:'Équipe de compétition',ville:'Commune',doss:'Dossiers'};
+/* géocodage des communes et des gymnases, gardé sur l'appareil */
+const GEO={c:null,busy:new Set()};
+const geoCache=()=>GEO.c||(GEO.c=lsGet('fa-geo')||{});
+const geoKey=(q,cp)=>norm(q)+'|'+(cp||'');
+async function geoFind(q,cp,muni){
+  const k=geoKey(q,cp)+(muni?'|m':''), c=geoCache(); if(c[k]!==undefined) return c[k];
+  if(GEO.busy.has(k)) return undefined; GEO.busy.add(k);
+  try{ const u='https://data.geopf.fr/geocodage/search?limit=1&q='+encodeURIComponent(q)+(cp?'&postcode='+encodeURIComponent(cp):'')+(muni?'&type=municipality':'');
+    const r=await withTimeout(fetch(u).then(x=>x.json()),8000), f=r&&r.features&&r.features[0];
+    c[k]=f?{lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],l:f.properties.label}:null; lsSet('fa-geo',c); return c[k] }
+  catch(e){ return undefined } finally{ GEO.busy.delete(k) }
+}
+const geoKm=(a,b)=>{ const R=6371, r=x=>x*Math.PI/180, dl=r(b.lat-a.lat), dn=r(b.lon-a.lon), h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)) };
+let LEAF=null;
+function leafLoad(){ if(window.L) return Promise.resolve(window.L); if(LEAF) return LEAF;
+  LEAF=new Promise((ok,ko)=>{ const c=document.createElement('link'); c.rel='stylesheet'; c.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(c);
+    const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'; s.onload=()=>ok(window.L); s.onerror=()=>{ LEAF=null; ko(new Error('carte indisponible')) }; document.head.appendChild(s) });
+  return LEAF }
+function statDetHtml(){
+  const {kind,key,label}=STAT.det, gs=S.gyms.filter(statFilter(kind,key)).sort(byName);
+  const ages=gs.map(ageOf).filter(a=>a!=null), moy=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null;
+  const nf=gs.filter(g=>(LIC.info[g.id]||{}).sexe==='F').length, nm=gs.filter(g=>(LIC.info[g.id]||{}).sexe==='M').length;
+  const tile=(ic,num,l,tb,ti)=>`<div class="tile" style="--tb:${tb};--ti:${ti}"><span class="ti">${ic}</span><span class="tn">${num}</span><span class="tl2">${l}</span></div>`;
+  const tiles=tile('👥',gs.length,'Adhérents','#eaeeff','#3b3fa8')+tile('🎂',moy==null?'—':moy.toFixed(1).replace('.',','),'Âge moyen (ans)','#fff1d6','#8a5a00')
+    +tile('🧒',gs.filter(g=>{ const a=ageOf(g); return a!=null&&a<18 }).length,'Mineurs','#e0f4fb','#0b6b85')+(nf||nm?tile('⚥',`${nf} / ${nm}`,'Filles / garçons','#fde8f1','#a1245f'):'');
+  const cnt=(arr)=>{ const m={}; arr.forEach(x=>{ if(x) m[x]=(m[x]||0)+1 }); return Object.entries(m).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])) };
+  const villes=cnt(gs.map(g=>((LIC.info[g.id]||{}).ville||'').trim().toUpperCase()));
+  const grps=LIC.grp?cnt(gs.flatMap(g=>licGroupes(g.id).map(x=>x.nom))):[];
+  const ageR=AGE_B.map(([l,a,b],i)=>[l,gs.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length]]).filter(r=>r[1]);
+  const sub=[kind!=='age'&&ageR.length>1?`<div class="card"><h3>Par tranche d’âge</h3>${bars(ageR)}</div>`:'',
+    kind!=='grp'&&grps.length?`<div class="card"><h3>Par groupe</h3>${bars(grps.slice(0,10).map(([l,n],i)=>[l,n,BAR_COLORS[i%BAR_COLORS.length]]))}</div>`:'',
+    kind!=='ville'&&villes.length?`<div class="card"><h3>Par commune</h3>${bars(villes.slice(0,10).map(([l,n],i)=>[l,n,BAR_COLORS[i%BAR_COLORS.length],'ville|'+l]))}</div>`:''].join('');
+  const rows=gs.map(g=>{ const inf=LIC.info[g.id]||{}, a=ageOf(g), iss=licIssues(g);
+    return `<tr><td><a href="#" data-stat-gym="${g.id}"><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</a></td><td>${a==null?'—':a+' ans'}</td><td>${esc([inf.code_postal,inf.ville].filter(Boolean).join(' '))||'—'}</td>
+      <td>${LIC.grp?esc(licGroupes(g.id).map(x=>x.nom).join(', '))||'—':'—'}</td><td>${LIC_FEDS.filter(f=>hasLic(g,f)).join(' + ')||'—'}</td><td>${iss.length?`<span class="lb warn">${iss.length} à traiter</span>`:'<span class="lb ok">complet</span>'}</td></tr>` }).join('');
+  return licHead(statKindLbl[kind]+(kind==='all'?'':' : '+label),`Saison ${SAISON} · ${gs.length} adhérent(s)`,'<button class="btn sm" data-stat-back="1">← Retour aux statistiques</button> ')
+    +`<div class="tiles">${tiles}</div>
+    <div class="card"><h3>🗺️ Carte ${kind==='ville'?'de la commune et des lieux d’entraînement':'des communes et des lieux d’entraînement'}</h3>
+      <div id="statMap" class="statmap"><div class="hint" style="padding:14px">Chargement de la carte…</div></div><div id="statDist"></div>
+      <div class="hint" style="margin-top:6px">Communes placées d’après leur nom et leur code postal (géocodage IGN, Base adresse nationale) ; distances à vol d’oiseau depuis le centre de la commune. Adresses des gymnases : Paramètres › Listes › Adresses des gymnases.</div></div>
+    ${sub?`<div class="statg">${sub}</div>`:''}
+    <div class="card"><h3>Adhérents (${gs.length})</h3>${gs.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Nom</th><th>Âge</th><th>Commune</th><th>Groupe(s)</th><th>Licence</th><th>Dossier</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Personne.</div>'}</div>`;
+}
+/* carte : une pastille par commune (taille = nombre d'adhérents), un repère par lieu d'entraînement */
+async function statMapDraw(){
+  const el=document.getElementById('statMap'); if(!el||!STAT.det) return;
+  const {kind,key}=STAT.det, gs=S.gyms.filter(statFilter(kind,key));
+  const by={}; gs.forEach(g=>{ const inf=LIC.info[g.id]||{}, v=(inf.ville||'').trim(); if(!v) return; const k=v.toUpperCase(); (by[k]??={v,cp:(inf.code_postal||'').trim(),n:0}).n++ });
+  let Lf; try{ Lf=await leafLoad() }catch(e){ el.innerHTML='<div class="hint" style="padding:14px">Carte indisponible (pas de connexion ?).</div>'; return }
+  const [vs,gy]=await Promise.all([Promise.all(Object.entries(by).map(async([k,o])=>({k,...o,p:await geoFind(o.v,o.cp,true)}))),
+    Promise.all(LIEUX.map(async l=>({l,adr:GYM_ADR[l]||'',p:await geoFind(GYM_ADR[l]||l,'',!GYM_ADR[l])})))]);
+  if(document.getElementById('statMap')!==el) return;
+  el.innerHTML=''; const map=Lf.map(el,{scrollWheelZoom:false}); STAT.map=map;
+  Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© contributeurs OpenStreetMap'}).addTo(map);
+  const pts=[], mx=Math.max(1,...vs.map(v=>v.n));
+  vs.filter(v=>v.p).forEach(v=>{ const on=kind==='ville'&&v.k===key;
+    Lf.circleMarker([v.p.lat,v.p.lon],{radius:6+16*Math.sqrt(v.n/mx),color:on?'#b45309':'#3b3fa8',weight:2,fillColor:on?'#f59e0b':'#5b5fc7',fillOpacity:.55})
+      .bindTooltip(`${esc(v.v)} : ${v.n} adhérent${v.n>1?'s':''}`).on('click',()=>{ if(kind!=='ville'||v.k!==key){ STAT.det={kind:'ville',key:v.k,label:v.k}; renderMain(); window.scrollTo(0,0) } }).addTo(map); pts.push([v.p.lat,v.p.lon]) });
+  gy.filter(x=>x.p).forEach(x=>{ Lf.marker([x.p.lat,x.p.lon],{icon:Lf.divIcon({className:'statgym',html:'🏟️',iconSize:[28,28]})}).bindTooltip(`<b>${esc(x.l)}</b>${x.adr?'<br>'+esc(x.adr):' (centre-ville)'}`).addTo(map); pts.push([x.p.lat,x.p.lon]) });
+  if(pts.length) map.fitBounds(pts,{padding:[30,30],maxZoom:12}); else map.setView([49.62,3.22],10);
+  const miss=vs.filter(v=>v.p===null).map(v=>v.v);
+  /* distances : de la commune choisie (ou de chaque commune) aux lieux d'entraînement */
+  const dEl=document.getElementById('statDist'), G=gy.filter(x=>x.p);
+  if(dEl&&G.length){ const list=(kind==='ville'?vs.filter(v=>v.k===key):vs).filter(v=>v.p).sort((a,b)=>b.n-a.n);
+    dEl.innerHTML=(list.length?`<div class="ltwrap" style="margin-top:10px"><table class="ltb"><thead><tr><th>Commune</th><th>Adhérents</th>${G.map(x=>`<th>→ ${esc(x.l)}</th>`).join('')}</tr></thead><tbody>${list.slice(0,25).map(v=>`<tr><td><b>${esc(v.v)}</b></td><td>${v.n}</td>${G.map(x=>{ const d=geoKm(v.p,x.p); return `<td>${d<1?'< 1':Math.round(d)} km</td>` }).join('')}</tr>`).join('')}</tbody></table></div>`:'')
+      +(miss.length?`<div class="hint">Communes non trouvées : ${miss.map(esc).join(', ')} (vérifie l’orthographe ou le code postal dans la fiche).</div>`:'') }
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-stat-det],[data-stat-back],[data-stat-gym]'); if(!t) return; const d=t.dataset;
+  if(d.statDet){ const [kind,...k]=d.statDet.split('|'); const key=k.join('|'); STAT.det={kind,key,label:t.dataset.statLbl||t.querySelector('.bl span')?.textContent||key}; renderMain(); window.scrollTo(0,0); return }
+  if(d.statBack){ STAT.det=null; renderMain(); return }
+  if(d.statGym){ ev.preventDefault(); UI.view='lic'; LIC.open=d.statGym; render(); setTimeout(()=>document.getElementById('licFicheBox')?.scrollIntoView({block:'start'}),50) }
+});
+
 
 /* ---------- messages (e-mail et WhatsApp) ---------- */
 const COMM={aud:'all',grp:'',obj:'',msg:'',tpl:''};
@@ -4266,7 +4363,7 @@ document.addEventListener('change',async ev=>{
    sans ligne, c'est la liste par défaut ci-dessous qui s'applique. */
 const PARAM={club:null,ok:null,vals:{},draft:{},sel:null,busy:false,tab:'listes'};
 const PARAM_DEF=JSON.parse(JSON.stringify({lieux:LIEUX,libelles:LIBELLES,roles:FCT,agres:ROT_AGRES,docs:LIC_DOCS,modes:LIC_MODES,liens:FAM_LIENS,
-  echeancier:LIC_ECHEANCIER,bareme_ufolep:UF_BAREME,modeles:Object.entries(COMM_TPL).map(([k,v])=>[k,v[0],v[1]]),reglages:{seuil:PRES_SEUIL,alerte:LIC_ALERTE_JOURS,zone:VAC_ZONE}}));
+  echeancier:LIC_ECHEANCIER,gymnases:{},bareme_ufolep:UF_BAREME,modeles:Object.entries(COMM_TPL).map(([k,v])=>[k,v[0],v[1]]),reglages:{seuil:PRES_SEUIL,alerte:LIC_ALERTE_JOURS,zone:VAC_ZONE}}));
 const PAL=[['Bleu','#eaeeff','#3b3fa8'],['Rose','#fde8f1','#a1245f'],['Vert','#e1f6ea','#14733a'],['Jaune','#fff1d6','#8a5a00'],['Turquoise','#e0f4fb','#0b6b85'],
   ['Violet','#efe8ff','#5a3aa8'],['Orange','#ffe9dc','#8f4a1a'],['Menthe','#e3f4f0','#1f6f63'],['Gris','#eef1f5','#55606b']];
 /* [clé, titre, explication, codes à garder (utilisés par l'application)] */
@@ -4281,6 +4378,7 @@ const PARAM_SECS=[
   ['liens','Liens de parenté','Seuls les libellés se modifient : les liens fonctionnent par paires (parent et enfant, frère ou sœur…).'],
   ['modeles','Modèles de messages','Dans Messages et WhatsApp. {club} est remplacé par le nom du club et {saison} par la saison.'],
   ['reglages','Réglages','Seuils d’alerte et zone des vacances scolaires.'],
+  ['gymnases','Adresses des gymnases','Adresse de chaque lieu d’entraînement, pour la carte des statistiques. Sans adresse, le lieu est placé au centre de la commune.'],
   ['bareme_ufolep','Barème UFOLEP','Points du tronc commun et des valorisations (brochure GAF 2026-2030, p. 24). Le saut garde la valeur de chaque saut (9 à 14).']];
 const paramSec=k=>PARAM_SECS.find(x=>x[0]===k)||PARAM_SECS[0];
 const paramVal=k=>PARAM.vals[k]!==undefined?PARAM.vals[k]:PARAM_DEF[k];
@@ -4304,6 +4402,7 @@ function paramApply(){
   VAC_ZONE=['A','B','C'].includes(R.zone)?R.zone:d.zone;
   const B=V.bareme_ufolep&&typeof V.bareme_ufolep==='object'?V.bareme_ufolep:{}, bd=PARAM_DEF.bareme_ufolep, nb=x=>typeof x==='number'&&x>=0&&x<=20;
   UF_BAREME={tc:nb(B.tc)?B.tc:bd.tc,vs:nb(B.vs)?B.vs:bd.vs,v:nb(B.v)?B.v:bd.v};
+  GYM_ADR=V.gymnases&&typeof V.gymnases==='object'&&!Array.isArray(V.gymnases)?Object.fromEntries(Object.entries(V.gymnases).filter(([k,v])=>typeof v==='string'&&v.trim())):{};
 }
 async function paramLoad(){
   if(!CLUB) return;
@@ -4322,6 +4421,7 @@ function paramRead(k){
   const rows=[...box.querySelectorAll('.prow2')], g=(r,n)=>{ const e=r.querySelector(`[name=${n}]`); return !e?'':e.type==='checkbox'?e.checked:e.value };
   if(k==='lieux'||k==='libelles') return rows.map(r=>g(r,'l').trim());
   if(k==='echeancier') return rows.map(r=>parseFloat(String(g(r,'l')).replace(',','.'))||0);
+  if(k==='gymnases') return Object.fromEntries([...box.querySelectorAll('[data-gadr]')].map(i=>[i.dataset.gadr,i.value.trim()]).filter(x=>x[1]));
   if(k==='bareme_ufolep'){ const n=x=>parseFloat(String(box.querySelector(`[name=${x}]`).value).replace(',','.')); return {tc:n('tc'),vs:n('vs'),v:n('v')} }
   if(k==='reglages') return {seuil:parseInt(box.querySelector('[name=seuil]').value,10)||0,alerte:parseInt(box.querySelector('[name=alerte]').value,10),zone:box.querySelector('[name=zone]').value};
   return rows.map(r=>{ const key=r.dataset.k||'', l=g(r,'l').trim(), cv=g(r,'c'), c=cv===''?null:PAL[+cv]||null, cur=r.dataset.col?r.dataset.col.split('|'):null, col=c?[c[1],c[2]]:cur||[PAL[8][1],PAL[8][2]];
@@ -4352,7 +4452,10 @@ function paramRowHtml(k,x,i,n,ro){
 function paramEdHtml(k){
   const ro=ROLE!=='admin'||!PARAM.ok||OFFLINE, v=PARAM.draft[k]??paramVal(k), [_,t,help]=paramSec(k), custom=PARAM.vals[k]!==undefined;
   let body;
-  if(k==='bareme_ufolep'){ const B=Object.assign({},PARAM_DEF.bareme_ufolep,v||{}), dis=ro?'disabled':'';
+  if(k==='gymnases'){ const A=v||{}, dis=ro?'disabled':'';
+    body=`<div class="plist">${LIEUX.map(l=>`<div class="prow2"><b style="min-width:120px">🏟️ ${esc(l)}</b><input data-gadr="${esc(l)}" value="${esc(A[l]||'')}" ${dis} placeholder="ex. 12 rue du Stade, 02300 Chauny" maxlength="160" style="flex:1 1 260px" aria-label="Adresse ${esc(l)}"></div>`).join('')}</div>
+      <div class="hint" style="margin-top:8px">La liste suit les lieux d’entraînement (rubrique « Lieux d’entraînement »).</div>`;
+  } else if(k==='bareme_ufolep'){ const B=Object.assign({},PARAM_DEF.bareme_ufolep,v||{}), dis=ro?'disabled':'';
     body=`<div class="lgrid"><label>Points par exigence du tronc commun remplie<input type="number" name="tc" min="0" max="20" step="0.1" value="${B.tc}" ${dis}></label>
       <label>Points par valorisation principale (*)<input type="number" name="vs" min="0" max="20" step="0.1" value="${B.vs}" ${dis}></label>
       <label>Points par autre valorisation<input type="number" name="v" min="0" max="20" step="0.1" value="${B.v}" ${dis}></label></div>
@@ -4401,6 +4504,7 @@ function renderParamLists(){
 }
 function paramRerender(){ const el=document.getElementById('prmEd'); if(el&&UI.view==='param') el.outerHTML=paramEdHtml(el.dataset.k); }
 function paramCheck(k,v){
+  if(k==='gymnases') return '';
   if(k==='bareme_ufolep') return ['tc','vs','v'].every(x=>Number.isFinite(v[x])&&v[x]>=0&&v[x]<=20)?'':'Saisis des points entre 0 et 20.';
   if(k==='reglages') return v.seuil>=1&&v.seuil<=20&&Number.isInteger(v.alerte)&&v.alerte>=0&&v.alerte<=365?'':'Vérifie les nombres saisis.';
   if(!Array.isArray(v)||!v.length) return 'La liste ne peut pas être vide.';
