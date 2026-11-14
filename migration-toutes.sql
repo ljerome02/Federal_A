@@ -1079,3 +1079,9 @@ do $$ begin
     alter table public.equipes add constraint equipes_categorie_check check (categorie is null or categorie in ('10+','14+','10-15','12-15','10-13','10-11'));
   end if;
 end $$;
+
+-- ===== migration-qualif.sql =====
+-- Résultats de compétitions : qualification pour l'étape suivante (bouton « Q »)
+-- Relançable sans risque. Aucune donnée supprimée.
+alter table public.competition_resultats add column if not exists qualifie boolean not null default false;
+alter table public.competition_equipes  add column if not exists qualifie boolean not null default false;
