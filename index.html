@@ -3601,7 +3601,7 @@ async function statMapDraw(){
   const by={}; gs.forEach(g=>{ const inf=LIC.info[g.id]||{}, v=(inf.ville||'').trim(); if(!v) return; const k=v.toUpperCase(); const o=(by[k]??={v,cp:(inf.code_postal||'').trim(),n:0,gs:[]}); o.n++; o.gs.push(g) });
   let Lf; try{ Lf=await leafLoad() }catch(e){ el.innerHTML='<div class="hint" style="padding:14px">Carte indisponible (pas de connexion ?).</div>'; return }
   const [vs,gy]=await Promise.all([Promise.all(Object.entries(by).map(async([k,o])=>({k,...o,p:await geoFind(o.v,o.cp,true)}))),
-    Promise.all(LIEUX.map(async l=>({l,adr:GYM_ADR[l]||'',p:await geoFind(GYM_ADR[l]||l,'',!GYM_ADR[l])})))]);
+    Promise.all(LIEUX.map(async l=>({l,adr:GYM_ADR[l]||'',p:await geoFind(GYM_ADR[l]?GYM_ADR[l].replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim():l,'',!GYM_ADR[l])})))]);
   if(document.getElementById('statMap')!==el) return;
   if(STAT.map){ try{ STAT.map.remove() }catch(e){} STAT.map=null }
   el.innerHTML=''; const map=Lf.map(el,{scrollWheelZoom:false}); STAT.map=map;
@@ -4493,7 +4493,7 @@ function paramEdHtml(k){
   const ro=ROLE!=='admin'||!PARAM.ok||OFFLINE, v=PARAM.draft[k]??paramVal(k), [_,t,help]=paramSec(k), custom=PARAM.vals[k]!==undefined;
   let body;
   if(k==='gymnases'){ const A=v||{}, dis=ro?'disabled':'';
-    body=`<div class="plist">${LIEUX.map(l=>`<div class="prow2"><b style="min-width:120px">🏟️ ${esc(l)}</b><input data-gadr="${esc(l)}" value="${esc(A[l]||'')}" ${dis} placeholder="ex. 12 rue du Stade, 02300 Chauny" maxlength="160" style="flex:1 1 260px" aria-label="Adresse ${esc(l)}"></div>`).join('')}</div>
+    body=`<div class="plist">${LIEUX.map(l=>`<div class="prow2"><b style="min-width:120px">🏟️ ${esc(l)}</b><input data-gadr="${esc(l)}" value="${esc(A[l]||'')}" ${dis} placeholder="ex. Boulevard Géo André, 02300 Chauny (complexe Léo Lagrange)" maxlength="160" style="flex:1 1 260px" aria-label="Adresse ${esc(l)}"></div>`).join('')}</div>
       <div class="hint" style="margin-top:8px">La liste suit les lieux d’entraînement (rubrique « Lieux d’entraînement »).</div>`;
   } else if(k==='bareme_ufolep'){ const B=Object.assign({},PARAM_DEF.bareme_ufolep,v||{}), dis=ro?'disabled':'';
     body=`<div class="lgrid"><label>Points par exigence du tronc commun remplie<input type="number" name="tc" min="0" max="20" step="0.1" value="${B.tc}" ${dis}></label>
