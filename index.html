@@ -756,6 +756,21 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.doctools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}.doctools select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--card,#fff)}
+.docfl{display:block;margin-bottom:10px}.docfl textarea{display:block;width:100%;margin-top:4px;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical;box-sizing:border-box}
+.docpaper{background:#fff;color:#1d2430;max-width:860px;margin:0 auto 20px;padding:34px 40px;border-radius:10px;box-shadow:0 2px 14px rgba(0,0,0,.08);border:1px solid var(--line);font-size:14px;line-height:1.5}
+.docpaper section{margin:0 0 20px}.docpaper .dks,.docpaper .dcols>div,.docpaper .docmap,.docpaper .dtx{break-inside:avoid}.docpaper h2{font-size:17px;color:#3b3fa8;border-bottom:2px solid #e3e6f5;padding-bottom:4px;margin:0 0 10px}.docpaper h3{font-size:13px;margin:6px 0;color:#55606b;text-transform:uppercase;letter-spacing:.03em}
+.dhead{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;border-bottom:4px solid #5b5fc7;padding-bottom:14px;margin-bottom:20px}.dhead h1{margin:2px 0;font-size:28px;color:#1d2430}
+.dkind{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#5b5fc7}.dsub{color:#55606b}.dplace{text-align:right;font-size:13px;color:#14733a;max-width:280px}
+.dks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.dk{background:#f3f4fc;border-radius:10px;padding:10px 12px}.dk b{display:block;font-size:24px;color:#3b3fa8;line-height:1.1}.dk span{display:block;font-weight:600;font-size:13px}.dk i{display:block;font-style:normal;font-size:11.5px;color:#6b7480}
+.dcols{display:grid;grid-template-columns:1fr 1fr;gap:22px}.dtb{width:100%;border-collapse:collapse}.dtb td{padding:3px 6px;border-bottom:1px solid #eceff3;font-size:13px}.dtb td.r{text-align:right;white-space:nowrap}.dtb tr.on td{font-weight:700;color:#14733a}
+.dbar{display:inline-block;width:120px;height:9px;background:#eef1f5;border-radius:5px;overflow:hidden;vertical-align:middle}.dbar i{display:block;height:100%;border-radius:5px}
+.dtx{white-space:normal;margin:0}.dlead{margin:0 0 10px}.dul{margin:0;padding-left:18px;font-size:13px}.docmap{width:100%;height:auto;margin:4px 0 12px;display:block}
+.docph{border:2px dashed #d5d9e0;border-radius:10px;padding:10px 14px;color:#6b7480}.docph h2{color:#8a93a0;border:0}.dfoot{margin-top:24px;padding-top:8px;border-top:1px solid #e3e6f5;font-size:11px;color:#8a93a0}
+@media (max-width:700px){.dks{grid-template-columns:1fr 1fr}.dcols{grid-template-columns:1fr}.docpaper{padding:18px}}
+@page dossier{size:A4 portrait;margin:12mm}
+@media print{.docprint{page:dossier;box-shadow:none;border:0;border-radius:0;padding:0;max-width:none;margin:0;font-size:12px}.docprint .dks{grid-template-columns:repeat(4,1fr)}.docprint .dcols{grid-template-columns:1fr 1fr}.docprint h2,.docprint h3,.docprint .dlead{break-after:avoid}.docprint .docmap{max-height:78mm}.docprint .dfoot{break-before:avoid}}
+
 .statmaph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}.statmaph h3{margin:0}
 .statmf{display:flex;flex-wrap:wrap;gap:6px}.statmf select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff);font:inherit;font-size:13px}
 .statpin{display:flex!important;align-items:center;justify-content:center;border-radius:50%;background:rgba(91,95,199,.82);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-weight:800;font-size:13px;cursor:pointer}
@@ -1789,7 +1804,7 @@ document.addEventListener('click',ev=>{
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
     if(d.nav==='umvt'&&typeof UF!=='undefined') UF.menu=true;
     if(d.nav==='gym') UI.gmenu=true;
-    if(d.nav==='stats') STAT.det=null;
+    if(d.nav==='stats'){ STAT.det=null; STAT.doc=false; if(typeof DOC!=='undefined') DOC.edit=false }
     UI.view = d.nav==='gym' ? (UI.prevWork||'gym') : d.nav==='manage' ? 'lic' : d.nav;
     if(UI.view==='team' && !S.teams.find(x=>x.id===UI.team)) UI.view='gym';
     render(); return }
@@ -3448,7 +3463,7 @@ function assidFiche(gid){
 }
 
 /* ---------- statistiques ---------- */
-const STAT={hist:null,loading:false,club:null,det:null,map:null,mf:{who:'gymnaste',age:'',fed:''}};
+const STAT={hist:null,loading:false,club:null,det:null,doc:false,map:null,mf:{who:'gymnaste',age:'',fed:''}};
 async function statHist(){
   if(STAT.club!==(CLUB&&CLUB.id)){ STAT.club=CLUB&&CLUB.id; STAT.hist=null; STAT.loading=false }
   if(STAT.loading||STAT.hist!==null||!CLUB) return;
@@ -3470,6 +3485,7 @@ function renderStats(){
   if(!CLUB) return '';
   const ready=licEnsure(), T='Statistiques', sub=`Saison ${SAISON} · répartition des licenciés`; statHist();
   if(!ready) return licWait(T,sub);
+  if(STAT.doc) return statDocHtml();
   if(STAT.det) return statDetHtml();
   const n=S.gyms.length, ages=S.gyms.map(ageOf).filter(a=>a!=null), moy=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null;
   const sx=k=>S.gyms.filter(g=>(LIC.info[g.id]||{}).sexe===k).length, nf=sx('F'), nm=sx('M');
@@ -3494,7 +3510,7 @@ function renderStats(){
     hist=ss.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Saison</th><th>Licenciés</th><th>FFG</th><th>UFOLEP</th><th>Évolution</th></tr></thead><tbody>${ss.map((k,i)=>{ const d=i?by[k].all.size-by[ss[i-1]].all.size:null;
       return `<tr><td><b>${esc(k)}</b></td><td>${by[k].all.size}</td><td>${by[k].FFG.size}</td><td>${by[k].UFOLEP.size}</td><td>${d==null?'—':`<span class="lb ${d>0?'ok':d<0?'bad':'no'}">${d>0?'+':''}${d}</span>`}</td></tr>` }).join('')}</tbody></table></div><div class="hint">Nombre de licenciés ayant une licence FFG ou UFOLEP enregistrée pour la saison.</div>`:'<div class="empty">Aucune licence enregistrée.</div>';
   }
-  return licHead(T,sub,'<button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
+  return licHead(T,sub,'<button class="btn sm primary" data-stat-doc="1" title="Document à joindre aux demandes de subvention ou de sponsoring">📄 Dossier subventions / partenaires</button> <button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
     +`<div class="hint" style="margin:-6px 0 10px">Clique sur une ligne (une tranche d’âge, un groupe, une commune…) pour voir le détail.</div><div class="tiles">${tiles}</div>${statMapCard()}<div class="statg">
       <div class="card"><h3>Par tranche d’âge</h3>${bars(ageRows)}</div>
       <div class="card"><h3>Par fédération</h3>${bars(fedRows)}</div>
@@ -3627,6 +3643,145 @@ document.addEventListener('click',ev=>{
   if(d.statGym){ ev.preventDefault(); UI.view='lic'; LIC.open=d.statGym; render(); setTimeout(()=>document.getElementById('licFicheBox')?.scrollIntoView({block:'start'}),50) }
 });
 
+
+/* ---------- dossier de présentation (subventions, partenaires) : chiffres globaux, aucun nom ---------- */
+const DOC={type:'sub',edit:false,cr:null,crLoading:false,club:null,crWait:false,geoWait:false};
+const DOC_TXT=[
+  ['presentation','Présentation du club','Histoire, valeurs, disciplines (gym artistique, baby gym, loisirs…), ce qui fait la particularité du club.','both'],
+  ['projets','Nos projets pour la saison','Nouveau créneau, achat de matériel, stage, accueil d’une compétition, formation d’entraîneurs ou de juges…','both'],
+  ['besoins','Objet de la demande de subvention','Montant demandé, action financée, budget prévisionnel, public concerné.','sub'],
+  ['contreparties','Ce que nous proposons à nos partenaires','Logo sur les tenues ou la bâche, mention sur nos réseaux, invitation au gala, reçu fiscal (mécénat)…','spo'],
+  ['contact','Contact','Nom, fonction, téléphone et e-mail du club.','both']];
+const docTxt=()=>{ const v=PARAM.vals&&PARAM.vals.dossier; return v&&typeof v==='object'&&!Array.isArray(v)?v:{} };
+const docMain=()=>LIEUX.find(l=>norm(l)==='chauny')||LIEU_DEF||LIEUX[0]||'';
+const docRefresh=()=>{ if(UI.view==='stats'&&STAT.doc&&!DOC.edit) renderMain() };
+const docPct=(a,b)=>b?Math.round(100*a/b)+' %':'—';
+const docH=h=>{ const m=Math.round(h*60); return Math.floor(m/60)+' h'+(m%60?' '+String(m%60).padStart(2,'0'):'') };
+async function docLoadCren(){
+  if(DOC.club===CLUB.id&&(DOC.cr||DOC.crLoading)) return; DOC.club=CLUB.id; DOC.cr=null; DOC.crLoading=true;
+  try{ const r=await withTimeout(sb.from('groupe_creneaux').select('groupe_id,type,jour,heure_debut,heure_fin').eq('club_id',CLUB.id),10000); DOC.cr=r.error?[]:r.data }catch(e){ DOC.cr=[] }
+  DOC.crLoading=false; docRefresh();
+}
+/* positions des communes et des lieux (déjà en cache, sinon recherche puis nouveau rendu) */
+function docGeo(vil){
+  const c=geoCache(), miss=[];
+  const pv=vil.map(v=>{ const k=geoKey(v.v,v.cp)+'|m'; if(c[k]===undefined) miss.push(()=>geoFind(v.v,v.cp,true)); return {...v,p:c[k]||null} });
+  const pg=LIEUX.map(l=>{ const a=GYM_ADR[l], q=a?a.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim():l, k=geoKey(q,'')+(a?'':'|m'); if(c[k]===undefined) miss.push(()=>geoFind(q,'',!a)); return {l,adr:a||'',p:c[k]||null} });
+  if(miss.length&&!DOC.geoWait){ DOC.geoWait=true; Promise.all(miss.map(f=>f())).then(()=>{ DOC.geoWait=false; docRefresh() }) }
+  return {pv,pg};
+}
+function docMapSvg(pv,pg,main){
+  const P=pv.filter(v=>v.p), gm=pg.find(x=>x.l===main&&x.p); if(!P.length) return '';
+  /* cadrage : communes des adhérents + gymnase principal ; les autres lieux seulement s'ils tombent dans le cadre */
+  const base=[...P.map(v=>v.p),...(gm?[gm.p]:[])], lat0=base.reduce((a,p)=>a+p.lat,0)/base.length, kx=Math.cos(lat0*Math.PI/180);
+  const W=640, H=320, pad=40; let x0=Math.min(...base.map(p=>p.lon*kx)), x1=Math.max(...base.map(p=>p.lon*kx)), y0=Math.min(...base.map(p=>p.lat)), y1=Math.max(...base.map(p=>p.lat));
+  const mn=0.08; if(x1-x0<mn){ const c=(x0+x1)/2; x0=c-mn/2; x1=c+mn/2 } if(y1-y0<mn){ const c=(y0+y1)/2; y0=c-mn/2; y1=c+mn/2 }
+  const sc=Math.min((W-2*pad)/(x1-x0),(H-2*pad)/(y1-y0)), cx=(x0+x1)/2, cy=(y0+y1)/2;
+  const X=p=>W/2+(p.lon*kx-cx)*sc, Y=p=>H/2-(p.lat-cy)*sc, inside=p=>X(p)>8&&X(p)<W-8&&Y(p)>8&&Y(p)<H-24;
+  const G=pg.filter(x=>x.p&&(x.l===main||inside(x.p))), mx=Math.max(...P.map(v=>v.n)), kmPx=sc/111.2, bar=[2,5,10,20,50].find(k=>k*kmPx>50)||50;
+  const boxes=[[8,H-24,W-16,24]], hit=b=>boxes.some(o=>b[0]<o[0]+o[2]&&b[0]+b[2]>o[0]&&b[1]<o[1]+o[3]&&b[1]+b[3]>o[1]);
+  const place=(x,y,r,t,fs)=>{ const w=t.length*fs*0.56, h=fs+2; for(const [dx,dy,a] of [[0,r+fs+1,'middle'],[0,-r-4,'middle'],[r+4,fs/2-1,'start'],[-r-4,fs/2-1,'end']]){
+      const bx=a==='middle'?x+dx-w/2:a==='start'?x+dx:x+dx-w, b=[bx,y+dy-fs,w,h]; if(bx<2||bx+w>W-2||b[1]<2||hit(b)) continue; boxes.push(b); return {x:x+dx,y:y+dy,a} } return null };
+  let out='';
+  G.forEach(x=>{ const on=x.l===main, a=X(x.p), b=Y(x.p), q=on?9:6; boxes.push([a-q,b-q,2*q,2*q]); out+=`<rect x="${(a-q).toFixed(1)}" y="${(b-q).toFixed(1)}" width="${2*q}" height="${2*q}" rx="2" fill="${on?'#14733a':'#6b9a7c'}" stroke="#fff" stroke-width="1.5"/>` });
+  const cs=P.slice().sort((a,b)=>b.n-a.n).map(v=>({v,x:X(v.p),y:Y(v.p),r:5+15*Math.sqrt(v.n/mx)}));
+  out=cs.map(c=>`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}" fill="#5b5fc7" fill-opacity=".5" stroke="#3b3fa8"/>`).join('')+out;
+  G.forEach(x=>{ const on=x.l===main, t=on?'Gymnase de '+x.l:x.l, L=place(X(x.p),Y(x.p),on?9:6,t,on?12:10); if(L) out+=`<text x="${L.x.toFixed(1)}" y="${L.y.toFixed(1)}" text-anchor="${L.a}" font-size="${on?12:10}" font-weight="700" fill="${on?'#14733a':'#4b6b57'}">${esc(t)}</text>` });
+  cs.forEach(c=>{ const t=`${c.v.v} (${c.v.n})`, L=place(c.x,c.y,c.r,t,10); if(L) out+=`<text x="${L.x.toFixed(1)}" y="${L.y.toFixed(1)}" text-anchor="${L.a}" font-size="10" fill="#2d3440">${esc(t)}</text>` });
+  return `<svg class="docmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="Carte schématique de l’origine des adhérents"><rect width="${W}" height="${H}" fill="#f6f8fb" rx="8"/>${out}
+    <text x="10" y="${H-9}" font-size="10" fill="#6b7480">● commune des adhérents (taille = nombre)   ■ gymnase</text>
+    <line x1="${W-14-bar*kmPx}" y1="${H-12}" x2="${W-14}" y2="${H-12}" stroke="#55606b" stroke-width="2"/><text x="${W-14-bar*kmPx/2}" y="${H-16}" text-anchor="middle" font-size="10" fill="#55606b">${bar} km</text></svg>`;
+}
+function docBody(print){
+  const T=docTxt(), sub=DOC.type==='sub', main=docMain(), today=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const all=S.gyms, gym=all.filter(g=>fctHas(g.id,'gymnaste')||!fctOf(g.id).length), sx=g=>(LIC.info[g.id]||{}).sexe;
+  const nf=gym.filter(g=>sx(g)==='F').length, nm=gym.filter(g=>sx(g)==='M').length, ages=gym.map(ageOf).filter(a=>a!=null), mineurs=ages.filter(a=>a<18).length;
+  const ffg=all.filter(g=>hasLic(g,'FFG')).length, ufo=all.filter(g=>hasLic(g,'UFOLEP')).length;
+  const staff=all.filter(g=>fctOf(g.id).some(k=>k!=='gymnaste'));
+  const vm={}; all.forEach(g=>{ const i=LIC.info[g.id]||{}, v=(i.ville||'').trim(); if(!v) return; const k=v.toUpperCase(); const o=(vm[k]??={k,v,cp:(i.code_postal||'').trim(),n:0}); o.n++ });
+  const vil=Object.values(vm).sort((a,b)=>b.n-a.n||a.k.localeCompare(b.k)), withV=vil.reduce((a,v)=>a+v.n,0);
+  const inMain=(vm[(main||'').toUpperCase()]||{n:0}).n;
+  const {pv,pg}=docGeo(vil), gMain=pg.find(x=>x.l===main&&x.p);
+  /* activité : créneaux réguliers */
+  const cr=(DOC.cr||[]).filter(c=>(c.type||'saison')==='saison'&&c.heure_debut&&c.heure_fin), hh=t=>{ const [a,b]=String(t).split(':').map(Number); return a+(b||0)/60 };
+  const hSem=cr.reduce((a,c)=>a+Math.max(0,hh(c.heure_fin)-hh(c.heure_debut)),0), nGrp=LIC.grp?LIC.grp.length:0;
+  /* compétitions de la saison */
+  const comps=CR.ok?CR.comps:[], cid=new Map(comps.map(c=>[c.id,c])), res=CR.ok?CR.res.filter(r=>cid.has(r.competition_id)):[], eqs=CR.ok?CR.eqs.filter(r=>cid.has(r.competition_id)):[];
+  const engages=new Set(res.map(r=>r.licencie_id)).size, podI=res.filter(r=>r.rang&&r.rang<=3).length, podE=eqs.filter(r=>r.rang&&r.rang<=3).length;
+  const nivR=n=>{ const i=CR_NIV.indexOf(n); return i<0||n==='Autre'?-1:i };
+  const best=[...res.map(r=>({...r,eq:false})),...eqs.map(r=>({...r,eq:true}))].filter(r=>r.rang&&r.rang<=10).map(r=>({...r,c:cid.get(r.competition_id)}))
+    .sort((a,b)=>a.rang-b.rang||nivR(b.c.niveau)-nivR(a.c.niveau)||String(a.c.date_comp||'').localeCompare(String(b.c.date_comp||''))).slice(0,10);
+  const med=r=>r===1?'🥇':r===2?'🥈':r===3?'🥉':'';
+  const tile=(n,l,s)=>`<div class="dk"><b>${n}</b><span>${l}</span>${s?`<i>${s}</i>`:''}</div>`;
+  const bar=(n,mx,c)=>`<span class="dbar"><i style="width:${mx?Math.round(100*n/mx):0}%;background:${c}"></i></span>`;
+  const txt=(k,title,help,scope)=>{ if(scope!=='both'&&scope!==DOC.type) return ''; const v=(T[k]||'').trim();
+    if(v) return `<section><h2>${esc(title)}</h2><p class="dtx">${esc(v).replace(/\n/g,'<br>')}</p></section>`;
+    return print?'':`<section class="docph"><h2>${esc(title)}</h2><p>À compléter : ${esc(help)}${ROLE==='admin'?' <button class="btn sm" data-doc-edit="1">✏️ Rédiger</button>':''}</p></section>` };
+  const ageRows=AGE_B.map(([l,a,b],i)=>[l,gym.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length]]).filter(r=>r[1]), amx=Math.max(1,...ageRows.map(r=>r[1]));
+  const roles=FCT.filter(x=>x[0]!=='gymnaste').map(x=>[x[1],all.filter(g=>fctHas(g.id,x[0])).length,x[3]]).filter(r=>r[1]);
+  /* distances au gymnase principal */
+  let dist='';
+  if(gMain){ const bands=[['Habitent '+main,0,0],['Moins de 10 km',0,0],['De 10 à 25 km',0,0],['Plus de 25 km',0,0]]; let known=0;
+    pv.forEach(v=>{ if(!v.p) return; known+=v.n; const d=geoKm(v.p,gMain.p); const i=v.k===main.toUpperCase()?0:d<10?1:d<=25?2:3; bands[i][1]+=v.n });
+    if(withV>known) bands.push(['Commune non localisée',withV-known,0]); const dm=Math.max(1,...bands.map(b=>b[1]));
+    dist=known?`<h3>Distance au gymnase de ${esc(main)}</h3><table class="dtb">${bands.filter((b,i)=>i<4||b[1]).map(([l,n],i)=>`<tr><td>${esc(l)}</td><td>${bar(n,dm,['#14733a','#2fa56a','#e5a823','#e0577d','#b9c1ca'][i])}</td><td class="r">${n}</td><td class="r">${docPct(n,withV)}</td></tr>`).join('')}</table>`:'' }
+  const hist=(()=>{ if(!STAT.hist||!STAT.hist.length) return ''; const by={}; STAT.hist.forEach(r=>{ (by[r.saison]??=new Set()).add(r.licencie_id) }); const ss=Object.keys(by).sort().slice(-6); if(ss.length<2) return '';
+    const mx=Math.max(...ss.map(s=>by[s].size)); return `<section><h2>Évolution des effectifs</h2><table class="dtb">${ss.map(s=>`<tr><td>Saison ${esc(s)}</td><td>${bar(by[s].size,mx,'#5b5fc7')}</td><td class="r">${by[s].size} licenciés</td></tr>`).join('')}</table></section>` })();
+  return `<header class="dhead"><div><div class="dkind">${sub?'Dossier de demande de subvention':'Dossier de partenariat'}</div><h1>${esc(CLUB.nom||'Le club')}</h1>
+      <div class="dsub">Club de gymnastique de ${esc(main)} · affilié ${[ffg?'à la FFGym':'',ufo?'à l’UFOLEP':''].filter(Boolean).join(' et ')||'FFGym / UFOLEP'} · saison ${esc(SAISON)}</div></div>
+      <div class="dplace">🏟️ <b>Gymnase de ${esc(main)}</b>${GYM_ADR[main]?`<br>${esc(GYM_ADR[main])}`:''}</div></header>
+    ${txt(...DOC_TXT[0])}
+    <section><h2>Le club en chiffres</h2><div class="dks">
+      ${tile(all.length,'adhérents','saison '+esc(SAISON))}${tile(gym.length,'gymnastes',ages.length?docPct(mineurs,ages.length)+' de mineurs':'')}
+      ${nf||nm?tile(docPct(nf,nf+nm),'de filles',`${nf} fille${nf>1?'s':''} · ${nm} garçon${nm>1?'s':''}`):''}${tile(vil.length,'communes','d’où viennent les adhérents')}
+      ${staff.length?tile(staff.length,'encadrants et dirigeants','entraîneurs, juges, bureau, bénévoles'):''}${hSem?tile(docH(hSem),'d’entraînement par semaine',`${cr.length} créneaux · ${nGrp} groupes`):nGrp?tile(nGrp,'groupes d’entraînement',''):''}
+      ${comps.length?tile(comps.length,'compétitions',`${engages} gymnastes engagés`):''}${podI+podE?tile(podI+podE,'podiums','cette saison'):''}</div></section>
+    <section><h2>Notre public</h2><div class="dcols"><div><h3>Gymnastes par tranche d’âge</h3><table class="dtb">${ageRows.map(([l,n,c])=>`<tr><td>${esc(l)}</td><td>${bar(n,amx,c)}</td><td class="r">${n}</td><td class="r">${docPct(n,ages.length)}</td></tr>`).join('')}</table></div>
+      <div><h3>Répartition</h3><table class="dtb">${nf||nm?`<tr><td>Filles</td><td class="r">${nf}</td><td class="r">${docPct(nf,nf+nm)}</td></tr><tr><td>Garçons</td><td class="r">${nm}</td><td class="r">${docPct(nm,nf+nm)}</td></tr>`:''}
+        <tr><td>Mineurs</td><td class="r">${mineurs}</td><td class="r">${docPct(mineurs,ages.length)}</td></tr><tr><td>Majeurs</td><td class="r">${ages.length-mineurs}</td><td class="r">${docPct(ages.length-mineurs,ages.length)}</td></tr>
+        ${ffg?`<tr><td>Licence FFGym</td><td class="r">${ffg}</td><td></td></tr>`:''}${ufo?`<tr><td>Licence UFOLEP</td><td class="r">${ufo}</td><td></td></tr>`:''}</table></div></div></section>
+    <section><h2>Un club au service de ${esc(main)} et de son territoire</h2>
+      <p class="dlead"><b>${inMain}</b> adhérent${inMain>1?'s':''} habite${inMain>1?'nt':''} ${esc(main)} (${docPct(inMain,withV)}), les autres viennent de <b>${Math.max(0,vil.length-(inMain?1:0))}</b> autre${vil.length-(inMain?1:0)>1?'s':''} commune${vil.length-(inMain?1:0)>1?'s':''} des environs.</p>
+      ${docMapSvg(pv,pg,main)}
+      <div class="dcols"><div><h3>Communes des adhérents</h3><table class="dtb">${vil.slice(0,12).map(v=>`<tr${v.k===main.toUpperCase()?' class="on"':''}><td>${esc(v.v)}</td><td class="r">${v.n}</td><td class="r">${docPct(v.n,withV)}</td></tr>`).join('')}
+        ${vil.length>12?`<tr><td>${vil.length-12} autres communes</td><td class="r">${vil.slice(12).reduce((a,v)=>a+v.n,0)}</td><td></td></tr>`:''}</table></div><div>${dist}</div></div></section>
+    <section><h2>${roles.length?'Encadrement et lieux d’entraînement':'Lieux d’entraînement'}</h2><div class="dcols">${roles.length?`<div><h3>Encadrement et bénévolat</h3><table class="dtb">${roles.map(([l,n])=>`<tr><td>${esc(l)}</td><td class="r">${n}</td></tr>`).join('')}</table></div>`:''}
+      <div>${roles.length?'<h3>Lieux d’entraînement</h3>':''}<ul class="dul">${LIEUX.map(l=>`<li>${l===main?'<b>':''}${esc(l)}${l===main?' (gymnase principal)</b>':''}${GYM_ADR[l]?' — '+esc(GYM_ADR[l]):''}</li>`).join('')}</ul></div></div></section>
+    ${comps.length?`<section><h2>Résultats sportifs de la saison</h2><p class="dlead">${comps.length} compétition${comps.length>1?'s':''} (${['FFG','UFOLEP'].map(f=>[f,comps.filter(c=>c.federation===f).length]).filter(x=>x[1]).map(([f,n])=>`${n} ${f==='FFG'?'FFGym':'UFOLEP'}`).join(', ')}) · ${engages} gymnastes engagés · ${res.length} participations · ${podI} podium${podI>1?'s':''} individuel${podI>1?'s':''}${podE?` · ${podE} podium${podE>1?'s':''} par équipe`:''}.</p>
+      ${best.length?`<h3>Meilleurs classements</h3><table class="dtb">${best.map(r=>`<tr><td>${med(r.rang)} ${crRk(r.rang)}${r.nb_classes?` / ${r.nb_classes}`:''}</td><td>${r.eq?'Équipe — ':''}${esc(r.categorie||'')}</td><td>${esc(r.c.niveau||'')}${r.c.niveau?' · ':''}${esc(r.c.nom)}</td><td class="r">${r.c.date_comp?new Date(r.c.date_comp+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):''}</td></tr>`).join('')}</table>`:''}</section>`:''}
+    ${hist}
+    ${txt(...DOC_TXT[1])}${txt(...DOC_TXT[2])}${txt(...DOC_TXT[3])}${txt(...DOC_TXT[4])}
+    <footer class="dfoot">Document établi le ${today} à partir du registre des adhérents du club (chiffres globaux, aucune donnée nominative).</footer>`;
+}
+function docEditHtml(){
+  const T=docTxt();
+  return `<div class="card"><h3>✏️ Textes du dossier</h3><div class="hint" style="margin-bottom:8px">Rédigés une fois, ils sont repris chaque année. Les chiffres, eux, se mettent à jour tout seuls.</div>
+    ${DOC_TXT.map(([k,l,h,s])=>`<label class="docfl"><b>${esc(l)}</b>${s==='sub'?' <span class="lb no">subvention</span>':s==='spo'?' <span class="lb no">partenariat</span>':''}<textarea data-doc-k="${k}" rows="${k==='contact'?3:5}" maxlength="3000" placeholder="${esc(h)}">${esc(T[k]||'')}</textarea></label>`).join('')}
+    <div class="quick"><button class="btn primary" data-doc-save="1">Enregistrer</button><button class="btn" data-doc-cancel="1">Annuler</button></div></div>`;
+}
+function statDocHtml(){
+  docLoadCren(); if(!crEnsure()&&!DOC.crWait){ DOC.crWait=true; const t=setInterval(()=>{ if(CR.loaded){ clearInterval(t); DOC.crWait=false; docRefresh() } },400) }
+  const tools=`<button class="btn sm" data-doc-back="1">← Retour aux statistiques</button> `;
+  return licHead('Dossier de présentation du club',`Pour les demandes de subvention et la recherche de partenaires · saison ${SAISON}`,tools)
+    +`<div class="doctools"><select data-doc-type><option value="sub"${DOC.type==='sub'?' selected':''}>Demande de subvention (mairie, département, ANS…)</option><option value="spo"${DOC.type==='spo'?' selected':''}>Partenariat / sponsoring</option></select>
+      ${ROLE==='admin'&&!DOC.edit?'<button class="btn" data-doc-edit="1">✏️ Rédiger les textes</button>':''}<button class="btn primary" data-doc-pdf="1">📄 Télécharger en PDF</button>
+      <span class="hint">Aucun nom d’adhérent n’apparaît : seulement des chiffres d’ensemble.</span></div>
+    ${DOC.edit?docEditHtml():''}<div class="docpaper">${docBody(false)}</div>`;
+}
+document.addEventListener('change',ev=>{ const t=ev.target.closest&&ev.target.closest('[data-doc-type]'); if(!t) return; DOC.type=t.value; renderMain() });
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-stat-doc],[data-doc-back],[data-doc-edit],[data-doc-cancel],[data-doc-save],[data-doc-pdf]'); if(!t) return; const d=t.dataset;
+  if(d.statDoc){ STAT.doc=true; STAT.det=null; DOC.edit=false; renderMain(); window.scrollTo(0,0); return }
+  if(d.docBack){ STAT.doc=false; DOC.edit=false; renderMain(); return }
+  if(d.docEdit){ if(PARAM.ok===false){ toast('Lance d’abord migration-parametres.sql dans Supabase'); return } DOC.edit=true; renderMain(); window.scrollTo(0,0); return }
+  if(d.docCancel){ DOC.edit=false; renderMain(); return }
+  if(d.docPdf){ printPapers(`<div class="docpaper docprint">${docBody(true)}</div>`,`Dossier ${DOC.type==='sub'?'subvention':'partenariat'} - ${CLUB.nom||'club'} - ${SAISON}`); return }
+  if(d.docSave){ const v={...docTxt()}; document.querySelectorAll('[data-doc-k]').forEach(x=>{ const s=x.value.trim(); if(s) v[x.dataset.docK]=s.slice(0,3000); else delete v[x.dataset.docK] });
+    t.disabled=true;
+    try{ chk(await sb.from('parametres_club').upsert({club_id:CLUB.id,cle:'dossier',valeur:v,updated_at:new Date().toISOString()},{onConflict:'club_id,cle'}));
+      PARAM.vals={...(PARAM.vals||{}),dossier:v}; lsSet(paramCache(),PARAM.vals); DOC.edit=false; toast('Textes enregistrés'); renderMain() }
+    catch(e){ toast('Erreur : '+e.message); t.disabled=false } }
+});
 
 /* ---------- messages (e-mail et WhatsApp) ---------- */
 const COMM={aud:'all',grp:'',obj:'',msg:'',tpl:''};
