@@ -754,7 +754,17 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .barb:hover{background:#f2f4f7}.barx{color:var(--accent);font-weight:800;margin-left:4px}
 .moneyb{display:flex;flex-direction:column;align-items:flex-start;background:var(--bg);border:1px solid transparent;padding:9px 12px;border-radius:12px;cursor:pointer;font:inherit;color:inherit;text-align:left}.moneyb:hover{border-color:var(--accent)}
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
-.statgym{font-size:22px;line-height:28px;text-align:center;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.statmapl{height:520px}
+.statmaph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}.statmaph h3{margin:0}
+.statmf{display:flex;flex-wrap:wrap;gap:6px}.statmf select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff);font:inherit;font-size:13px}
+.statpin{display:flex!important;align-items:center;justify-content:center;border-radius:50%;background:rgba(91,95,199,.82);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-weight:800;font-size:13px;cursor:pointer}
+.statpin.on{background:rgba(245,158,11,.92)}
+.leaflet-tooltip.statlbl{background:rgba(255,255,255,.85);border:0;box-shadow:none;padding:0 4px;font-size:11px;font-weight:600;color:#2d3440}.leaflet-tooltip.statlbl:before{display:none}
+.leaflet-tooltip.statglbl{background:#14733a;color:#fff;border:0;font-weight:700;font-size:12px}.leaflet-tooltip.statglbl:before{border-top-color:#14733a}
+.statpop{font-size:13px;line-height:1.45;min-width:200px}.statpop .sph{font-size:15px;margin-bottom:2px}.statpop span{color:#6b7480}.statpop .spn{margin:3px 0}
+.statpop .spt{border-collapse:collapse;margin:4px 0}.statpop .spt td{padding:1px 6px 1px 0;font-size:12px;white-space:nowrap}.statpop .spt i{display:inline-block;height:8px;border-radius:4px}
+.statpop .btn{margin-top:6px}
 .ufcath{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ufcath h3{margin:0;flex:1}.ufsw{display:flex;gap:4px}
 .ufsw .btn.on,.ufarcs .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .ufarcs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
@@ -1658,7 +1668,7 @@ function renderMain(){
   const m=document.getElementById('main');
   if(UI.view==='home'){ m.innerHTML=renderHome(); return }
   if(UI.view==='pay'&&licPay()){ m.innerHTML=renderPay(); return }
-  if(UI.view==='stats'){ m.innerHTML=renderStats(); if(STAT.det) statMapDraw(); return }
+  if(UI.view==='stats'){ m.innerHTML=renderStats(); statMapDraw(); return }
   if(UI.view==='comm'){ m.innerHTML=renderComm(); return }
   if(UI.view==='param'){ m.innerHTML=renderParam(); return }
   if(UI.view==='uteams'){ m.innerHTML=renderUTeams(); return }
@@ -3438,7 +3448,7 @@ function assidFiche(gid){
 }
 
 /* ---------- statistiques ---------- */
-const STAT={hist:null,loading:false,club:null,det:null,map:null};
+const STAT={hist:null,loading:false,club:null,det:null,map:null,mf:{who:'gymnaste',age:'',fed:''}};
 async function statHist(){
   if(STAT.club!==(CLUB&&CLUB.id)){ STAT.club=CLUB&&CLUB.id; STAT.hist=null; STAT.loading=false }
   if(STAT.loading||STAT.hist!==null||!CLUB) return;
@@ -3484,14 +3494,14 @@ function renderStats(){
     hist=ss.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Saison</th><th>Licenciés</th><th>FFG</th><th>UFOLEP</th><th>Évolution</th></tr></thead><tbody>${ss.map((k,i)=>{ const d=i?by[k].all.size-by[ss[i-1]].all.size:null;
       return `<tr><td><b>${esc(k)}</b></td><td>${by[k].all.size}</td><td>${by[k].FFG.size}</td><td>${by[k].UFOLEP.size}</td><td>${d==null?'—':`<span class="lb ${d>0?'ok':d<0?'bad':'no'}">${d>0?'+':''}${d}</span>`}</td></tr>` }).join('')}</tbody></table></div><div class="hint">Nombre de licenciés ayant une licence FFG ou UFOLEP enregistrée pour la saison.</div>`:'<div class="empty">Aucune licence enregistrée.</div>';
   }
-  return licHead(T,sub,'<button class="btn sm" data-stat-det="all|" data-stat-lbl="Tous">🗺️ Carte des adhérents</button> <button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
-    +`<div class="hint" style="margin:-6px 0 10px">Clique sur une ligne (une tranche d’âge, un groupe, une commune…) pour voir le détail.</div><div class="tiles">${tiles}</div><div class="statg">
+  return licHead(T,sub,'<button class="btn sm" data-stat-csv="1" title="Liste des licenciés pour Excel">⤓ Exporter les licenciés (CSV)</button> ')
+    +`<div class="hint" style="margin:-6px 0 10px">Clique sur une ligne (une tranche d’âge, un groupe, une commune…) pour voir le détail.</div><div class="tiles">${tiles}</div>${statMapCard()}<div class="statg">
       <div class="card"><h3>Par tranche d’âge</h3>${bars(ageRows)}</div>
       <div class="card"><h3>Par fédération</h3>${bars(fedRows)}</div>
       ${LIC.fct?`<div class="card"><h3>Par rôle dans l’association</h3>${bars(FCT.map(([k,l,bg,fg])=>[l,S.gyms.filter(g=>fctHas(g.id,k)).length,fg,'role|'+k]).filter(r=>r[1]>0))}</div>`:''}
       ${grpRows.length?`<div class="card"><h3>Par groupe d’entraînement</h3>${bars(grpRows)}</div>`:''}
       ${eqRows.length?`<div class="card"><h3>Par équipe de compétition</h3>${bars(eqRows)}</div>`:''}
-      ${vilRows.length?`<div class="card"><h3>Par commune</h3>${bars(vilRows)}<button class="btn sm" data-stat-det="all|" data-stat-lbl="Tous" style="margin-top:8px">🗺️ Carte de toutes les communes</button></div>`:''}
+      ${vilRows.length?`<div class="card"><h3>Par commune</h3>${bars(vilRows)}</div>`:''}
       <div class="card"><h3>Dossiers</h3><div class="money"><button type="button" class="moneyb" data-stat-det="doss|ok" data-stat-lbl="Complets"><span>Complets</span><b>${comp}</b></button><button type="button" class="moneyb" data-stat-det="doss|todo" data-stat-lbl="À traiter"><span>À traiter</span><b>${n-comp}</b></button></div>
         <div class="pbar"><i style="width:${n?Math.round(100*comp/n):0}%;background:#2fa56a"></i></div><div class="hint">${n?Math.round(100*comp/n):0} % des dossiers sont complets.</div></div>
       <div class="card"><h3>Évolution d’une saison à l’autre</h3>${hist}</div></div>`;
@@ -3514,16 +3524,16 @@ const statFilter=(kind,key)=>g=>{ const inf=LIC.info[g.id]||{};
   return false };
 const statKindLbl={all:'Tous les adhérents',age:'Tranche d’âge',fed:'Fédération',role:'Rôle',grp:'Groupe d’entraînement',team:'Équipe de compétition',ville:'Commune',doss:'Dossiers'};
 /* géocodage des communes et des gymnases, gardé sur l'appareil */
-const GEO={c:null,busy:new Set()};
+const GEO={c:null,busy:{}};
 const geoCache=()=>GEO.c||(GEO.c=lsGet('fa-geo')||{});
 const geoKey=(q,cp)=>norm(q)+'|'+(cp||'');
 async function geoFind(q,cp,muni){
   const k=geoKey(q,cp)+(muni?'|m':''), c=geoCache(); if(c[k]!==undefined) return c[k];
-  if(GEO.busy.has(k)) return undefined; GEO.busy.add(k);
-  try{ const u='https://data.geopf.fr/geocodage/search?limit=1&q='+encodeURIComponent(q)+(cp?'&postcode='+encodeURIComponent(cp):'')+(muni?'&type=municipality':'');
+  if(GEO.busy[k]) return GEO.busy[k];
+  return GEO.busy[k]=(async()=>{ try{ const u='https://data.geopf.fr/geocodage/search?limit=1&q='+encodeURIComponent(q)+(cp?'&postcode='+encodeURIComponent(cp):'')+(muni?'&type=municipality':'');
     const r=await withTimeout(fetch(u).then(x=>x.json()),8000), f=r&&r.features&&r.features[0];
     c[k]=f?{lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],l:f.properties.label}:null; lsSet('fa-geo',c); return c[k] }
-  catch(e){ return undefined } finally{ GEO.busy.delete(k) }
+  catch(e){ return undefined } finally{ delete GEO.busy[k] } })();
 }
 const geoKm=(a,b)=>{ const R=6371, r=x=>x*Math.PI/180, dl=r(b.lat-a.lat), dn=r(b.lon-a.lon), h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)) };
 let LEAF=null;
@@ -3556,27 +3566,57 @@ function statDetHtml(){
     ${sub?`<div class="statg">${sub}</div>`:''}
     <div class="card"><h3>Adhérents (${gs.length})</h3>${gs.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Nom</th><th>Âge</th><th>Commune</th><th>Groupe(s)</th><th>Licence</th><th>Dossier</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Personne.</div>'}</div>`;
 }
+/* carte du club (page Statistiques) : filtres qui / âge / fédération */
+const statMf=()=>{ const f=STAT.mf; return g=>(f.who===''||fctHas(g.id,f.who)||(f.who==='gymnaste'&&!fctOf(g.id).length))&&(f.age===''||statFilter('age',f.age)(g))&&(f.fed===''||hasLic(g,f.fed)) };
+function statMapCard(){
+  const f=STAT.mf, o=(v,l,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(l)}</option>`;
+  const gs=S.gyms.filter(statMf()), sansV=gs.filter(g=>!((LIC.info[g.id]||{}).ville||'').trim()).length;
+  return `<div class="card"><div class="statmaph"><h3>🗺️ Carte du club : nombre de ${f.who==='gymnaste'?'gyms':'licenciés'} par ville</h3>
+    <div class="statmf"><select data-stat-mf="who">${o('gymnaste','Gymnastes','gymnaste'===f.who?f.who:'')}${o('','Tous les licenciés',f.who)}${FCT.filter(x=>x[0]!=='gymnaste').map(x=>o(x[0],x[1],f.who)).join('')}</select>
+    <select data-stat-mf="age">${o('','Tous les âges',f.age)}${AGE_B.map((b,i)=>o(String(i),b[0],f.age)).join('')}</select>
+    <select data-stat-mf="fed">${o('','FFG et UFOLEP',f.fed)}${o('FFG','Licence FFG',f.fed)}${o('UFOLEP','Licence UFOLEP',f.fed)}</select></div></div>
+    <div id="statMap" class="statmap statmapl"><div class="hint" style="padding:14px">Chargement de la carte…</div></div>
+    <div id="statDist"></div>
+    <div class="hint" style="margin-top:6px">${gs.length} personne(s) avec ces filtres${sansV?` · ${sansV} sans ville dans la fiche`:''}. Le chiffre dans chaque rond = nombre de personnes de la ville ; clique sur un rond pour voir les âges, les groupes et la distance au gymnase. 🏟️ = lieux d’entraînement (adresses : Paramètres › Listes › Adresses des gymnases).</div></div>`;
+}
+document.addEventListener('change',ev=>{ const t=ev.target.closest&&ev.target.closest('[data-stat-mf]'); if(!t) return; STAT.mf[t.dataset.statMf]=t.value; renderMain() });
+function statPop(v,G){
+  const gs=v.gs, ages=gs.map(ageOf).filter(a=>a!=null), moy=ages.length?(ages.reduce((a,b)=>a+b,0)/ages.length).toFixed(1).replace('.',','):null;
+  const nf=gs.filter(g=>(LIC.info[g.id]||{}).sexe==='F').length, nm=gs.filter(g=>(LIC.info[g.id]||{}).sexe==='M').length;
+  const tr=AGE_B.map(([l,a,b],i)=>[l,gs.filter(g=>{ const x=ageOf(g); return x!=null&&x>=a&&x<=b }).length,BAR_COLORS[i%BAR_COLORS.length]]).filter(r=>r[1]), mx=Math.max(1,...tr.map(r=>r[1]));
+  const gm={}; if(LIC.grp) gs.forEach(g=>licGroupes(g.id).forEach(x=>gm[x.nom]=(gm[x.nom]||0)+1));
+  const grp=Object.entries(gm).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  return `<div class="statpop"><div class="sph"><b>${esc(v.v)}</b>${v.cp?` <span>${esc(v.cp)}</span>`:''}</div>
+    <div class="spn"><b>${v.n}</b> ${v.n>1?'personnes':'personne'}${moy?` · âge moyen <b>${moy}</b> ans <span>(${Math.min(...ages)} à ${Math.max(...ages)} ans)</span>`:''}</div>
+    ${nf||nm?`<div class="spn">${nf} fille${nf>1?'s':''} · ${nm} garçon${nm>1?'s':''}</div>`:''}
+    ${tr.length?`<table class="spt">${tr.map(([l,n,c])=>`<tr><td>${esc(l)}</td><td><i style="width:${Math.round(60*n/mx)}px;background:${c}"></i></td><td>${n}</td></tr>`).join('')}</table>`:''}
+    ${grp.length?`<div class="spn"><span>Groupes :</span> ${grp.map(([l,n])=>`${esc(l)} (${n})`).join(', ')}</div>`:''}
+    ${G.length?`<div class="spn">${G.map(x=>`🏟️ ${esc(x.l)} : <b>${(d=>d<1?'< 1':Math.round(d))(geoKm(v.p,x.p))} km</b>`).join('<br>')}</div>`:''}
+    <button class="btn sm" data-stat-det="ville|${esc(v.k)}" data-stat-lbl="${esc(v.k)}">Voir la liste et le détail →</button></div>`;
+}
 /* carte : une pastille par commune (taille = nombre d'adhérents), un repère par lieu d'entraînement */
 async function statMapDraw(){
-  const el=document.getElementById('statMap'); if(!el||!STAT.det) return;
-  const {kind,key}=STAT.det, gs=S.gyms.filter(statFilter(kind,key));
-  const by={}; gs.forEach(g=>{ const inf=LIC.info[g.id]||{}, v=(inf.ville||'').trim(); if(!v) return; const k=v.toUpperCase(); (by[k]??={v,cp:(inf.code_postal||'').trim(),n:0}).n++ });
+  const el=document.getElementById('statMap'); if(!el) return;
+  const main=!STAT.det, {kind,key}=STAT.det||{kind:'all',key:''}, gs=S.gyms.filter(statFilter(kind,key)).filter(main?statMf():()=>true);
+  const by={}; gs.forEach(g=>{ const inf=LIC.info[g.id]||{}, v=(inf.ville||'').trim(); if(!v) return; const k=v.toUpperCase(); const o=(by[k]??={v,cp:(inf.code_postal||'').trim(),n:0,gs:[]}); o.n++; o.gs.push(g) });
   let Lf; try{ Lf=await leafLoad() }catch(e){ el.innerHTML='<div class="hint" style="padding:14px">Carte indisponible (pas de connexion ?).</div>'; return }
   const [vs,gy]=await Promise.all([Promise.all(Object.entries(by).map(async([k,o])=>({k,...o,p:await geoFind(o.v,o.cp,true)}))),
     Promise.all(LIEUX.map(async l=>({l,adr:GYM_ADR[l]||'',p:await geoFind(GYM_ADR[l]||l,'',!GYM_ADR[l])})))]);
   if(document.getElementById('statMap')!==el) return;
+  if(STAT.map){ try{ STAT.map.remove() }catch(e){} STAT.map=null }
   el.innerHTML=''; const map=Lf.map(el,{scrollWheelZoom:false}); STAT.map=map;
   Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© contributeurs OpenStreetMap'}).addTo(map);
-  const pts=[], mx=Math.max(1,...vs.map(v=>v.n));
-  vs.filter(v=>v.p).forEach(v=>{ const on=kind==='ville'&&v.k===key;
-    Lf.circleMarker([v.p.lat,v.p.lon],{radius:6+16*Math.sqrt(v.n/mx),color:on?'#b45309':'#3b3fa8',weight:2,fillColor:on?'#f59e0b':'#5b5fc7',fillOpacity:.55})
-      .bindTooltip(`${esc(v.v)} : ${v.n} adhérent${v.n>1?'s':''}`).on('click',()=>{ if(kind!=='ville'||v.k!==key){ STAT.det={kind:'ville',key:v.k,label:v.k}; renderMain(); window.scrollTo(0,0) } }).addTo(map); pts.push([v.p.lat,v.p.lon]) });
-  gy.filter(x=>x.p).forEach(x=>{ Lf.marker([x.p.lat,x.p.lon],{icon:Lf.divIcon({className:'statgym',html:'🏟️',iconSize:[28,28]})}).bindTooltip(`<b>${esc(x.l)}</b>${x.adr?'<br>'+esc(x.adr):' (centre-ville)'}`).addTo(map); pts.push([x.p.lat,x.p.lon]) });
+  const pts=[], mx=Math.max(1,...vs.map(v=>v.n)), G0=gy.filter(x=>x.p), lbl=vs.filter(v=>v.p).length<=18;
+  vs.filter(v=>v.p).sort((a,b)=>b.n-a.n).forEach(v=>{ const on=kind==='ville'&&v.k===key, z=Math.round(24+22*Math.sqrt(v.n/mx));
+    const mk=Lf.marker([v.p.lat,v.p.lon],{icon:Lf.divIcon({className:'statpin'+(on?' on':''),html:`<span>${v.n}</span>`,iconSize:[z,z]}),riseOnHover:true})
+      .bindTooltip(esc(v.v),{permanent:lbl,direction:'bottom',offset:[0,z/2-2],className:'statlbl'}).bindPopup(()=>statPop(v,G0),{maxWidth:280}).addTo(map); pts.push([v.p.lat,v.p.lon]) });
+  G0.forEach(x=>{ Lf.marker([x.p.lat,x.p.lon],{icon:Lf.divIcon({className:'statgym',html:'🏟️',iconSize:[30,30]}),zIndexOffset:1000}).bindTooltip(`<b>${esc(x.l)}</b>${x.adr?'<br>'+esc(x.adr):''}`,{permanent:true,direction:'top',offset:[0,-14],className:'statglbl'}).bindPopup(`<b>🏟️ ${esc(x.l)}</b><br>${x.adr?esc(x.adr):'Adresse non saisie : placé au centre de la commune (Paramètres › Listes › Adresses des gymnases).'}`).addTo(map); pts.push([x.p.lat,x.p.lon]) });
   if(pts.length) map.fitBounds(pts,{padding:[30,30],maxZoom:12}); else map.setView([49.62,3.22],10);
   const miss=vs.filter(v=>v.p===null).map(v=>v.v);
   /* distances : de la commune choisie (ou de chaque commune) aux lieux d'entraînement */
   const dEl=document.getElementById('statDist'), G=gy.filter(x=>x.p);
-  if(dEl&&G.length){ const list=(kind==='ville'?vs.filter(v=>v.k===key):vs).filter(v=>v.p).sort((a,b)=>b.n-a.n);
+  if(dEl&&main){ dEl.innerHTML=miss.length?`<div class="hint">Villes non trouvées sur la carte : ${miss.map(esc).join(', ')} (vérifie l’orthographe ou le code postal dans la fiche).</div>`:'' }
+  else if(dEl&&G.length){ const list=(kind==='ville'?vs.filter(v=>v.k===key):vs).filter(v=>v.p).sort((a,b)=>b.n-a.n);
     dEl.innerHTML=(list.length?`<div class="ltwrap" style="margin-top:10px"><table class="ltb"><thead><tr><th>Commune</th><th>Adhérents</th>${G.map(x=>`<th>→ ${esc(x.l)}</th>`).join('')}</tr></thead><tbody>${list.slice(0,25).map(v=>`<tr><td><b>${esc(v.v)}</b></td><td>${v.n}</td>${G.map(x=>{ const d=geoKm(v.p,x.p); return `<td>${d<1?'< 1':Math.round(d)} km</td>` }).join('')}</tr>`).join('')}</tbody></table></div>`:'')
       +(miss.length?`<div class="hint">Communes non trouvées : ${miss.map(esc).join(', ')} (vérifie l’orthographe ou le code postal dans la fiche).</div>`:'') }
 }
