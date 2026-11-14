@@ -1628,8 +1628,8 @@ const catName=c=>c==='12-15'?'12-15 ans':(CATS_A.find(x=>x[0]===c)||[0,'—'])[1
 const ageOf=g=>g.naissance?SY-(+g.naissance.slice(0,4)):null;
 const inCat=(c,a)=>({'10+':a>=10,'14+':a>=14,'10-15':a>=10&&a<=15,'12-15':a>=12&&a<=15,'10-13':a>=10&&a<=13,'10-11':a>=10&&a<=11})[c];
 // catégories individuelles Fédéral A par année d'âge (âge atteint dans l'année civile de fin de saison)
-const INDIV_CATS=['10-11 ans','12-13 ans','14-15 ans','16-17 ans','18 ans et +'];
-const indivCat=a=>a==null?'Date de naissance manquante':a<10?'Moins de 10 ans':a<=11?'10-11 ans':a<=13?'12-13 ans':a<=15?'14-15 ans':a<=17?'16-17 ans':'18 ans et +';
+const INDIV_CATS=['10-11 ans','12-13 ans','14-15 ans','16 ans et +'];
+const indivCat=a=>a==null?'Date de naissance manquante':a<10?'Moins de 10 ans':a<=11?'10-11 ans':a<=13?'12-13 ans':a<=15?'14-15 ans':'16 ans et +';
 const teamOf=g=>S.teams.find(t=>t.id===g.team);
 const byTeamName=(a,b)=>norm(a.name).localeCompare(norm(b.name));
 const hasTeam=g=>S.teams.some(t=>t.id===g.team);
