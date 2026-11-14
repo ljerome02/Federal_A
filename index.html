@@ -4454,6 +4454,7 @@ function crCompHtml(fed,cid){
   const already=new Set(rs.map(x=>x.g.id));
   const teamList=fed==='FFG'?S.teams.map(t=>[t.id,t.name]):(UF.eq||[]).map(t=>[t.id,t.nom+' ('+t.evolution+')']);
   const gymList=(fed==='FFG'?S.gyms:(typeof ufGyms==='function'?ufGyms():[])).filter(g=>!already.has(g.id)).sort(byName);
+  const asel=ind&&INDIV_CATS.includes(CR.agesel)?CR.agesel:'', gymShown=asel?gymList.filter(g=>indivCat(ageOf(g))===asel):gymList;
   const ageList=ind?INDIV_CATS.map(l=>[l,S.gyms.filter(g=>!already.has(g.id)&&g.compet!=='aucune'&&indivCat(ageOf(g))===l).length]):[];
   return `<div class="card"><div class="crbar"><button class="btn sm" data-cr-back="1">← Toutes les compétitions</button><div style="flex:1"></div>${ed?'<button class="btn sm" data-cr-del="1">Supprimer la compétition</button>':''}</div>
     <div class="lgrid" style="margin-top:10px"><label>Nom<input data-cr-c="nom" value="${esc(c.nom)}" ${dis}></label><label>Date<input type="date" data-cr-c="date_comp" value="${c.date_comp||''}" ${dis}></label>
@@ -4461,9 +4462,9 @@ function crCompHtml(fed,cid){
     <div class="card"><h3>${ind?'Résultats individuels':'Gymnastes engagées'} (${rs.length})</h3>
       ${ind?`<div class="hint" style="margin:-4px 0 8px">Compétition individuelle : chaque gymnaste concourt dans la catégorie de son année d’âge (âge atteint en ${SY}) : ${INDIV_CATS.join(', ')}.</div>`:''}
       <div class="hint" style="margin:-4px 0 8px">${fed==='FFG'?'Note = D + E − pénalités.':'Note = note de départ − fautes − pénalités.'} La note se calcule dès que ${L[1]} est saisi. Si tu n’as que la note finale, laisse ${L[1]} vide et saisis-la dans la dernière case.</div>
-      ${ed?`<div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px">${ind?`<select id="crAge" aria-label="Catégorie d’âge"><option value="">— Ajouter une catégorie d’âge —</option>${ageList.map(([l,n])=>`<option value="${esc(l)}" ${n?'':'disabled'}>Fédéral A ${esc(l)} (${n} gymnaste${n>1?'s':''})</option>`).join('')}</select><button class="btn sm" data-cr-addage="1">+ Catégorie</button>`
+      ${ed?`<div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px">${ind?`<select id="crAge" aria-label="Catégorie d’âge"><option value="">— Toutes les catégories d’âge —</option>${ageList.map(([l,n])=>`<option value="${esc(l)}" ${asel===l?'selected':''}>Fédéral A ${esc(l)} (${n} gymnaste${n>1?'s':''})</option>`).join('')}</select><button class="btn sm" data-cr-addage="1" ${asel?'':'disabled'} title="Ajouter toutes les gymnastes de cette catégorie">+ Toute la catégorie</button>`
           :`<select id="crTeam" aria-label="Équipe"><option value="">— Ajouter une équipe —</option>${teamList.map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join('')}</select><button class="btn sm" data-cr-addteam="1">+ Équipe</button>`}
-        <select id="crGym" aria-label="Gymnaste"><option value="">— Ajouter une gymnaste —</option>${gymList.map(g=>`<option value="${g.id}">${esc(gymName(g))}${ind?` — ${esc(indivCat(ageOf(g)))}`:''}</option>`).join('')}</select><button class="btn sm" data-cr-addgym="1">+ Gymnaste</button>
+        <select id="crGym" aria-label="Gymnaste"><option value="">— Ajouter une gymnaste${asel?' ('+esc(asel)+')':''} —</option>${gymShown.map(g=>`<option value="${g.id}">${esc(gymName(g))}${ind?` — ${esc(indivCat(ageOf(g)))}`:''}</option>`).join('')}</select><button class="btn sm" data-cr-addgym="1">+ Gymnaste</button>
         ${rs.length?`<button class="btn sm" data-cr-prefill="1" title="Recopie dans ${L[0]} la note de départ calculée par l’application, quand ${L[0]} est vide">Pré-remplir ${L[0]}</button>`:''}</div>`:''}
       ${tables||`<div class="empty">${ind?'Ajoute les gymnastes engagées (par catégorie d’âge ou une par une).':'Ajoute les gymnastes engagées (par équipe ou une par une).'}</div>`}</div>
     ${teams.length?`<div class="card"><h3>Classement des équipes</h3><div class="ltwrap"><table class="ltb"><thead><tr><th>Équipe</th><th>Total</th><th>Rang / équipes classées</th></tr></thead><tbody>${teams.map(eqRow).join('')}</tbody></table></div></div>`:''}`;
@@ -4563,6 +4564,7 @@ document.addEventListener('change',async ev=>{
   const t=ev.target, d=t.dataset; if(!t.closest||!t.closest('#main')) return;
   const fed=crFed(), cid=CR.sel[fed];
   if(t.id==='crGsel'){ CR.gsel[fed]=t.value; renderMain(); return }
+  if(t.id==='crAge'){ CR.agesel=t.value; renderMain(); return }
   if(!crEdit()) return;
   if(d.crForm){ const c=CR.comps.find(x=>x.id===cid), v=t.value, rs=crResOf(cid);
     if(rs.length&&!confirm(`Passer en « ${CR_FORM[v]} » ? Les catégories des ${rs.length} gymnaste(s) seront recalculées (${v==='indiv'?'selon leur année d’âge, sans équipe':'selon leur équipe'}). Les notes sont conservées.`)){ t.value=crForm(c); return }
