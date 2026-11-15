@@ -13,7 +13,7 @@
 --
 -- Tables :
 --   cv_acces       : comptes autorisés à voir et gérer le covoiturage ;
---   cv_config      : groupes fusionnés, lieu de départ habituel, seuils d'alerte ;
+--   cv_config      : groupes fusionnés, lieux de départ (et celui de chaque gym), seuils d'alerte ;
 --   cv_conducteurs : conducteurs, places, enfants ou gym liée ;
 --   cv_sorties     : déplacements (date, lieu, horaires, départ commun) ;
 --   cv_reponses    : oui / non par gym, et sa voiture à l'aller et au retour ;
@@ -59,8 +59,12 @@ create table if not exists public.cv_config (
   rdv_lieu    text check (rdv_lieu is null or char_length(rdv_lieu) <= 120),  -- lieu de départ habituel
   seuil_sans  smallint not null default 3 check (seuil_sans between 1 and 20),   -- alerte : déplacements sans conduire
   seuil_jours smallint not null default 14 check (seuil_jours between 1 and 120), -- alerte : jours entre deux covoiturages
+  lieux       text[] not null default '{}',              -- lieux de départ possibles
+  depart_gyms jsonb not null default '{}'::jsonb,        -- lieu de départ de chaque gym { id : lieu }
   updated_at  timestamptz not null default now()
 );
+alter table public.cv_config add column if not exists lieux text[] not null default '{}';
+alter table public.cv_config add column if not exists depart_gyms jsonb not null default '{}'::jsonb;
 
 create table if not exists public.cv_conducteurs (
   id          uuid primary key default gen_random_uuid(),
