@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Présence et covoiturage</title>
+<style>
+:root{--bg:#f3f5f7;--panel:#fff;--ink:#1f2328;--muted:#66707a;--line:#e2e6ea;--head:#3f4042;--accent:#00a3bd;--accent-ink:#00788b;--accent-soft:#e3f5f8;--warn:#b35c00;--warn-soft:#fff3e2;--ok:#1a7f37;--ok-soft:#e6f4ea;--bad:#b42318;--bad-soft:#fdecea}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding-bottom:40px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+header{background:var(--head);color:#fff;padding:14px 16px}
+header .club{font-size:13px;color:#7fe0ef;font-weight:600;letter-spacing:.02em}
+header h1{font-size:19px;margin:2px 0 0}
+main{max-width:640px;margin:0 auto;padding:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+h2{font-size:16px;margin:18px 2px 8px}
+h3{font-size:16px;margin:0 0 6px}
+.sess{background:var(--accent-soft);border-color:#bfe6ee;color:var(--accent-ink)}
+.sess b{color:var(--ink)}
+.sess .l{display:flex;gap:8px;margin:2px 0}
+.note{margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff;color:var(--ink);white-space:pre-wrap}
+.hint{color:var(--muted);font-size:13.5px}
+.ban{padding:10px 12px;border-radius:10px;margin:0 0 12px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+.ban.bad{background:var(--bad-soft);color:var(--bad)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 14px;min-height:44px;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{min-height:36px;padding:6px 10px;font-size:14px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn[disabled]{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;min-height:40px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.seg button{border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px 8px;font-weight:700;min-height:50px}
+.seg button.on.yes{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.seg button.on.no{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.trj{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+.trj .t{font-weight:700;margin-bottom:4px}
+.opt{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer}
+.opt input{width:20px;height:20px;margin:0;accent-color:var(--accent)}
+.st{display:inline-block;border-radius:10px;padding:2px 10px;font-size:13.5px;font-weight:600;margin-top:4px}
+.st.ok{background:var(--ok-soft);color:var(--ok)}.st.warn{background:var(--warn-soft);color:var(--warn)}.st.no{background:var(--bg);color:var(--muted)}.st.bad{background:var(--bad-soft);color:var(--bad)}
+.car .who{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.car .who b{font-size:17px}
+.car .meta{margin:4px 0}
+.car .seats{margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:14.5px}
+.car .seats div+div{margin-top:4px}
+.car.mine{border-color:var(--accent)}
+.full{color:var(--bad);font-weight:600}.free{color:var(--ok);font-weight:600}
+form label{display:block;font-size:13.5px;font-weight:600;margin:10px 0 4px}
+form input,form select,form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:44px}
+form .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{font-weight:600;white-space:nowrap}
+details summary{cursor:pointer;font-weight:700;padding:4px 0}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1f2328;color:#fff;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:92vw;text-align:center;z-index:9}
+#toast.on{opacity:1}
+.foot{color:var(--muted);font-size:12.5px;text-align:center;margin:18px 8px 0}
+</style>
+</head>
+<body>
+<header><div class="club" id="hClub">Club</div><h1>Présence et covoiturage</h1></header>
+<main id="main"><div class="card">Chargement…</div></main>
+<div id="toast" role="status"></div>
+<script>
+/* Page des familles : présence à une séance délocalisée et covoiturage.
+   Ouverte sans compte, grâce au lien secret (?t=…) envoyé par le club.
+   Elle n'appelle que les fonctions covoit_public_* (voir migration-covoiturage.sql). */
+const SB_URL='https://bplpdhzafydubfdzolbj.supabase.co', SB_KEY='sb_publishable_C_YxlRfovhyQzbd6ulZzkQ_Rm4M72BP';
+const T=new URLSearchParams(location.search).get('t')||'';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const lsGet=k=>{ try{ return JSON.parse(localStorage.getItem(k)) }catch(e){ return null } };
+const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} };
+const K=n=>'covoit-'+n+'-'+T.slice(0,16);
+let D=null, ERR='', BUSY=false;
+let MINE=lsGet(K('enfants'))||[], CLES=lsGet(K('cles'))||{}, PICK=false, FORM=null;
+const SENS={aller_retour:'Aller et retour',aller:'Aller seulement',retour:'Retour seulement'};
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2600) }
+async function rpc(fn,args){
+  let r;
+  try{ r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(args)}) }
+  catch(e){ throw new Error('Pas de connexion : réessayez dans un instant.') }
+  const j=await r.json().catch(()=>null);
+  if(!r.ok) throw new Error((j&&j.message)||'Une erreur est survenue.');
+  return j;
+}
+async function act(fn,args,ok){
+  if(BUSY) return false; BUSY=true;
+  try{ const j=await rpc(fn,{p_token:T,...args}); D=j&&j.etat?j.etat:j; if(j&&j.etat&&j.cle){ CLES[j.id]=j.cle; lsSet(K('cles'),CLES) } BUSY=false; render(); if(ok) toast(ok); return true }
+  catch(e){ BUSY=false; toast(e.message); load(true); return false }
+}
+async function load(silent){
+  if(!T){ ERR='Ce lien est incomplet. Demandez le lien de covoiturage à l’entraîneur.'; render(); return }
+  try{ D=await rpc('covoit_public_voir',{p_token:T}); ERR='' }
+  catch(e){ if(!D||!silent) ERR=e.message }
+  if(D){ const ids=new Set(D.gyms.map(g=>g.id)); MINE=MINE.filter(i=>ids.has(i)) }
+  if(!(silent&&(FORM||document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))) render();
+}
+
+const gymOf=id=>D.gyms.find(g=>g.id===id)||{nom:'?'};
+const repOf=id=>D.reponses.find(r=>r.l===id)||null;
+const first=id=>gymOf(id).nom.replace(/\s+\S+\.$/,'')||gymOf(id).nom;
+const carHas=(v,d)=>v.sens==='aller_retour'||v.sens===d;
+const taken=(v,d)=>v.passagers.filter(p=>d==='aller'?p.a:p.r).length;
+const seatOf=(id,d)=>D.voitures.find(v=>v.passagers.some(p=>p.l===id&&(d==='aller'?p.a:p.r)))||null;
+const longDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+const locked=()=>!D.ouvert||D.passee||D.annulee;
+const dirLbl=ds=>ds.length===2?'aller et retour':ds[0];
+
+function seatLine(id,d){
+  const r=repOf(id); if(!r||r.s!=='present') return '';
+  if(!(d==='aller'?r.a:r.r)) return '<span class="st no">Avec sa famille</span>';
+  const v=seatOf(id,d);
+  return v?`<span class="st ok">🚗 Place réservée avec ${esc(v.conducteur)}${v.rdv_heure&&d==='aller'?' · départ '+esc(v.rdv_heure):''}</span>`
+    :'<span class="st warn">⚠ Pas encore de place : choisissez une voiture plus bas</span>';
+}
+function childCard(id){
+  const g=gymOf(id), r=repOf(id), lk=locked(), dis=lk?'disabled':'';
+  const trj=(d,lbl)=>{ const need=r&&(d==='aller'?r.a:r.r);
+    return `<div class="trj"><div class="t">${lbl}</div>
+      <label class="opt"><input type="radio" name="${d}-${id}" data-need="${id}|${d}|0" ${need?'':'checked'} ${dis}> Je l’emmène moi-même</label>
+      <label class="opt"><input type="radio" name="${d}-${id}" data-need="${id}|${d}|1" ${need?'checked':''} ${dis}> Il lui faut une place en voiture</label>
+      ${seatLine(id,d)}</div>` };
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h3>${esc(g.nom)}</h3><button class="btn sm ghost" data-unmine="${id}" title="Ce n’est pas mon enfant" aria-label="Retirer">✕</button></div>
+    <div class="seg"><button class="yes ${r&&r.s==='present'?'on':''}" data-rep="${id}|present" ${dis}>✅ Sera présente</button><button class="no ${r&&r.s==='absent'?'on':''}" data-rep="${id}|absent" ${dis}>❌ Sera absente</button></div>
+    ${!r?'<div class="hint">Merci d’indiquer si elle sera là.</div>':''}
+    ${r&&r.s==='present'?trj('aller','Aller')+trj('retour','Retour'):''}
+    ${r&&r.s==='absent'?'<div class="st bad">Absence signalée à l’entraîneur</div>':''}</div>`;
+}
+function carCard(v){
+  const mine=!!CLES[v.id], lk=locked();
+  const line=d=>{ if(!carHas(v,d)) return ''; const n=taken(v,d), left=v.places-n, names=v.passagers.filter(p=>d==='aller'?p.a:p.r).map(p=>esc(gymOf(p.l).nom));
+    return `<div><b>${d==='aller'?'Aller':'Retour'}</b> : ${left>0?`<span class="free">${left} place${left>1?'s':''} libre${left>1?'s':''}</span>`:'<span class="full">complet</span>'} sur ${v.places}${names.length?' · '+names.join(', '):''}</div>` };
+  const btns=lk?'':MINE.map(id=>{ const r=repOf(id); if(!r||r.s!=='present') return '';
+    const here=v.passagers.find(p=>p.l===id);
+    if(here) return `<button class="btn sm" data-leave="${v.id}|${id}">Libérer la place de ${esc(first(id))}</button>`;
+    const ds=['aller','retour'].filter(d=>(d==='aller'?r.a:r.r)&&carHas(v,d)&&taken(v,d)<v.places); if(!ds.length) return '';
+    const fresh=ds.filter(d=>!seatOf(id,d));
+    return fresh.length?`<button class="btn sm primary" data-take="${v.id}|${id}|${fresh.join(',')}">Réserver pour ${esc(first(id))} (${dirLbl(fresh)})</button>`
+      :`<button class="btn sm" data-take="${v.id}|${id}|${ds.join(',')}">Changer ${esc(first(id))} pour cette voiture (${dirLbl(ds)})</button>` }).join('');
+  return `<div class="card car ${mine?'mine':''}"><div class="who"><b>🚗 ${esc(v.conducteur)}</b><span class="hint">${SENS[v.sens]}</span>${mine?'<span class="st ok">Votre voiture</span>':''}</div>
+    ${v.rdv_lieu||v.rdv_heure?`<div class="meta">📍 Rendez-vous${v.rdv_lieu?' : <b>'+esc(v.rdv_lieu)+'</b>':''}${v.rdv_heure?' à <b>'+esc(v.rdv_heure)+'</b>':''}</div>`:''}
+    ${v.telephone?`<div class="meta">📞 <a href="tel:${esc(v.telephone.replace(/[^+\d]/g,''))}">${esc(v.telephone)}</a></div>`:''}
+    ${v.note?`<div class="meta hint">${esc(v.note)}</div>`:''}
+    <div class="seats">${line('aller')}${line('retour')}</div>
+    <div class="row">${btns}${mine&&!lk?`<button class="btn sm" data-edit="${v.id}">Modifier</button><button class="btn sm ghost" data-del="${v.id}">Retirer ma voiture</button>`:''}</div></div>`;
+}
+function carForm(){
+  const v=FORM.id?D.voitures.find(x=>x.id===FORM.id)||{}:{conducteur:lsGet('covoit-nom')||'',telephone:lsGet('covoit-tel')||'',places:3,sens:'aller_retour'};
+  return `<form class="card" id="fCar" autocomplete="on"><h3>${FORM.id?'Modifier ma voiture':'Je propose des places'}</h3>
+    <label>Votre nom<input name="c" required maxlength="60" value="${esc(v.conducteur||'')}" placeholder="Ex. Mme Martin (maman d’Alice)" autocomplete="name"></label>
+    <label>Téléphone <span class="hint">(facultatif, visible des familles du groupe)</span><input name="t" type="tel" maxlength="30" value="${esc(v.telephone||'')}" autocomplete="tel"></label>
+    <div class="two"><label>Places proposées<select name="p">${[1,2,3,4,5,6,7,8].map(n=>`<option ${+v.places===n?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label>Trajet<select name="s">${Object.keys(SENS).map(k=>`<option value="${k}" ${v.sens===k?'selected':''}>${SENS[k]}</option>`).join('')}</select></label></div>
+    <div class="hint" style="margin-top:4px">Places pour les autres gyms, sans compter vos enfants.</div>
+    <div class="two"><label>Lieu de rendez-vous<input name="l" maxlength="120" value="${esc(v.rdv_lieu||'')}" placeholder="Ex. parking du gymnase"></label>
+      <label>Heure de départ<input name="h" type="time" value="${esc(v.rdv_heure||'')}"></label></div>
+    <label>Remarque <span class="hint">(facultatif)</span><input name="n" maxlength="300" value="${esc(v.note||'')}" placeholder="Ex. retour vers 12 h 30, rehausseur disponible"></label>
+    <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">${FORM.id?'Enregistrer':'Proposer ma voiture'}</button><button class="btn" type="button" data-cancel="1">Annuler</button></div></form>`;
+}
+function recap(){
+  const rows=D.gyms.map(g=>{ const r=repOf(g.id);
+    const tr=d=>{ if(!(d==='aller'?r.a:r.r)) return 'avec sa famille'; const v=seatOf(g.id,d); return v?'🚗 '+esc(v.conducteur):'<span class="full">à placer</span>' };
+    return `<tr><td>${esc(g.nom)}</td><td>${!r?'<span class="hint">pas de réponse</span>':r.s==='absent'?'<span class="full">absente</span>':`<span class="free">présente</span><div class="hint">Aller : ${tr('aller')} · Retour : ${tr('retour')}</div>`}</td></tr>` }).join('');
+  const n=s=>D.reponses.filter(r=>r.s===s).length;
+  return `<details class="card"><summary>Tout le groupe : ${n('present')} présente(s), ${n('absent')} absente(s), ${D.gyms.length-D.reponses.length} sans réponse</summary><table>${rows}</table></details>`;
+}
+function render(){
+  const m=document.getElementById('main');
+  if(!D){ m.innerHTML=`<div class="ban bad">${esc(ERR||'Chargement…')}</div><button class="btn" data-reload="1">Réessayer</button>`; return }
+  document.getElementById('hClub').textContent=D.club||'Club';
+  document.title='Covoiturage – '+(D.intitule||D.groupe)+' – '+D.date.split('-').reverse().join('/');
+  const lk=locked(), others=D.gyms.filter(g=>!MINE.includes(g.id));
+  const sess=`<div class="card sess"><h3 style="color:var(--ink)">${D.intitule?esc(D.intitule)+' · ':''}${esc(D.groupe)}</h3>
+    <div class="l">🗓 <span><b>${esc(longDate(D.date))}</b>${D.debut?' · de '+esc(D.debut)+(D.fin?' à '+esc(D.fin):''):''}</span></div>
+    ${D.lieu?`<div class="l">📍 <b>${esc(D.lieu)}</b></div>`:''}${D.note?`<div class="note">${esc(D.note)}</div>`:''}</div>`;
+  const ban=D.annulee?'<div class="ban bad">Cette séance est annulée.</div>':D.passee?'<div class="ban">Cette séance est passée.</div>':!D.ouvert?'<div class="ban">Les réponses sont fermées. Pour un changement, contactez l’entraîneur.</div>':'';
+  const pick=(!MINE.length||PICK)&&!lk?`<div class="card"><h3>${MINE.length?'Ajouter un enfant':'Qui est votre enfant ?'}</h3><div class="chips">${others.map(g=>`<button class="chip" data-mine="${g.id}">${esc(g.nom)}</button>`).join('')||'<span class="hint">Tous les enfants du groupe sont déjà sélectionnés.</span>'}</div>${MINE.length?'<div style="margin-top:10px"><button class="btn sm" data-pick="0">Terminé</button></div>':'<div class="hint" style="margin-top:8px">Touchez son prénom. Si vous avez plusieurs enfants dans ce groupe, vous pourrez en ajouter.</div>'}</div>`:'';
+  const kids=MINE.map(childCard).join('')+(MINE.length&&!PICK&&!lk&&others.length?'<button class="btn sm ghost" data-pick="1">＋ J’ai un autre enfant dans ce groupe</button>':'');
+  const cars=D.voitures.map(carCard).join('')||'<div class="card hint">Aucune voiture proposée pour l’instant.</div>';
+  const add=lk?'':FORM?carForm():'<button class="btn primary" data-add="1" style="width:100%">＋ Je propose des places dans ma voiture</button>';
+  m.innerHTML=ban+sess+(ERR?`<div class="ban bad">${esc(ERR)}</div>`:'')+pick+kids+`<h2>Voitures (${D.voitures.length})</h2>`+cars+add+'<h2>Récapitulatif</h2>'+recap()
+    +'<div class="foot">Page réservée aux familles du groupe : merci de ne pas partager ce lien.<br>Seuls le prénom et l’initiale du nom des enfants sont affichés.</div>';
+}
+
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest('button'); if(!t) return; const d=t.dataset;
+  if(d.reload){ load(); return }
+  if(d.mine){ MINE.push(d.mine); lsSet(K('enfants'),MINE); PICK=false; render(); return }
+  if(d.unmine){ MINE=MINE.filter(i=>i!==d.unmine); lsSet(K('enfants'),MINE); render(); return }
+  if(d.pick){ PICK=d.pick==='1'; render(); return }
+  if(d.add){ FORM={id:null}; render(); document.getElementById('fCar').scrollIntoView({behavior:'smooth',block:'start'}); return }
+  if(d.edit){ FORM={id:d.edit}; render(); document.getElementById('fCar').scrollIntoView({behavior:'smooth',block:'start'}); return }
+  if(d.cancel){ FORM=null; render(); return }
+  if(d.rep){ const [id,s]=d.rep.split('|'), r=repOf(id);
+    await act('covoit_public_repondre',{p_licencie:id,p_statut:s,p_aller:r&&r.s==='present'?r.a:true,p_retour:r&&r.s==='present'?r.r:true,p_commentaire:null},s==='present'?'Présence enregistrée':'Absence enregistrée'); return }
+  if(d.take){ const [v,id,ds]=d.take.split('|'), car=D.voitures.find(x=>x.id===v), cur=car&&car.passagers.find(p=>p.l===id)||{};
+    await act('covoit_public_place',{p_voiture:v,p_licencie:id,p_aller:!!cur.a||ds.includes('aller'),p_retour:!!cur.r||ds.includes('retour')},'Place réservée'); return }
+  if(d.leave){ const [v,id]=d.leave.split('|'); await act('covoit_public_place',{p_voiture:v,p_licencie:id,p_aller:false,p_retour:false},'Place libérée'); return }
+  if(d.del){ const car=D.voitures.find(x=>x.id===d.del);
+    if(!confirm(car&&car.passagers.length?'Retirer votre voiture ? Les enfants qui y avaient une place devront en trouver une autre.':'Retirer votre voiture ?')) return;
+    if(await act('covoit_public_voiture_suppr',{p_id:d.del,p_cle:CLES[d.del]},'Voiture retirée')){ delete CLES[d.del]; lsSet(K('cles'),CLES) } }
+});
+document.addEventListener('change',async ev=>{
+  const n=ev.target.dataset&&ev.target.dataset.need; if(!n) return;
+  const [id,dir,val]=n.split('|'), r=repOf(id)||{a:true,r:true};
+  await act('covoit_public_repondre',{p_licencie:id,p_statut:'present',p_aller:dir==='aller'?val==='1':r.a,p_retour:dir==='retour'?val==='1':r.r,p_commentaire:null},'Enregistré');
+});
+document.addEventListener('submit',async ev=>{
+  if(ev.target.id!=='fCar') return; ev.preventDefault();
+  const f=ev.target, v=n=>f.elements[n].value.trim();
+  lsSet('covoit-nom',v('c')); lsSet('covoit-tel',v('t'));
+  const id=FORM.id;
+  if(await act('covoit_public_voiture',{p_id:id,p_cle:id?CLES[id]:null,p_conducteur:v('c'),p_telephone:v('t'),p_places:+v('p'),p_sens:v('s'),p_rdv_lieu:v('l'),p_rdv_heure:v('h'),p_note:v('n')},id?'Voiture modifiée':'Merci ! Votre voiture est proposée')){ FORM=null; render() }
+});
+setInterval(()=>{ if(document.visibilityState==='visible'&&D&&!BUSY) load(true) },30000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&D&&!BUSY) load(true) });
+load();
+</script>
+</body>
+</html>

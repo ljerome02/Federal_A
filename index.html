@@ -830,6 +830,25 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .gchip{border:0;padding:3px 10px;cursor:pointer;font-size:12.5px}
 .gchip:hover{filter:brightness(.95);text-decoration:underline}
 @media (max-width:700px){.gplan{grid-template-columns:1fr}.ltb select{max-width:130px}}
+/* ---- covoiturage ---- */
+.cvrow{margin-bottom:10px}.cvrow.pend{border-color:var(--accent)}
+.cvh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.cvw{color:var(--muted);font-size:13px;margin-top:2px}.cvc{margin:8px 0 0}
+.cvlink{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.cvlink a{text-decoration:none}
+.cvlink input{flex:1 1 260px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg);font-size:13px}
+.cvnote{margin-top:10px}.cvnote label{display:block;font-size:12.5px;font-weight:600}
+.cvnote textarea{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin:4px 0 8px;font:inherit;background:#fff}
+.cvt select{border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:#fff;max-width:190px}
+.cvt select.cvneed{border-color:var(--warn);background:var(--warn-soft);color:var(--warn);font-weight:600}
+.cvt select.cvrep.present{background:var(--ok-soft);color:var(--ok);font-weight:600}.cvt select.cvrep.absent{background:#fdecea;color:var(--bad);font-weight:600}
+.cvcar{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
+.cvseats{margin-top:6px;font-size:13px;display:grid;gap:2px}
+.cvform{border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--accent-soft)}
+.cvf{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}.cvf label{font-size:12px;color:var(--muted)}.cvf .w2{grid-column:span 2}.cvf .w3{grid-column:span 3}
+.cvf input,.cvf select{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font-size:14px}
+.cvpre{white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;margin:10px 0 6px;max-height:260px;overflow:auto}
+.cvpast{margin-top:16px}.cvpast summary{cursor:pointer;font-weight:600;color:var(--muted);margin-bottom:8px}
+@media (max-width:700px){.cvf{grid-template-columns:1fr 1fr}.cvf .w3,.cvf .w2{grid-column:span 2}.cvt select{max-width:132px}}
 </style>
 </head>
 <body>
@@ -2604,9 +2623,9 @@ function renderPres(){
   const head=`<div class="gymhead"><div><h2 class="name">Groupes</h2><div class="meta">Saison ${SAISON} · horaires, lieux, adhérents et présences · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
   if(!PRES.loaded) return head+'<div class="empty">Chargement…</div>';
   if(PRES.err) return head+`<div class="warn" style="margin-bottom:12px">⚠ ${esc(PRES.err)}<br><span class="hint">Si les tables n’existent pas encore, exécutez le script <b>migration-presences.sql</b> dans Supabase (SQL Editor), puis cliquez sur « Actualiser ».</span></div>`;
-  const tabs=[['planning','Planning'],['rotations','Rotations'],['liste','Liste'],['pointage','Pointage'],['assiduite','Assiduité'],['groupes','Gérer les groupes']];
-  return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`+(PRES.tab==='assiduite'?'':presVacBanner())
-    +(PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():PRES.tab==='liste'?presPlanningHtml():PRES.tab==='rotations'?presRotHtml():presWeekHtml());
+  const tabs=[['planning','Planning'],['rotations','Rotations'],['liste','Liste'],['pointage','Pointage'],['assiduite','Assiduité'],['covoit','Covoiturage'],['groupes','Gérer les groupes']];
+  return head+`<div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PRES.tab===k?'on':''}" data-pres-tab="${k}">${l}</button>`).join('')}</div>`+(PRES.tab==='assiduite'||PRES.tab==='covoit'?'':presVacBanner())
+    +(PRES.tab==='covoit'?covHtml():PRES.tab==='groupes'?presGroupesHtml():PRES.tab==='assiduite'?presAssiduiteHtml():PRES.tab==='pointage'?presPointageHtml():PRES.tab==='liste'?presPlanningHtml():PRES.tab==='rotations'?presRotHtml():presWeekHtml());
 }
 
 
@@ -2874,7 +2893,8 @@ function wkMenu(gid,iso,cid,anchor){
       ${ed&&PRES.sx?(an?`<button type="button" class="btn sm" data-wp="restore" data-k="${gid}|${iso}|${cid}">↩ Rétablir la séance</button>`
         :c.type==='ponctuel'?`<button type="button" class="btn sm" data-wp="delete" data-k="${gid}|${iso}|${cid}">🗑 Supprimer cette séance</button>`
         :`<button type="button" class="btn sm" data-wp="cancel" data-k="${gid}|${iso}|${cid}">🚫 Annuler cette séance (ce jour-là seulement)</button>`):''}
-      ${ed&&!an&&PRES.cr?`<button type="button" class="btn sm" data-wp="lieu" data-k="${gid}|${iso}|${cid}">📍 Changer le lieu</button>`:''}</div>
+      ${ed&&!an&&PRES.cr?`<button type="button" class="btn sm" data-wp="lieu" data-k="${gid}|${iso}|${cid}">📍 Changer le lieu</button>`:''}
+      ${!an&&PRES.cr?`<button type="button" class="btn sm" data-cov-go="${gid}|${iso}|${cid}">🚗 Covoiturage</button>`:''}</div>
     <form id="fLieu" data-k="${gid}|${iso}|${cid}" hidden autocomplete="off" class="flieu"><label>Nouveau lieu<input name="l" list="lieuxList" value="${esc(lieu)}" required></label>
       <div class="flp">${c.type==='ponctuel'?'<input type="hidden" name="p" value="tout">':`${PRES.exo?`<label class="cbx"><input type="radio" name="p" value="jour" checked> Ce jour-là seulement (${esc(longDate(iso))})</label>`:''}<label class="cbx"><input type="radio" name="p" value="tout" ${PRES.exo?'':'checked'}> Toutes les séances de ce créneau (${c.type==='vacances'?'pendant les vacances':'chaque '+esc(PRES_JOURS[c.jour].toLowerCase())})</label>`}</div>
       ${exl?`<button type="button" class="btn sm ghost" data-wp="lieuraz" data-k="${gid}|${iso}|${cid}">↩ Revenir au lieu habituel ce jour-là</button>`:''}
@@ -2942,6 +2962,257 @@ document.addEventListener('submit',async ev=>{
   try{ chk(await sb.from('groupe_creneaux').insert({id:uid(),club_id:CLUB.id,groupe_id:v('g'),type:'ponctuel',date:dt,jour:isoDow(dt),heure_debut:v('h'),heure_fin:v('f'),lieu:v('l')||null,...(PRES.lb?{libelle:(f.elements.n&&v('n'))||null}:{})}));
     popClose(); PRES.week=mondayOf(dt); PRES.loaded=false; await presLoad(); renderMain(); toast('Séance ajoutée') }
   catch(e){ toast('Erreur : '+e.message) }
+});
+
+
+/* ================= PRÉSENTS ET COVOITURAGE (ENTRAÎNEMENTS DÉLOCALISÉS) ================= */
+/* Onglet Groupes > Covoiturage : pour une séance qui n'a pas lieu au lieu habituel du club,
+   on ouvre un covoiturage. Un lien secret est créé : les parents y répondent sans compte
+   (page covoiturage.html) — présent(e) ou absent(e), besoin d'une place, voiture proposée.
+   L'entraîneur voit les réponses, répartit les gyms dans les voitures et partage la feuille.
+   Tables et fonctions : voir migration-covoiturage.sql. Connexion nécessaire. */
+const covNew=()=>({loaded:false,loading:false,ok:null,err:'',club:null,sorties:[],rep:[],voit:[],pas:[],sel:null,pend:null,car:null});
+let COV=covNew();
+const COV_SENS={aller_retour:'Aller et retour',aller:'Aller seulement',retour:'Retour seulement'};
+const COV_HORIZON=120; // jours à venir affichés
+const covOf=(cid,iso)=>COV.sorties.find(s=>s.creneau_id===cid&&s.date===iso)||null;
+const covUrl=so=>new URL('covoiturage.html?t='+so.token,location.href.split(/[?#]/)[0]).href;
+const covShort=g=>`${g.prenom||''} ${g.nom?String(g.nom).trim().charAt(0).toUpperCase()+'.':''}`.trim()||'Sans nom';
+const covHas=(v,d)=>v.sens==='aller_retour'||v.sens===d;
+async function covLoad(){
+  if(!CLUB||COV.loading) return; COV.loading=true;
+  try{
+    if(!presOnline()) throw new Error('hors connexion');
+    const rs=await withTimeout(Promise.all([
+      sb.from('covoit_sorties').select('id,groupe_id,creneau_id,date,token,ouvert,note').eq('club_id',CLUB.id),
+      sb.from('covoit_reponses').select('sortie_id,licencie_id,statut,besoin_aller,besoin_retour,commentaire,par').eq('club_id',CLUB.id),
+      sb.from('covoit_voitures').select('id,sortie_id,conducteur,telephone,places,sens,rdv_lieu,rdv_heure,note,created_at').eq('club_id',CLUB.id).order('created_at'),
+      sb.from('covoit_passagers').select('voiture_id,licencie_id,sortie_id,aller,retour').eq('club_id',CLUB.id)]),10000);
+    if(rs.some(r=>r.error&&isNetErr(r.error))) throw new Error('hors connexion');
+    if(rs.some(r=>r.error)) COV.ok=false;
+    else { COV.ok=true; [COV.sorties,COV.rep,COV.voit,COV.pas]=rs.map(r=>r.data) }
+    COV.err='';
+  }catch(e){ COV.err=isNetErr(e)?'Connexion nécessaire pour le covoiturage : réessaie quand le réseau est revenu.':e.message }
+  COV.loaded=true; COV.loading=false;
+}
+/* séance (groupe, créneau, date, lieu) d'un covoiturage */
+function covSess(so){
+  const g=PRES.groupes.find(x=>x.id===so.groupe_id), c=(PRES.creneaux||[]).find(x=>x.id===so.creneau_id);
+  return g&&c?{g,c,d:so.date,lieu:crLieu(c,g,so.date),annul:!!presAnnulOf(c.id,so.date),so}:null;
+}
+const covTitle=x=>`${crLib(x.c)?crLib(x.c)+' · ':''}${x.g.nom}`;
+/* séances à venir hors du lieu habituel, et séances dont le covoiturage est déjà ouvert */
+function covSessions(){
+  const td=isoToday(), out=[];
+  for(let i=0;i<COV_HORIZON;i++){ const d=addDays(td,i);
+    PRES.groupes.forEach(g=>presSessionOn(g.id,d).forEach(c=>{ const lieu=crLieu(c,g,d), so=covOf(c.id,d), pend=COV.pend&&COV.pend.cid===c.id&&COV.pend.iso===d;
+      if(so||pend||(lieu&&norm(lieu)!==norm(LIEU_DEF))) out.push({g,c,d,lieu,so,annul:false}) })) }
+  COV.sorties.filter(s=>s.date>=td&&!out.some(x=>x.so&&x.so.id===s.id)).forEach(s=>{ const x=covSess(s); if(x) out.push(x) });
+  return out.sort((a,b)=>a.d.localeCompare(b.d)||hhmm(a.c.heure_debut).localeCompare(hhmm(b.c.heure_debut))||a.g.nom.localeCompare(b.g.nom));
+}
+/* état d'un covoiturage : réponses, places, gyms sans voiture */
+function covState(so){
+  const x=covSess(so), ms=x?presMembers(x.g.id):[], rep={}, cars=COV.voit.filter(v=>v.sortie_id===so.id), pas=COV.pas.filter(p=>p.sortie_id===so.id);
+  COV.rep.filter(r=>r.sortie_id===so.id).forEach(r=>rep[r.licencie_id]=r);
+  const seat=(lid,d)=>{ const p=pas.find(p=>p.licencie_id===lid&&(d==='aller'?p.aller:p.retour)); return p?cars.find(v=>v.id===p.voiture_id)||null:null };
+  const taken=(v,d)=>pas.filter(p=>p.voiture_id===v.id&&(d==='aller'?p.aller:p.retour)).length;
+  const pres=ms.filter(g=>rep[g.id]&&rep[g.id].statut==='present'), abs=ms.filter(g=>rep[g.id]&&rep[g.id].statut==='absent'), none=ms.filter(g=>!rep[g.id]);
+  const need=d=>pres.filter(g=>(d==='aller'?rep[g.id].besoin_aller:rep[g.id].besoin_retour)&&!seat(g.id,d));
+  const fam=d=>pres.filter(g=>!(d==='aller'?rep[g.id].besoin_aller:rep[g.id].besoin_retour));
+  const free=d=>cars.filter(v=>covHas(v,d)).reduce((n,v)=>n+Math.max(0,v.places-taken(v,d)),0);
+  const riders=(v,d)=>pas.filter(p=>p.voiture_id===v.id&&(d==='aller'?p.aller:p.retour)).map(p=>ms.find(g=>g.id===p.licencie_id)||S.gyms.find(g=>g.id===p.licencie_id)).filter(Boolean).sort(byNom);
+  return {x,ms,rep,cars,pas,seat,taken,pres,abs,none,need,fam,free,riders};
+}
+function covSummaryHtml(so){
+  const st=covState(so), na=st.need('aller').length, nr=st.need('retour').length;
+  return `<span class="cc">Présentes <b>${st.pres.length}</b></span><span class="cc">Absentes <b>${st.abs.length}</b></span><span class="cc">Sans réponse <b>${st.none.length}</b></span><span class="cc">Voitures <b>${st.cars.length}</b></span>`
+    +(na||nr?`<span class="lb warn">⚠ sans place : ${na?na+' à l’aller':''}${na&&nr?', ':''}${nr?nr+' au retour':''}</span>`:st.pres.length?'<span class="lb ok">Toutes les gyms présentes ont une place</span>':'')
+    +(so.ouvert?'':'<span class="lb no">Réponses fermées</span>');
+}
+function covListHtml(){
+  const list=covSessions(), td=isoToday(), ed=presEdit();
+  const past=COV.sorties.filter(s=>s.date<td).map(covSess).filter(Boolean).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,10);
+  const row=x=>`<div class="card cvrow ${COV.pend&&COV.pend.cid===x.c.id&&COV.pend.iso===x.d?'pend':''}"><div class="cvh"><div><b>${esc(covTitle(x))}</b>${x.annul?' <span class="lb bad">Séance annulée</span>':''}<div class="cvw">🗓 ${esc(longDate(x.d))}${crHours(x.c)?' · '+esc(crHours(x.c)):''}${x.lieu?' · 📍 <b>'+esc(x.lieu)+'</b>':''}</div></div>
+      ${x.so?`<button type="button" class="btn sm primary" data-cov-open="${x.so.id}">Gérer</button>`:ed?`<button type="button" class="btn sm" data-cov-new="${x.g.id}|${x.d}|${x.c.id}">🚗 Ouvrir le covoiturage</button>`:''}</div>
+      <div class="ccount cvc">${x.so?covSummaryHtml(x.so):'<span class="hint">Covoiturage non ouvert : les parents n’ont pas encore de lien.</span>'}</div></div>`;
+  return `<div class="hint" style="margin:0 0 12px">Séances des ${COV_HORIZON} prochains jours qui n’ont pas lieu à ${esc(LIEU_DEF)}. Ouvre le covoiturage d’une séance pour obtenir le lien à envoyer aux parents : ils indiquent sans compte si leur enfant sera là et proposent ou réservent des places.${ed?' Pour une autre séance, clique dessus dans le Planning puis « 🚗 Covoiturage ».':''}</div>`
+    +(list.length?list.map(row).join(''):`<div class="card"><div class="empty">Aucune séance délocalisée à venir. Pour en créer une, change le lieu d’une séance dans le Planning (📍 Changer le lieu) ou ajoute une séance ponctuelle.</div></div>`)
+    +(past.length?`<details class="cvpast"><summary>Séances passées (${past.length})</summary>${past.map(x=>`<div class="card cvrow"><div class="cvh"><div><b>${esc(covTitle(x))}</b><div class="cvw">🗓 ${esc(longDate(x.d))}${x.lieu?' · 📍 '+esc(x.lieu):''}</div></div><button type="button" class="btn sm" data-cov-open="${x.so.id}">Voir</button></div></div>`).join('')}</details>`:'');
+}
+function covCarFormHtml(v){
+  return `<form id="fCovCar" data-id="${v.id||''}" autocomplete="off" class="cvform"><b>${v.id?'Modifier la voiture':'Ajouter une voiture'}</b>
+    <div class="cvf"><label class="w2">Conducteur<input name="c" required maxlength="60" value="${esc(v.conducteur||'')}" placeholder="Ex. Mme Martin"></label>
+      <label>Téléphone<input name="t" type="tel" maxlength="30" value="${esc(v.telephone||'')}"></label>
+      <label>Places<select name="p">${[1,2,3,4,5,6,7,8].map(n=>`<option ${+(v.places||3)===n?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label>Trajet<select name="s">${Object.keys(COV_SENS).map(k=>`<option value="${k}" ${(v.sens||'aller_retour')===k?'selected':''}>${COV_SENS[k]}</option>`).join('')}</select></label>
+      <label class="w2">Lieu de rendez-vous<input name="l" maxlength="120" value="${esc(v.rdv_lieu||'')}" placeholder="Ex. parking du gymnase"></label>
+      <label>Heure de départ<input name="h" type="time" value="${esc(hhmm(v.rdv_heure))}"></label>
+      <label class="w3">Remarque<input name="n" maxlength="300" value="${esc(v.note||'')}"></label></div>
+    <div class="quick" style="margin-top:8px"><button class="btn sm primary" type="submit">Enregistrer</button><button type="button" class="btn sm" data-cov-car="">Annuler</button></div></form>`;
+}
+function covDetailHtml(so){
+  const st=covState(so), x=st.x, ed=presEdit(), ro=ed?'':'disabled';
+  if(!x) return `<div class="card"><div class="empty">Cette séance n’existe plus.</div><div class="quick"><button type="button" class="btn sm" data-cov-open="">◀ Retour</button>${ed?`<button type="button" class="btn sm" data-cov-del="${so.id}">Supprimer ce covoiturage</button>`:''}</div></div>`;
+  const url=covUrl(so), past=so.date<isoToday();
+  const dirSel=(g,d)=>{ const r=st.rep[g.id]; if(!r||r.statut!=='present') return '<span class="hint">—</span>';
+    const need=d==='aller'?r.besoin_aller:r.besoin_retour, cur=st.seat(g.id,d);
+    const opts=st.cars.filter(v=>covHas(v,d)).map(v=>{ const left=v.places-st.taken(v,d), mine=cur&&cur.id===v.id;
+      return `<option value="${v.id}" ${mine?'selected':''} ${!mine&&left<=0?'disabled':''}>🚗 ${esc(v.conducteur)}${mine?'':left>0?` (${left} pl.)`:' (complet)'}</option>` }).join('');
+    return `<select data-cov-seat="${g.id}|${d}" class="${need&&!cur?'cvneed':''}" aria-label="${d==='aller'?'Aller':'Retour'} de ${esc(gymName(g))}" ${ro}><option value="fam" ${need?'':'selected'}>Avec sa famille</option><option value="need" ${need&&!cur?'selected':''}>⚠ À placer</option>${opts}</select>` };
+  const rows=st.ms.map(g=>{ const r=st.rep[g.id];
+    return `<tr><td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${r&&r.commentaire?`<div class="hint">« ${esc(r.commentaire)} »</div>`:''}</td>
+      <td><select data-cov-rep="${g.id}" class="cvrep ${r?r.statut:''}" aria-label="Réponse de ${esc(gymName(g))}" ${ro}><option value="">Pas de réponse</option><option value="present" ${r&&r.statut==='present'?'selected':''}>Présente</option><option value="absent" ${r&&r.statut==='absent'?'selected':''}>Absente</option></select>${r&&r.par==='parent'?' <span class="hint" title="Réponse donnée par la famille">👪</span>':''}</td>
+      <td>${dirSel(g,'aller')}</td><td>${dirSel(g,'retour')}</td></tr>` }).join('');
+  const car=v=>{ const line=d=>covHas(v,d)?`<div><b>${d==='aller'?'Aller':'Retour'}</b> ${st.taken(v,d)}/${v.places} : ${st.riders(v,d).map(g=>esc(gymName(g))).join(', ')||'<span class="hint">personne</span>'}</div>`:'';
+    return COV.car===v.id?covCarFormHtml(v):`<div class="cvcar"><div class="cvh"><div><b>🚗 ${esc(v.conducteur)}</b> <span class="hint">${COV_SENS[v.sens]} · ${v.places} place(s)</span>
+        <div class="cvw">${v.rdv_lieu||v.rdv_heure?`📍 Rendez-vous${v.rdv_lieu?' : '+esc(v.rdv_lieu):''}${v.rdv_heure?' à <b>'+esc(hhmm(v.rdv_heure))+'</b>':''}`:'<span class="hint">Rendez-vous non précisé</span>'}${v.telephone?` · 📞 <a href="tel:${esc(String(v.telephone).replace(/[^+\d]/g,''))}">${esc(v.telephone)}</a>`:''}</div>${v.note?`<div class="hint">${esc(v.note)}</div>`:''}</div>
+        ${ed?`<div class="quick"><button type="button" class="btn sm" data-cov-car="${v.id}">Modifier</button><button type="button" class="btn sm ghost" data-cov-cardel="${v.id}" title="Supprimer cette voiture">🗑</button></div>`:''}</div>
+      <div class="cvseats">${line('aller')}${line('retour')}</div></div>` };
+  const al=d=>{ const n=st.need(d); return n.length?`<div class="warn">⚠ ${n.length} gym(s) sans place ${d==='aller'?'à l’aller':'au retour'} : ${n.map(g=>esc(gymName(g))).join(', ')} · ${st.free(d)} place(s) libre(s) dans les voitures</div>`:'' };
+  return `<div class="quick" style="margin-bottom:10px"><button type="button" class="btn sm" data-cov-open="">◀ Toutes les séances</button><button type="button" class="btn sm" data-cov-reload="1">↻ Actualiser les réponses</button></div>
+    <div class="psess">${x.annul?'🚫 <b>Séance annulée</b> · ':''}${crLib(x.c)?`★ <b>${esc(crLib(x.c))}</b> · `:''}<b>${esc(x.g.nom)}</b> · 🗓 <b>${esc(longDate(x.d))}</b>${crHours(x.c)?' · '+esc(crHours(x.c)):''}${x.lieu?` · 📍 <b>${esc(x.lieu)}</b>`:''}</div>
+    <div class="card"><h3>Lien pour les parents ${so.ouvert&&!past?'<span class="lb ok">Réponses ouvertes</span>':'<span class="lb no">'+(past?'Séance passée':'Réponses fermées')+'</span>'}</h3>
+      <div class="cvlink"><input readonly id="covUrl" value="${esc(url)}" aria-label="Lien de covoiturage" onfocus="this.select()"><button type="button" class="btn sm primary" data-cov-copy="link">📋 Copier le lien</button>
+        <a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(covInvite(so))}">💬 Envoyer sur WhatsApp</a>${x.g.lien_whatsapp?`<a class="btn sm wa" target="_blank" rel="noopener" href="${esc(x.g.lien_whatsapp)}" title="Ouvrir le groupe WhatsApp, puis coller le lien">Groupe WhatsApp</a>`:''}
+        <a class="btn sm" target="_blank" rel="noopener" href="${esc(url)}">Voir la page</a></div>
+      <div class="hint" style="margin-top:6px">Sans compte : toute personne qui a ce lien peut répondre pour une gym du groupe et voit le prénom et l’initiale du nom des gyms, ainsi que le nom et le téléphone des conducteurs. Envoie-le uniquement aux familles du groupe.</div>
+      ${ed?`<form id="fCovNote" class="cvnote"><label>Message affiché aux parents <span class="hint">(facultatif)</span><textarea name="n" rows="2" maxlength="500" placeholder="Ex. prévoir le pique-nique, retour vers 17 h">${esc(so.note||'')}</textarea></label>
+        <div class="quick"><button class="btn sm" type="submit">Enregistrer le message</button><button type="button" class="btn sm" data-cov-toggle="${so.id}">${so.ouvert?'🔒 Fermer les réponses':'🔓 Rouvrir les réponses'}</button><button type="button" class="btn sm ghost" data-cov-del="${so.id}">🗑 Supprimer ce covoiturage</button></div></form>`:so.note?`<div class="hint" style="margin-top:6px">Message aux parents : ${esc(so.note)}</div>`:''}</div>
+    <div class="card" style="margin-top:14px"><h3>Présents et places</h3>
+      <div class="ccount">${covSummaryHtml(so)}</div>${al('aller')}${al('retour')}
+      <div class="ltwrap" style="margin-top:8px"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Réponse</th><th>Aller</th><th>Retour</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${st.ms.length?'':'<div class="empty">Aucun adhérent dans ce groupe.</div>'}
+      ${ed&&st.none.length?`<div class="quick" style="margin-top:10px"><button type="button" class="btn sm" data-cov-copy="relance">📋 Copier une relance pour les ${st.none.length} sans réponse</button></div>`:''}</div>
+    <div class="card" style="margin-top:14px"><h3>Voitures (${st.cars.length})</h3>
+      ${st.cars.map(car).join('')||'<div class="empty">Aucune voiture proposée pour l’instant.</div>'}
+      ${ed?(COV.car==='new'?covCarFormHtml({}):'<div class="quick" style="margin-top:10px"><button type="button" class="btn sm primary" data-cov-car="new">+ Ajouter une voiture</button></div>'):''}</div>
+    <div class="card" style="margin-top:14px"><h3>Feuille à partager</h3>
+      <div class="quick"><button type="button" class="btn sm primary" data-cov-print="1">🖨 Imprimer la feuille</button><button type="button" class="btn sm" data-cov-copy="recap">📋 Copier le récapitulatif</button>
+        <a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(covRecap(so))}">💬 Envoyer le récapitulatif</a></div>
+      <pre class="cvpre">${esc(covRecap(so))}</pre>
+      <div class="hint">Le récapitulatif à envoyer n’affiche que le prénom et l’initiale du nom ; la feuille imprimée donne les noms complets.</div></div>`;
+}
+/* textes à partager */
+const covWhen=x=>`${longDate(x.d)}${crHours(x.c)?' ('+crHours(x.c).replace(' – ','–')+')':''}`;
+function covInvite(so){
+  const x=covSess(so); if(!x) return '';
+  return `🚗 ${CLUB.nom} – ${covTitle(x)}\nEntraînement${x.lieu?' à '+x.lieu:''} le ${covWhen(x)}.\nMerci d’indiquer si votre enfant sera présent(e) et, si vous le pouvez, de proposer des places en voiture :\n${covUrl(so)}`;
+}
+function covRelance(so){
+  const st=covState(so), x=st.x;
+  return `🚗 ${covTitle(x)} – ${longDate(x.d)}${x.lieu?' à '+x.lieu:''}\nIl manque encore la réponse pour : ${st.none.map(covShort).join(', ')}.\nMerci de répondre ici : ${covUrl(so)}`;
+}
+function covRecap(so,full){
+  const st=covState(so), x=st.x; if(!x) return '';
+  const nm=full?gymName:covShort, L=[], names=a=>a.slice().sort(full?byNom:byName).map(nm).join(', ');
+  L.push(`🚗 ${covTitle(x)} – ${covWhen(x)}${x.lieu?' – '+x.lieu:''}`);
+  L.push(`Présentes (${st.pres.length}) : ${names(st.pres)||'—'}`);
+  if(st.abs.length) L.push(`Absentes (${st.abs.length}) : ${names(st.abs)}`);
+  if(st.none.length) L.push(`Sans réponse (${st.none.length}) : ${names(st.none)}`);
+  st.cars.forEach(v=>{ L.push('');
+    L.push(`Voiture de ${v.conducteur} (${COV_SENS[v.sens].toLowerCase()})${v.rdv_lieu||v.rdv_heure?' – rendez-vous'+(v.rdv_lieu?' '+v.rdv_lieu:'')+(v.rdv_heure?' à '+hhmm(v.rdv_heure):''):''}${v.telephone?' – '+v.telephone:''}`);
+    ['aller','retour'].forEach(d=>{ if(covHas(v,d)) L.push(`  ${d==='aller'?'Aller':'Retour'} (${st.taken(v,d)}/${v.places}) : ${names(st.riders(v,d))||'personne'}`) });
+    if(v.note) L.push('  '+v.note) });
+  const fa=st.fam('aller'), fr=st.fam('retour'), na=st.need('aller'), nr=st.need('retour');
+  if(fa.length||fr.length){ L.push(''); if(fa.length) L.push(`Avec leur famille à l’aller : ${names(fa)}`); if(fr.length) L.push(`Avec leur famille au retour : ${names(fr)}`) }
+  if(na.length||nr.length){ L.push(''); if(na.length) L.push(`⚠ Sans place à l’aller : ${names(na)}`); if(nr.length) L.push(`⚠ Sans place au retour : ${names(nr)}`) }
+  return L.join('\n');
+}
+function covPrint(so){
+  const st=covState(so), x=st.x; if(!x) return;
+  const tr=(g,d)=>{ const r=st.rep[g.id]; if(!(d==='aller'?r.besoin_aller:r.besoin_retour)) return 'Avec sa famille'; const v=st.seat(g.id,d); return v?esc(v.conducteur):'<b>À placer</b>' };
+  const html=`<!doctype html><html lang="fr"><meta charset="utf-8"><title>Covoiturage – ${esc(covTitle(x))} – ${payDate(x.d)}</title>
+<style>@page{margin:14mm}body{font:14px/1.45 system-ui,Arial,sans-serif;color:#111;max-width:760px;margin:0 auto;padding:16px}h1{font-size:20px;margin:0}h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #111;padding-bottom:2px}.sub{color:#444;margin:2px 0 4px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:5px 8px;text-align:left;font-size:13px;vertical-align:top}th{background:#eee}.car{border:1px solid #999;border-radius:6px;padding:8px 10px;margin:8px 0;break-inside:avoid}.np{text-align:center;margin-bottom:10px}button{font:inherit;padding:8px 16px}.al{border:2px solid #111;padding:6px 10px;margin:8px 0;font-weight:700}@media print{.np{display:none}}</style>
+<div class="np"><button onclick="window.print()">🖨 Imprimer</button></div>
+<h1>${esc(CLUB.nom)} – Covoiturage</h1><div class="sub"><b>${esc(covTitle(x))}</b> · ${esc(longDate(x.d))}${crHours(x.c)?' · '+esc(crHours(x.c)):''}${x.lieu?' · '+esc(x.lieu):''}</div>
+${so.note?`<div class="sub">${esc(so.note)}</div>`:''}
+${['aller','retour'].map(d=>{ const n=st.need(d); return n.length?`<div class="al">⚠ Sans place ${d==='aller'?'à l’aller':'au retour'} : ${n.map(g=>esc(gymName(g))).join(', ')}</div>`:'' }).join('')}
+<h2>Voitures (${st.cars.length})</h2>
+${st.cars.map(v=>`<div class="car"><b>${esc(v.conducteur)}</b> · ${COV_SENS[v.sens]} · ${v.places} place(s)${v.telephone?' · '+esc(v.telephone):''}<br>Rendez-vous : ${esc(v.rdv_lieu||'à préciser')}${v.rdv_heure?' à <b>'+esc(hhmm(v.rdv_heure))+'</b>':''}${v.note?'<br>'+esc(v.note):''}
+${['aller','retour'].map(d=>covHas(v,d)?`<br><b>${d==='aller'?'Aller':'Retour'}</b> (${st.taken(v,d)}/${v.places}) : ${st.riders(v,d).map(g=>esc(gymName(g))).join(', ')||'personne'}`:'').join('')}</div>`).join('')||'<p>Aucune voiture.</p>'}
+<h2>Présentes (${st.pres.length})</h2>
+<table><thead><tr><th>Gymnaste</th><th>Aller</th><th>Retour</th><th style="width:70px">Arrivée ✓</th></tr></thead><tbody>${st.pres.map(g=>`<tr><td>${esc((g.nom||'')+' '+(g.prenom||''))}</td><td>${tr(g,'aller')}</td><td>${tr(g,'retour')}</td><td></td></tr>`).join('')||'<tr><td colspan="4">—</td></tr>'}</tbody></table>
+${st.abs.length?`<h2>Absentes (${st.abs.length})</h2><p>${st.abs.map(g=>esc(gymName(g))).join(', ')}</p>`:''}
+${st.none.length?`<h2>Sans réponse (${st.none.length})</h2><p>${st.none.map(g=>esc(gymName(g))).join(', ')}</p>`:''}
+</html>`;
+  const w=window.open('','_blank'); if(!w){ toast('Autorise les fenêtres pop-up pour afficher la feuille'); return }
+  w.document.write(html); w.document.close(); w.focus();
+}
+function covHtml(){
+  if(COV.club!==(CLUB&&CLUB.id)){ COV=covNew(); COV.club=CLUB&&CLUB.id }
+  if(!COV.loaded&&!COV.loading) covLoad().then(()=>{ if(UI.view==='pres'&&PRES.tab==='covoit') renderMain() });
+  if(!COV.loaded) return '<div class="empty">Chargement…</div>';
+  if(COV.err) return `<div class="warn" style="margin-bottom:12px">⚠ ${esc(COV.err)}</div><button type="button" class="btn sm" data-cov-reload="1">↻ Réessayer</button>`;
+  if(!COV.ok||!PRES.cr) return `<div class="card"><div class="hint">Le covoiturage est disponible après l’exécution du script <b>migration-covoiturage.sql</b> dans Supabase (SQL Editor)${PRES.cr?'':' et de <b>migration-creneaux.sql</b>'}, puis « Actualiser ».</div></div>`;
+  const so=COV.sel&&COV.sorties.find(s=>s.id===COV.sel);
+  return so?covDetailHtml(so):covListHtml();
+}
+/* ---- actions (connexion nécessaire) ---- */
+async function covDo(fn,ok){
+  if(!presEdit()) return false;
+  if(!presOnline()){ toast('Connexion nécessaire'); return false }
+  let good=true;
+  try{ await fn(); if(ok) toast(ok) }catch(e){ good=false; toast('Erreur : '+e.message) }
+  COV.loaded=false; await covLoad(); if(UI.view==='pres'&&PRES.tab==='covoit') renderMain();
+  return good;
+}
+/* place une gym dans une voiture (vid) pour un trajet, ou lui retire sa place (vid vide) */
+async function covSetSeat(so,lid,d,vid){
+  const rows=COV.pas.filter(p=>p.sortie_id===so.id&&p.licencie_id===lid), o=d==='aller'?'retour':'aller';
+  for(const p of rows.filter(p=>p[d]&&p.voiture_id!==vid)){
+    if(p[o]) chk(await sb.from('covoit_passagers').update({[d]:false}).eq('voiture_id',p.voiture_id).eq('licencie_id',lid));
+    else chk(await sb.from('covoit_passagers').delete().eq('voiture_id',p.voiture_id).eq('licencie_id',lid));
+  }
+  if(!vid) return;
+  const cur=rows.find(p=>p.voiture_id===vid);
+  if(cur) chk(await sb.from('covoit_passagers').update({[d]:true}).eq('voiture_id',vid).eq('licencie_id',lid));
+  else chk(await sb.from('covoit_passagers').insert({voiture_id:vid,licencie_id:lid,sortie_id:so.id,club_id:CLUB.id,[d]:true,[o]:false}));
+}
+const covSel=()=>COV.sorties.find(s=>s.id===COV.sel)||null;
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-cov-go],[data-cov-open],[data-cov-new],[data-cov-reload],[data-cov-copy],[data-cov-toggle],[data-cov-del],[data-cov-car],[data-cov-cardel],[data-cov-print]'); if(!t) return; const d=t.dataset;
+  if(d.covGo){ const [gid,iso,cid]=d.covGo.split('|'); popClose(); PRES.tab='covoit'; COV.car=null;
+    if(!COV.loaded) await covLoad();
+    const so=covOf(cid,iso); COV.sel=so?so.id:null; COV.pend=so?null:{gid,iso,cid}; renderMain(); window.scrollTo(0,0); return }
+  if(d.covOpen!==undefined){ COV.sel=d.covOpen||null; COV.car=null; COV.pend=null; renderMain(); window.scrollTo(0,0); return }
+  if(d.covReload){ COV.loaded=false; renderMain(); return }
+  if(d.covNew){ const [gid,iso,cid]=d.covNew.split('|'); let id=null;
+    await covDo(async()=>{ const r=chk(await sb.from('covoit_sorties').insert({club_id:CLUB.id,groupe_id:gid,creneau_id:cid,date:iso}).select('id')); id=r.data[0].id },'Covoiturage ouvert : envoie le lien aux parents');
+    if(id){ COV.sel=id; COV.pend=null; renderMain(); window.scrollTo(0,0) } return }
+  const so=covSel(); if(!so) return;
+  if(d.covCopy){ commCopy(d.covCopy==='link'?covUrl(so):d.covCopy==='relance'?covRelance(so):covRecap(so),d.covCopy==='link'?'Lien copié':'Texte copié'); return }
+  if(d.covPrint){ covPrint(so); return }
+  if(d.covCar!==undefined){ COV.car=d.covCar||null; renderMain(); const f=document.getElementById('fCovCar'); if(f){ f.elements.c.focus({preventScroll:true}); f.scrollIntoView({block:'nearest'}) } return }
+  if(d.covToggle){ await covDo(async()=>chk(await sb.from('covoit_sorties').update({ouvert:!so.ouvert}).eq('id',so.id)),so.ouvert?'Réponses fermées : les parents ne peuvent plus modifier':'Réponses rouvertes'); return }
+  if(d.covDel){ if(!confirm('Supprimer ce covoiturage ? Le lien ne fonctionnera plus, et les réponses et voitures enregistrées seront effacées.')) return;
+    COV.sel=null; await covDo(async()=>chk(await sb.from('covoit_sorties').delete().eq('id',d.covDel)),'Covoiturage supprimé'); return }
+  if(d.covCardel){ const v=COV.voit.find(x=>x.id===d.covCardel), n=COV.pas.filter(p=>p.voiture_id===d.covCardel).length;
+    if(!confirm(`Supprimer la voiture de ${v?v.conducteur:''} ?${n?' Les '+n+' gym(s) qui y ont une place seront à replacer.':''}`)) return;
+    await covDo(async()=>chk(await sb.from('covoit_voitures').delete().eq('id',d.covCardel)),'Voiture supprimée') }
+});
+document.addEventListener('change',async ev=>{
+  const t=ev.target, d=t&&t.dataset; if(!d||(!d.covRep&&!d.covSeat)) return;
+  const so=covSel(); if(!so) return;
+  if(d.covRep){ const lid=d.covRep, v=t.value, cur=COV.rep.find(r=>r.sortie_id===so.id&&r.licencie_id===lid);
+    await covDo(async()=>{
+      if(v!=='present') for(const p of COV.pas.filter(p=>p.sortie_id===so.id&&p.licencie_id===lid)) chk(await sb.from('covoit_passagers').delete().eq('voiture_id',p.voiture_id).eq('licencie_id',lid));
+      if(!v) chk(await sb.from('covoit_reponses').delete().eq('sortie_id',so.id).eq('licencie_id',lid));
+      else chk(await sb.from('covoit_reponses').upsert({sortie_id:so.id,licencie_id:lid,club_id:CLUB.id,statut:v,besoin_aller:v==='present'?(cur&&cur.statut==='present'?cur.besoin_aller:true):false,besoin_retour:v==='present'?(cur&&cur.statut==='present'?cur.besoin_retour:true):false,par:'club',updated_at:new Date().toISOString()},{onConflict:'sortie_id,licencie_id'}));
+    }); return }
+  const [lid,dir]=d.covSeat.split('|'), v=t.value, col=dir==='aller'?'besoin_aller':'besoin_retour';
+  await covDo(async()=>{
+    chk(await sb.from('covoit_reponses').update({[col]:v!=='fam',par:'club',updated_at:new Date().toISOString()}).eq('sortie_id',so.id).eq('licencie_id',lid));
+    await covSetSeat(so,lid,dir,v==='fam'||v==='need'?null:v);
+  });
+});
+document.addEventListener('submit',async ev=>{
+  const f=ev.target; if(f.id!=='fCovCar'&&f.id!=='fCovNote') return; ev.preventDefault();
+  const so=covSel(); if(!so) return; const v=n=>(f.elements[n].value||'').trim();
+  if(f.id==='fCovNote'){ await covDo(async()=>chk(await sb.from('covoit_sorties').update({note:v('n')||null}).eq('id',so.id)),'Message enregistré'); return }
+  const id=f.dataset.id, row={conducteur:v('c'),telephone:v('t')||null,places:+v('p'),sens:v('s'),rdv_lieu:v('l')||null,rdv_heure:v('h')||null,note:v('n')||null};
+  if(!row.conducteur){ toast('Indique le conducteur'); return }
+  COV.car=null;
+  await covDo(async()=>chk(id?await sb.from('covoit_voitures').update(row).eq('id',id):await sb.from('covoit_voitures').insert({...row,sortie_id:so.id,club_id:CLUB.id})),id?'Voiture modifiée':'Voiture ajoutée');
 });
 
 
@@ -3223,7 +3494,7 @@ document.addEventListener('click',async ev=>{
     else { const n=presNextSession(PRES.groupe,PRES.date,d.presDate==='next'?1:-1); if(n) PRES.date=n; else { toast(d.presDate==='next'?'Pas de séance suivante cette saison':'Pas de séance précédente cette saison'); return } }
     renderMain(); return }
   if(d.presTab){ PRES.tab=d.presTab; renderMain(); return }
-  if(d.presReload!==undefined){ PRES.loaded=false; renderMain(); return }
+  if(d.presReload!==undefined){ PRES.loaded=false; COV.loaded=false; renderMain(); return }
   if(d.presDel){ const g=PRES.groupes.find(x=>x.id===d.presDel); if(!g||!presEdit()) return;
     if(!presOnline()){ toast('Connexion nécessaire pour supprimer un groupe'); return }
     if(!confirm(`Supprimer le groupe « ${g.nom} » et tous ses pointages ?`)) return;
