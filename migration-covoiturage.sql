@@ -122,9 +122,11 @@ create table if not exists public.cv_dispos (
   places        smallint check (places is null or places between 1 and 8),    -- si différent ce jour-là
   rdv_lieu      text check (rdv_lieu is null or char_length(rdv_lieu) <= 120), -- départ propre à cette voiture
   rdv_heure     time,
+  retenu        boolean not null default true,                 -- décoché : disponible mais pas pris
   primary key (sortie_id, conducteur_id),
   check (aller or retour)
 );
+alter table public.cv_dispos add column if not exists retenu boolean not null default true;
 create index if not exists cv_dispos_club_idx on public.cv_dispos (club_id);
 create index if not exists cv_dispos_cond_idx on public.cv_dispos (conducteur_id);
 

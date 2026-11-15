@@ -831,6 +831,8 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .gchip:hover{filter:brightness(.95);text-decoration:underline}
 @media (max-width:700px){.gplan{grid-template-columns:1fr}.ltb select{max-width:130px}}
 /* ---- covoiturage ---- */
+.cvph{grid-column:1/-1;font-weight:600;font-size:13px;color:var(--muted,#666);margin:8px 0 0;border-bottom:1px solid var(--line);padding-bottom:3px}.cvph:first-child{margin-top:0}
+.cvphr td{background:#f6f7f9;font-weight:600;font-size:13px}
 .cvtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .cvtabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
 .cvtabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -3000,7 +3002,7 @@ const cvCarPlace=(d,so)=>d.rdv_lieu||d.c.depart_lieu||so.rdv_lieu||'';
 const cvFamPlace=l=>/famille|chez soi/i.test(l||'');
 const cvSamePlace=(g,d,so)=>{ const a=cvGymPlace(g), b=cvCarPlace(d,so); if(cvFamPlace(a)||cvFamPlace(b)) return norm(a)===norm(b); return !a||!b||norm(a)===norm(b) };
 const cvShortPlace=l=>String(l||'').split(/[(–,]/)[0].trim();
-function cvPlaceField(attrs,val,empty){ const ls=cvCfg().lieux;
+function cvPlaceField(attrs,val,empty){ const ls=cvCfg().lieux.some(cvFamPlace)?cvCfg().lieux:[...cvCfg().lieux,...(cvCfg().lieux.length?['En famille']:[])];
   if(!ls.length) return `<input ${attrs} maxlength="120" value="${esc(val||'')}" placeholder="${esc(empty)}">`;
   return `<select ${attrs}><option value="">${esc(empty)}</option>${[...ls,...(val&&!ls.includes(val)?[val]:[])].map(l=>`<option ${l===val?'selected':''}>${esc(l)}</option>`).join('')}</select>` }
 const cvDays=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
@@ -3020,7 +3022,7 @@ async function covLoad(){
           sb.from('cv_conducteurs').select('id,nom,type,places,licencie_id,enfants,telephone,depart_lieu,actif,auto').eq('club_id',CLUB.id).order('nom'),
           sb.from('cv_sorties').select('id,date,lieu,heure_debut,heure_fin,titre,rdv_lieu,rdv_heure,note').eq('club_id',CLUB.id).order('date'),
           sb.from('cv_reponses').select('sortie_id,licencie_id,statut,aller_cond,retour_cond').eq('club_id',CLUB.id),
-          sb.from('cv_dispos').select('sortie_id,conducteur_id,aller,retour,places,rdv_lieu,rdv_heure').eq('club_id',CLUB.id)]),10000);
+          sb.from('cv_dispos').select('sortie_id,conducteur_id,aller,retour,places,rdv_lieu,rdv_heure,retenu').eq('club_id',CLUB.id)]),10000);
         rs.forEach(chk);
         COV.cfg=rs[0].data[0]||null; COV.cond=rs[1].data; COV.sorties=rs[2].data; COV.rep=rs[3].data; COV.dispo=rs[4].data;
       } }
@@ -3043,8 +3045,13 @@ function cvSend(fn){
 function cvGyms(tout){
   const seen=new Set(tout?[]:cvCfg().exclus), out=[];
   cvCfg().groupes.forEach(gid=>presMembers(gid).forEach(g=>{ if(!seen.has(g.id)){ seen.add(g.id); out.push(g) } }));
-  return out.sort(byNom);
+  return out.sort((a,b)=>cvPlaceRank(a)-cvPlaceRank(b)||byNom(a,b));
 }
+/* ordre des lieux de départ : le 1er lieu, puis les gyms sans lieu, puis les autres lieux dans l'ordre des réglages */
+function cvPlaceRank(g){ const ls=cvCfg().lieux, p=cvGymPlace(g); if(!p) return 1; const i=ls.findIndex(l=>norm(l)===norm(p)); return i<0?ls.length+1:i===0?0:i+1 }
+const cvPlaceHead=g=>{ const p=cvGymPlace(g); return p?'📍 '+cvShortPlace(p):'📍 Lieu non renseigné' };
+/* liste de gyms avec un titre à chaque changement de lieu de départ */
+function cvByPlace(gyms,row,head){ let cur=null; return gyms.map(g=>{ const h=cvCfg().lieux.length?cvPlaceHead(g):null, t=h!==cur?(cur=h,h?head(h):''):''; return t+row(g) }).join('') }
 const cvGroupNames=()=>cvCfg().groupes.map(id=>PRES.groupes.find(g=>g.id===id)).filter(Boolean).map(g=>g.nom);
 /* prénom, avec l'initiale du nom si deux gyms portent le même prénom */
 function cvFirst(g,all){ const p=(g.prenom||'').trim()||'?'; return all.filter(x=>norm(x.prenom||'')===norm(p)).length>1&&g.nom?`${p} ${String(g.nom).trim().charAt(0).toUpperCase()}.`:p }
@@ -3053,18 +3060,21 @@ const cvSelf=(c,g)=>c&&c.type==='gym'&&c.licencie_id===g.id;
 /* état d'un déplacement : réponses, voitures, places */
 function cvState(so){
   const gyms=cvGyms(), rep={}; COV.rep.filter(r=>r.sortie_id===so.id).forEach(r=>rep[r.licencie_id]=r);
-  const dispo=COV.dispo.filter(d=>d.sortie_id===so.id).map(d=>({...d,c:cvCond(d.conducteur_id)})).filter(d=>d.c)
+  const tous=COV.dispo.filter(d=>d.sortie_id===so.id).map(d=>({...d,c:cvCond(d.conducteur_id)})).filter(d=>d.c);
+  /* seuls les conducteurs retenus servent à placer les gyms */
+  const dispo=tous.filter(d=>d.retenu!==false)
     .sort((a,b)=>(a.c.type==='entraineur'?0:1)-(b.c.type==='entraineur'?0:1)||a.c.nom.localeCompare(b.c.nom));
   dispo.sort((a,b)=>norm(cvCarPlace(a,so)).localeCompare(norm(cvCarPlace(b,so))));
-  const dp=cid=>dispo.find(d=>d.conducteur_id===cid)||null;
+  const dp=cid=>dispo.find(d=>d.conducteur_id===cid)||null, dpAll=cid=>tous.find(d=>d.conducteur_id===cid)||null;
   const cap=d=>d.places||d.c.places;
   const oui=gyms.filter(g=>rep[g.id]&&rep[g.id].statut==='oui'), non=gyms.filter(g=>rep[g.id]&&rep[g.id].statut==='non'), none=gyms.filter(g=>!rep[g.id]);
   /* voiture valide d'une gym pour un trajet (le conducteur doit être disponible sur ce trajet) */
   const car=(g,k)=>{ const r=rep[g.id]; if(!r||r.statut!=='oui') return null; const d=dp(r[k+'_cond']); return d&&d[k]?d:null };
   const riders=(cid,k)=>oui.filter(g=>{ const d=car(g,k); return d&&d.conducteur_id===cid&&!cvSelf(d.c,g) });
   const left=(d,k)=>cap(d)-riders(d.conducteur_id,k).length;
-  const need=k=>oui.filter(g=>!car(g,k));
-  return {gyms,rep,dispo,dp,cap,oui,non,none,car,riders,left,need};
+  /* une gym « en famille » se déplace sans covoiturage : pas besoin de place */
+  const fam=g=>cvFamPlace(cvGymPlace(g)), need=k=>oui.filter(g=>!car(g,k)&&!fam(g)), seule=k=>oui.filter(g=>!car(g,k)&&fam(g));
+  return {gyms,rep,dispo,dp,dpAll,cap,fam,seule,oui,non,none,car,riders,left,need};
 }
 /* un conducteur a « covoituré » un déplacement s'il a transporté au moins une gym (aller ou retour) */
 function cvDrove(so,c){
@@ -3098,7 +3108,7 @@ function cvFamilies(){
     cvKids(F.conds[0]).forEach(id=>{ if(id&&!kids.includes(id)) kids.push(id) });
     F.conds.slice(1).forEach(c=>cvKids(c).forEach(id=>{ if(id&&!kids.includes(id)) kids.push(id) }));
     const kg=kids.map(id=>S.gyms.find(x=>x.id===id)).filter(Boolean);
-    const nom=kg.length?`Famille ${[...new Set(kg.map(g=>g.nom))].join(' / ')}`:F.conds[0].nom;
+    const nom=kg.length?`Famille ${[...new Set(kg.map(g=>g.nom))].sort((a,b)=>String(a).localeCompare(String(b),'fr')).join(' / ')}`:F.conds[0].nom;
     return {conds:F.conds.sort((a,b)=>a.nom.localeCompare(b.nom,'fr')),kids,kg,nom,actif:F.conds.some(c=>c.actif)} });
   /* gyms dont aucun membre de la famille n'est enregistré comme conducteur */
   const seen=new Set(fams.flatMap(F=>F.kids)), rest={};
@@ -3165,16 +3175,16 @@ function cvDetailHtml(so){
   const st=cvState(so), all=st.gyms, td=isoToday();
   const repRow=g=>{ const r=st.rep[g.id], s=r?r.statut:'';
     return `<div class="cvg ${s}"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</span><span class="cvyn"><button type="button" class="${s==='oui'?'on':''}" data-cv-rep="${g.id}|oui" aria-pressed="${s==='oui'}">Oui</button><button type="button" class="no ${s==='non'?'on':''}" data-cv-rep="${g.id}|non" aria-pressed="${s==='non'}">Non</button></span></div>` };
-  const act=COV.cond.filter(c=>c.actif||st.dp(c.id)).map(c=>({c,f:cvFollow(c,so.date)}))
+  const act=COV.cond.filter(c=>c.actif||st.dpAll(c.id)).map(c=>({c,f:cvFollow(c,so.date)}))
     .sort((a,b)=>(a.c.type==='entraineur'?0:1)-(b.c.type==='entraineur'?0:1)||b.f.sans-a.f.sans||a.c.nom.localeCompare(b.c.nom));
-  const condRow=({c,f})=>{ const d=st.dp(c.id), kids=(c.type==='gym'?[c.licencie_id]:c.enfants||[]), here=kids.some(id=>st.rep[id]&&st.rep[id].statut==='oui');
-    return `<tr class="${d?'cvon':''}"><td><b>${esc(c.nom)}</b> <span class="hint">${CV_TYPES[c.type]} · ${c.places} pl.</span>${c.type!=='entraineur'&&kids.length&&!here?' <span class="hint">(sa gym ne vient pas)</span>':''}</td>
-      <td class="cvck"><label><input type="checkbox" data-cv-dispo="${c.id}|aller" ${d&&d.aller?'checked':''}> Aller</label><label><input type="checkbox" data-cv-dispo="${c.id}|retour" ${d&&d.retour?'checked':''}> Retour</label></td>
+  const condRow=({c,f})=>{ const d=st.dpAll(c.id), off=d&&d.retenu===false, kids=(c.type==='gym'?[c.licencie_id]:c.enfants||[]), here=kids.some(id=>st.rep[id]&&st.rep[id].statut==='oui');
+    return `<tr class="${d&&!off?'cvon':off?'cvoff':''}"><td><b>${esc(c.nom)}</b> <span class="hint">${CV_TYPES[c.type]} · ${c.places} pl.</span>${c.type!=='entraineur'&&kids.length&&!here?' <span class="hint">(sa gym ne vient pas)</span>':''}</td>
+      <td class="cvck"><label><input type="checkbox" data-cv-dispo="${c.id}|aller" ${d&&d.aller?'checked':''}> Aller</label><label><input type="checkbox" data-cv-dispo="${c.id}|retour" ${d&&d.retour?'checked':''}> Retour</label>${d?`<label title="Disponible mais pas pris : ses places ne sont pas proposées pour placer les gyms"><input type="checkbox" data-cv-ret="${c.id}" ${off?'checked':''}> Non retenu</label>`:''}</td>
       <td>${c.type==='entraineur'?'<span class="hint">—</span>':`<span class="hint">${f.n?`${f.n} covoiturage${f.n>1?'s':''} · dernier ${cvD(f.last)} (${f.since} j avant)`:'jamais conduit'}</span> ${cvAlertHtml(f)}`}</td></tr>` };
   const seatSel=(g,k)=>{ const cur=st.car(g,k), self=st.dispo.find(d=>d[k]&&cvSelf(d.c,g));
     const opts=st.dispo.filter(d=>d[k]&&!cvSelf(d.c,g)).map(d=>{ const l=st.left(d,k), mine=cur&&cur.conducteur_id===d.conducteur_id;
       const pl=cvCarPlace(d,so); return `<option value="${d.conducteur_id}" ${mine?'selected':''} ${!mine&&l<=0?'disabled':''}>🚗 ${esc(d.c.nom)}${pl&&cvCfg().lieux.length>1?' · '+esc(cvShortPlace(pl)):''}${mine?'':l>0?` (${l} pl.)`:' (complet)'}</option>` }).join('');
-    return `<select data-cv-seat="${g.id}|${k}" class="${cur?'':'cvneed'}" aria-label="${k==='aller'?'Aller':'Retour'} de ${esc(gymName(g))}"><option value="">⚠ À placer</option>${self?`<option value="${self.conducteur_id}" ${cur&&cur.conducteur_id===self.conducteur_id?'selected':''}>🔑 Conduit sa voiture</option>`:''}${opts}</select>${cur&&!cvSelf(cur.c,g)&&!cvSamePlace(g,cur,so)?'<div class="hint cvwp">⚠ autre lieu de départ</div>':''}` };
+    return `<select data-cv-seat="${g.id}|${k}" class="${cur||st.fam(g)?'':'cvneed'}" aria-label="${k==='aller'?'Aller':'Retour'} de ${esc(gymName(g))}"><option value="">${st.fam(g)?'🏠 En famille (sans covoiturage)':'⚠ À placer'}</option>${self?`<option value="${self.conducteur_id}" ${cur&&cur.conducteur_id===self.conducteur_id?'selected':''}>🔑 Conduit sa voiture</option>`:''}${opts}</select>${cur&&!cvSelf(cur.c,g)&&!cvSamePlace(g,cur,so)?'<div class="hint cvwp">⚠ autre lieu de départ</div>':''}` };
   const carHtml=(d,k)=>{ const rs=st.riders(d.conducteur_id,k), drv=st.oui.find(g=>cvSelf(d.c,g)&&st.car(g,k)&&st.car(g,k).conducteur_id===d.conducteur_id);
     return `<div class="cvcar"><div class="cvh"><div><b>🚗 ${esc(d.c.nom)}</b> <span class="hint">${rs.length}/${st.cap(d)} place(s)${k==='retour'&&cvCarPlace(d,so)?' · 📍 '+esc(cvShortPlace(cvCarPlace(d,so))):''}${d.c.telephone?' · '+esc(d.c.telephone):''}</span></div>
         ${k==='aller'?`<div class="cvrdv"><input data-cv-dp="${d.conducteur_id}|rdv_heure" type="time" value="${esc(hhmm(d.rdv_heure))}" aria-label="Heure de départ de ${esc(d.c.nom)}" title="Heure de départ (vide = heure commune)">${cvPlaceField(`data-cv-dp="${d.conducteur_id}|rdv_lieu" aria-label="Lieu de départ de ${esc(d.c.nom)}"`,d.rdv_lieu||d.c.depart_lieu||'',so.rdv_lieu||'lieu de départ')}</div>`:''}</div>
@@ -3185,14 +3195,14 @@ function cvDetailHtml(so){
     ${COV.form==='sortie'?cvSortieFormHtml(so):`<div class="quick" style="margin-bottom:12px"><button type="button" class="btn sm" data-cv-form="sortie">✏️ Modifier la date, le lieu, le départ</button><button type="button" class="btn sm ghost" data-cv-del="${so.id}">🗑 Supprimer</button></div>`}
     <div class="card"><h3>1. Réponses du sondage <span class="hint">${cvGroupNames().map(esc).join(' + ')}</span></h3>
       <div class="ccount">${cvSummaryHtml(so)}</div>
-      <div class="cvgrid">${all.map(repRow).join('')}</div>${all.length?'':'<div class="empty">Aucune gym : choisis les groupes fusionnés dans « Conducteurs et réglages ».</div>'}
+      <div class="cvgrid">${cvByPlace(all,repRow,h=>`<div class="cvph">${esc(h)}</div>`)}</div>${all.length?'':'<div class="empty">Aucune gym : choisis les groupes fusionnés dans « Conducteurs et réglages ».</div>'}
       ${st.none.length&&so.date>=td?`<div class="quick" style="margin-top:10px"><button type="button" class="btn sm" data-cv-copy="relance">📋 Copier une relance pour les ${st.none.length} sans réponse</button></div>`:''}</div>
     <div class="card" style="margin-top:14px"><h3>2. Conducteurs disponibles</h3>
       ${act.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Conducteur</th><th>Disponible</th><th>Suivi avant ce déplacement</th></tr></thead><tbody>${act.map(condRow).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur : ajoute-les dans « Conducteurs et réglages ».</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>3. Voitures</h3>
       <div class="quick" style="margin-bottom:8px"><button type="button" class="btn sm primary" data-cv-auto="1">⚡ Répartir automatiquement</button><span class="hint">Chaque gym monte d’abord avec son parent, puis dans une voiture qui part de son lieu de départ, en commençant par celle des entraîneurs.</span></div>
       ${al('aller')}${al('retour')}
-      ${st.oui.length?`<div class="ltwrap" style="margin-top:8px"><table class="ltb cvt"><thead><tr><th>Gym qui vient</th><th>Aller</th><th>Retour</th></tr></thead><tbody>${st.oui.map(g=>`<tr><td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${cvGymPlace(g)?`<div class="hint">📍 ${esc(cvShortPlace(cvGymPlace(g)))}</div>`:''}</td><td>${seatSel(g,'aller')}</td><td>${seatSel(g,'retour')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucune gym n’a encore répondu oui.</div>'}
+      ${st.oui.length?`<div class="ltwrap" style="margin-top:8px"><table class="ltb cvt"><thead><tr><th>Gym qui vient</th><th>Aller</th><th>Retour</th></tr></thead><tbody>${cvByPlace(st.oui,g=>`<tr><td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td><td>${seatSel(g,'aller')}</td><td>${seatSel(g,'retour')}</td></tr>`,h=>`<tr class="cvphr"><td colspan="3">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym n’a encore répondu oui.</div>'}
       <div class="cvdirs"><div><h4>Aller</h4>${st.dispo.filter(d=>d.aller).map(d=>carHtml(d,'aller')).join('')||'<div class="hint">Aucune voiture.</div>'}</div><div><h4>Retour</h4>${st.dispo.filter(d=>d.retour).map(d=>carHtml(d,'retour')).join('')||'<div class="hint">Aucune voiture.</div>'}</div></div></div>
     <div class="card" style="margin-top:14px"><h3>4. Message d’annonce</h3>
       <div class="quick"><button type="button" class="btn sm primary" data-cv-copy="annonce">📋 Copier le message</button><a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(cvAnnonce(so))}">💬 Envoyer sur WhatsApp</a></div>
@@ -3232,7 +3242,7 @@ function cvCondHtml(){
       <div class="quick" style="margin-top:8px"><button class="btn sm primary" type="submit">Enregistrer les réglages</button></div></form>
     ${cfg.lieux.length?`<div class="card" style="margin-top:14px"><h3>Lieu de départ de chaque gym</h3>
       <div class="hint" style="margin-bottom:8px">La répartition automatique ne met une gym que dans une voiture qui part de son lieu (sauf avec son parent). Sans lieu, elle peut monter partout.</div>
-      <div class="cvgrid">${gyms.map(g=>`<div class="cvg"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</span>${cvPlaceField(`data-cv-gl="${g.id}" aria-label="Lieu de départ de ${esc(gymName(g))}"`,cvGymPlace(g),'—')}</div>`).join('')}</div></div>`:''}`;
+      <div class="cvgrid">${cvByPlace(gyms,g=>`<div class="cvg"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</span>${cvPlaceField(`data-cv-gl="${g.id}" aria-label="Lieu de départ de ${esc(gymName(g))}"`,cvGymPlace(g),'—')}</div>`,h=>`<div class="cvph">${esc(h)}</div>`)}</div></div>`:''}`;
 }
 function cvSuiviHtml(){
   const td=isoToday(), done=COV.sorties.filter(s=>s.date<=td), gyms=cvGyms();
@@ -3245,7 +3255,7 @@ function cvSuiviHtml(){
       ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td><b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
           <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>Gyms</h3>
-      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${gs.map(x=>`<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${done.length?` <span class="hint">${Math.round(100*x.o/done.length)} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
+      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${done.length?` <span class="hint">${Math.round(100*x.o/done.length)} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
 }
 /* ---- textes : sondage, relance, annonce ---- */
 function cvPollList(){ const td=isoToday(), up=COV.sorties.filter(s=>s.date>=td); if(!COV.poll) COV.poll=new Set(up.map(s=>s.id)); return up }
@@ -3273,6 +3283,7 @@ function cvAnnonce(so){
     cars.forEach(d=>{ const rs=az(st.riders(d.conducteur_id,k)), h=hhmm(d.rdv_heure)||hhmm(so.rdv_heure), l=cvCarPlace(d,so);
       const quand=cvFamPlace(l)?(k==='aller'?' – départ de chez elles':' – retour à la maison'):k==='aller'?(h||l?` – départ${h?' à '+h:''}${l?', '+l:''}`:''):(l&&cvCfg().lieux.length>1?` – retour à ${l}`:'');
       L.push(`• ${d.c.nom}${quand} : ${rs.join(', ')||(d.c.type==='gym'?'seule':'—')}`) });
+    const f=st.seule(k); if(f.length) L.push(`• En famille : ${az(f).join(', ')}`);
     const n=st.need(k); if(n.length) L.push(`⚠ Sans place : ${az(n).join(', ')}`) };
   dir('aller','ALLER'); dir('retour',`RETOUR${hhmm(so.heure_fin)?' (fin de l’entraînement à '+hhmm(so.heure_fin)+')':''}`);
   if(st.non.length) L.push('',`Absentes : ${az(st.non).join(', ')}`);
@@ -3300,13 +3311,13 @@ function cvSetRep(so,lid,patch){
 }
 function cvSetDispo(so,cid,patch){
   const i=COV.dispo.findIndex(d=>d.sortie_id===so.id&&d.conducteur_id===cid), c=cvCond(cid);
-  const row={sortie_id:so.id,conducteur_id:cid,aller:false,retour:false,places:null,rdv_lieu:null,rdv_heure:null,...(i>=0?COV.dispo[i]:{}),...patch};
+  const row={sortie_id:so.id,conducteur_id:cid,aller:false,retour:false,places:null,rdv_lieu:null,rdv_heure:null,retenu:true,...(i>=0?COV.dispo[i]:{}),...patch};
   if(!row.aller&&!row.retour){ if(i>=0) COV.dispo.splice(i,1); cvSend(()=>sb.from('cv_dispos').delete().eq('sortie_id',so.id).eq('conducteur_id',cid)) }
   else { if(i>=0) COV.dispo[i]=row; else COV.dispo.push(row); cvSend(()=>sb.from('cv_dispos').upsert({...row,club_id:CLUB.id},{onConflict:'sortie_id,conducteur_id'})) }
   /* places devenues invalides, et gym qui conduit sa propre voiture */
   ['aller','retour'].forEach(k=>{ COV.rep.filter(r=>r.sortie_id===so.id).forEach(r=>{
-    if(!row[k]&&r[k+'_cond']===cid) cvSetRep(so,r.licencie_id,{[k+'_cond']:null});
-    else if(row[k]&&c&&c.type==='gym'&&c.licencie_id===r.licencie_id&&r.statut==='oui'&&!r[k+'_cond']) cvSetRep(so,r.licencie_id,{[k+'_cond']:cid}) }) });
+    if((!row[k]||row.retenu===false)&&r[k+'_cond']===cid) cvSetRep(so,r.licencie_id,{[k+'_cond']:null});
+    else if(row[k]&&row.retenu!==false&&c&&c.type==='gym'&&c.licencie_id===r.licencie_id&&r.statut==='oui'&&!r[k+'_cond']) cvSetRep(so,r.licencie_id,{[k+'_cond']:cid}) }) });
 }
 /* répartition automatique : la gym qui conduit, puis les enfants avec leur parent, puis remplissage (entraîneurs d'abord) */
 function cvAuto(so){
@@ -3377,6 +3388,7 @@ document.addEventListener('change',ev=>{
   const so=cvSel(); if(!so) return;
   if(d.cvDispo){ const [cid,k]=d.cvDispo.split('|'), c=cvCond(cid), cur=COV.dispo.find(x=>x.sortie_id===so.id&&x.conducteur_id===cid);
     cvSetDispo(so,cid,{[k]:t.checked,...(cur?{}:{rdv_lieu:c&&c.depart_lieu||null})}); renderMain(); return }
+  if(d.cvRet){ cvSetDispo(so,d.cvRet,{retenu:!t.checked}); renderMain(); return }
   if(d.cvSeat){ const [lid,k]=d.cvSeat.split('|'); cvSetRep(so,lid,{[k+'_cond']:t.value||null}); renderMain(); return }
   if(d.cvDp){ const [cid,f]=d.cvDp.split('|'); cvSetDispo(so,cid,{[f]:t.value.trim()||null}); renderMain() }
 });
