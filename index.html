@@ -831,6 +831,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .gchip:hover{filter:brightness(.95);text-decoration:underline}
 @media (max-width:700px){.gplan{grid-template-columns:1fr}.ltb select{max-width:130px}}
 /* ---- covoiturage ---- */
+.cvtog{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left}.cvarr{display:inline-block;width:1em}
 .cvph{grid-column:1/-1;font-weight:600;font-size:13px;color:var(--muted,#666);margin:8px 0 0;border-bottom:1px solid var(--line);padding-bottom:3px}.cvph:first-child{margin-top:0}
 .cvphr td{background:#f6f7f9;font-weight:600;font-size:13px}
 .cvtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
@@ -3166,8 +3167,8 @@ function cvListHtml(){
   const row=s=>`<div class="card cvrow"><div class="cvh"><div><b>${esc(cvTitle(s))}</b></div><button type="button" class="btn sm primary" data-cv-open="${s.id}">${s.date>=td?'Saisir':'Voir'}</button></div><div class="ccount cvc">${cvSummaryHtml(s)}</div></div>`;
   return (cvCfg().groupes.length?'':`<div class="warn" style="margin-bottom:12px">⚠ Choisis d’abord les groupes fusionnés pour le covoiturage dans « Conducteurs et réglages ».</div>`)
     +`<div class="quick" style="margin-bottom:12px">${COV.form==='sortie'?'':'<button type="button" class="btn sm primary" data-cv-form="sortie">+ Nouveau déplacement</button>'}</div>${COV.form==='sortie'?cvSortieFormHtml(null):''}`
-    +(prop.length?`<div class="card cvrow"><div class="cvh"><b>Séances des 5 prochaines semaines (${prop.length})</b><button type="button" class="btn sm" data-cv-addall="1">Tout ajouter</button></div>
-        ${prop.map((x,i)=>`<div class="cvprop"><span>${esc(cvTitle(x))}</span><button type="button" class="btn sm" data-cv-add="${i}">Ajouter</button></div>`).join('')}</div>`:'')
+    +(prop.length?`<div class="card cvrow"><div class="cvh"><button type="button" class="cvtog" data-cv-prop="1" aria-expanded="${!!COV.showProp}"><span class="cvarr">${COV.showProp?'▾':'▸'}</span> <b>Séances des 5 prochaines semaines (${prop.length})</b></button>${COV.showProp?'<button type="button" class="btn sm" data-cv-addall="1">Tout ajouter</button>':''}</div>
+        ${!COV.showProp?'':prop.map((x,i)=>`<div class="cvprop"><span>${esc(cvTitle(x))}</span><button type="button" class="btn sm" data-cv-add="${i}">Ajouter</button></div>`).join('')}</div>`:'')
     +(up.length?`<h3 class="cvh3">Déplacements à venir (${up.length})</h3>`+up.map(row).join(''):`<div class="card"><div class="empty">Aucun déplacement à venir. Ajoute une séance proposée ou crée un déplacement.</div></div>`)
     +(past.length?`<details class="cvpast"><summary>Déplacements passés (${past.length})</summary>${past.map(row).join('')}</details>`:'');
 }
@@ -3277,17 +3278,34 @@ function cvSondageHtml(){
 }
 function cvRelance(so){ const st=cvState(so); return `🚗 ${cvTitle(so)}\nIl me manque encore la réponse pour : ${st.none.map(g=>cvFirst(g,st.gyms)).join(', ')}.\nMerci de me dire si elle vient, et si vous pouvez conduire à l’aller ou au retour.` }
 function cvAnnonce(so){
-  const st=cvState(so), nm=g=>cvFirst(g,st.gyms), L=[`🚗 Covoiturage – ${cvTitle(so)}`], az=a=>a.map(nm).sort((x,y)=>x.localeCompare(y,'fr'));
-  const dir=(k,title)=>{ const cars=st.dispo.filter(d=>d[k]&&(st.riders(d.conducteur_id,k).length||st.oui.some(g=>cvSelf(d.c,g)&&st.car(g,k)&&st.car(g,k).conducteur_id===d.conducteur_id)));
-    L.push('',title); if(!cars.length) L.push('  (voitures à définir)');
-    cars.forEach(d=>{ const rs=az(st.riders(d.conducteur_id,k)), h=hhmm(d.rdv_heure)||hhmm(so.rdv_heure), l=cvCarPlace(d,so);
-      const quand=cvFamPlace(l)?(k==='aller'?' – départ de chez elles':' – retour à la maison'):k==='aller'?(h||l?` – départ${h?' à '+h:''}${l?', '+l:''}`:''):(l&&cvCfg().lieux.length>1?` – retour à ${l}`:'');
-      L.push(`• ${d.c.nom}${quand} : ${rs.join(', ')||(d.c.type==='gym'?'seule':'—')}`) });
-    const f=st.seule(k); if(f.length) L.push(`• En famille : ${az(f).join(', ')}`);
-    const n=st.need(k); if(n.length) L.push(`⚠ Sans place : ${az(n).join(', ')}`) };
-  dir('aller','ALLER'); dir('retour',`RETOUR${hhmm(so.heure_fin)?' (fin de l’entraînement à '+hhmm(so.heure_fin)+')':''}`);
-  if(st.non.length) L.push('',`Absentes : ${az(st.non).join(', ')}`);
-  if(st.none.length) L.push(`Sans réponse : ${az(st.none).join(', ')}`);
+  const st=cvState(so), cfg=cvCfg(), nm=g=>cvFirst(g,st.gyms), az=a=>a.slice().sort((x,y)=>nm(x).localeCompare(nm(y),'fr'));
+  const H=t=>{ t=hhmm(t); if(!t) return ''; const [h,m]=t.split(':'); return (+h)+'h'+(m==='00'?'':m) };
+  const who=c=>String(c.nom).split(' (')[0].trim();
+  const deb=H(so.heure_debut), fin=H(so.heure_fin);
+  const L=['🚗🚗🚗🚗🚗🚗',`Voici les voitures pour ${longDate(so.date)}${so.lieu?' à '+so.lieu:''}${so.titre?' – '+so.titre:''}${deb?(fin?` (entraînement de ${deb} à ${fin})`:` (entraînement à ${deb})`):''}`];
+  /* voitures utiles : au moins une gym transportée, ou une gym qui conduit pour elle-même */
+  const cars=st.dispo.map(d=>{ const ra=st.riders(d.conducteur_id,'aller'), rr=st.riders(d.conducteur_id,'retour');
+      const self=st.oui.find(g=>cvSelf(d.c,g)&&['aller','retour'].some(k=>{ const x=st.car(g,k); return x&&x.conducteur_id===d.conducteur_id }));
+      return {d,ra,rr,self,pl:cvCarPlace(d,so)} }).filter(x=>x.ra.length||x.rr.length||x.self);
+  const rank=pl=>{ if(!pl) return 98; const i=cfg.lieux.findIndex(l=>norm(l)===norm(pl)); return i<0?97:i };
+  cars.sort((a,b)=>rank(a.pl)-rank(b.pl)||norm(a.pl).localeCompare(norm(b.pl))||String(hhmm(a.d.rdv_heure)||hhmm(so.rdv_heure)||'').localeCompare(String(hhmm(b.d.rdv_heure)||hhmm(so.rdv_heure)||''))||(a.d.c.type==='entraineur'?0:1)-(b.d.c.type==='entraineur'?0:1)||who(a.d.c).localeCompare(who(b.d.c),'fr'));
+  const seule=az(st.seule('aller').concat(st.seule('retour').filter(g=>!st.seule('aller').includes(g))));
+  let cur=null;
+  const head=pl=>{ const h=cvFamPlace(pl)?'🏠 En famille':pl?`📍 Départ de ${pl}`:'📍 Lieu de départ non précisé'; if(h!==cur){ cur=h; L.push('',h); return true } return false };
+  cars.forEach(({d,ra,rr,self,pl})=>{ if(!head(pl)) L.push('');
+    const all=az([...new Set([...ra,...rr])]), t=H(d.rdv_heure)||H(so.rdv_heure);
+    const va=ra.length||(self&&st.car(self,'aller')), vr=rr.length||(self&&st.car(self,'retour')), deux=va&&vr;
+    const names=all.map(g=>nm(g)+(!deux?'':ra.includes(g)&&!rr.includes(g)?' (à l’aller)':!ra.includes(g)&&rr.includes(g)?' (au retour)':''));
+    const quand=cvFamPlace(pl)?'':!va?'':t?t+' ':'', sens=deux?'':va?' (aller seulement)':' (retour seulement)';
+    L.push(`- ${quand}avec ${who(d.c)}${sens} :`, names.join(' + ')||(self?'seule':'—')) });
+  if(seule.length){ head('En famille'); L.push(seule.map(nm).join(' + ')) }
+  const na=st.need('aller'), nr=st.need('retour');
+  if(na.length||nr.length) L.push('');
+  if(na.length) L.push(`⚠ Sans place à l’aller : ${az(na).map(nm).join(', ')}`);
+  if(nr.length) L.push(`⚠ Sans place au retour : ${az(nr).map(nm).join(', ')}`);
+  if(!cars.length&&!seule.length) L.push('','(voitures à définir)');
+  if(st.non.length) L.push('',`Absentes : ${az(st.non).map(nm).join(', ')}`);
+  if(st.none.length) L.push(`Sans réponse : ${az(st.none).map(nm).join(', ')}`);
   if(so.note) L.push('',so.note);
   return L.join('\n');
 }
@@ -3351,8 +3369,9 @@ function cvTry(fn,msg){
   COV.chain=p.then(()=>{}); return p;
 }
 document.addEventListener('click',async ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-cv-view],[data-cv-open],[data-cv-reload],[data-cv-form],[data-cv-add],[data-cv-addall],[data-cv-del],[data-cv-rep],[data-cv-auto],[data-cv-copy],[data-cv-conddel],[data-cv-import]'); if(!t||!COV.acces&&!t.dataset.cvReload) return; const d=t.dataset;
+  const t=ev.target.closest&&ev.target.closest('[data-cv-view],[data-cv-prop],[data-cv-open],[data-cv-reload],[data-cv-form],[data-cv-add],[data-cv-addall],[data-cv-del],[data-cv-rep],[data-cv-auto],[data-cv-copy],[data-cv-conddel],[data-cv-import]'); if(!t||!COV.acces&&!t.dataset.cvReload) return; const d=t.dataset;
   if(d.cvReload){ COV.loaded=false; covLoad().then(covRender); renderMain(); return }
+  if(d.cvProp){ COV.showProp=!COV.showProp; renderMain(); return }
   if(d.cvView){ COV.view=d.cvView; COV.form=null; if(d.cvView==='sorties') COV.sel=null; renderMain(); return }
   if(d.cvOpen!==undefined){ COV.sel=d.cvOpen||null; COV.form=null; renderMain(); window.scrollTo(0,0); return }
   if(d.cvForm!==undefined){ COV.form=d.cvForm||null; renderMain(); const f=document.querySelector('.cvform'); if(f) f.scrollIntoView({block:'nearest'}); return }
