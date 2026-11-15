@@ -831,6 +831,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .gchip:hover{filter:brightness(.95);text-decoration:underline}
 @media (max-width:700px){.gplan{grid-template-columns:1fr}.ltb select{max-width:130px}}
 /* ---- covoiturage ---- */
+.cvtrips td{background:#fafbfc}.cvtl{display:flex;flex-wrap:wrap;gap:6px}.cvtp{border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:12.5px;background:#fff}.cvtp.fam{border-style:dashed;color:#666}
 .cvtog{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left}.cvarr{display:inline-block;width:1em}
 .cvph{grid-column:1/-1;font-weight:600;font-size:13px;color:var(--muted,#666);margin:8px 0 0;border-bottom:1px solid var(--line);padding-bottom:3px}.cvph:first-child{margin-top:0}
 .cvphr td{background:#f6f7f9;font-weight:600;font-size:13px}
@@ -3121,16 +3122,18 @@ function cvFamilies(){
 function cvFollowFam(F,avant){
   const td=isoToday(), ref=avant||addDays(td,1), ids=F.conds.map(c=>c.id);
   const list=COV.sorties.filter(s=>s.date<ref).sort((a,b)=>a.date.localeCompare(b.date));
-  let n=0,na=0,nr=0,fam=0,last=null,prev=null,came=0,sans=0,prop=0;
+  let n=0,na=0,nr=0,fam=0,last=null,prev=null,came=0,sans=0,prop=0; const trips=[];
   list.forEach(s=>{ const st=cvState(s), here=COV.rep.some(r=>r.sortie_id===s.id&&r.statut==='oui'&&F.kids.includes(r.licencie_id));
     const ra=ids.flatMap(id=>st.riders(id,'aller')), rr=ids.flatMap(id=>st.riders(id,'retour'));
     if(COV.dispo.some(x=>x.sortie_id===s.id&&ids.includes(x.conducteur_id))) prop++;
     if(here) came++;
-    if(ra.length||rr.length){ n++; if(ra.length) na++; if(rr.length) nr++; if([...ra,...rr].every(g=>F.kids.includes(g.id))) fam++; prev=last; last=s.date; sans=0 } else if(here) sans++ });
+    if(ra.length||rr.length){ n++; if(ra.length) na++; if(rr.length) nr++; const enf=[...ra,...rr].every(g=>F.kids.includes(g.id)); if(enf) fam++; prev=last; last=s.date; sans=0;
+      const qui=F.conds.filter(c=>st.riders(c.id,'aller').length||st.riders(c.id,'retour').length).map(c=>String(c.nom).split(' (')[0]);
+      trips.push({s,a:!!ra.length,r:!!rr.length,enf,qui,gyms:[...new Set([...ra,...rr])]}) } else if(here) sans++ });
   const cfg=cvCfg(), al=[];
   if(sans>=cfg.seuil_sans) al.push({k:'sol',t:n?`n’a pas conduit depuis ${sans} déplacements`:`n’a jamais conduit (${sans} déplacements)`});
   if(last&&prev&&cvDays(prev,last)<cfg.seuil_jours) al.push({k:'trop',t:`2 covoiturages en ${cvDays(prev,last)} j`});
-  return {n,na,nr,fam,last,prev,came,sans,prop,gap:last&&prev?cvDays(prev,last):null,since:last?cvDays(last,avant||td):null,al};
+  return {n,na,nr,fam,trips,last,prev,came,sans,prop,gap:last&&prev?cvDays(prev,last):null,since:last?cvDays(last,avant||td):null,al};
 }
 /* séances à venir des groupes fusionnés (tous lieux, une par jour et par lieu), pas encore ajoutées */
 function cvProposals(){
@@ -3265,8 +3268,8 @@ function cvSuiviHtml(){
   return `<div class="hint" style="margin:0 0 12px">Sur ${done.length} déplacement(s) jusqu’à aujourd’hui. Le % de présence d’une gym se calcule sur ${poss} déplacement(s) possibles : ${CV_MAX_SEM} au plus par semaine scolaire, tous pendant les vacances. Un conducteur a « covoituré » quand il a transporté au moins une gym, à l’aller ou au retour. Les plus à solliciter sont en haut.</div>
     <div class="card"><h3>Familles qui conduisent</h3>
       <div class="hint" style="margin-bottom:8px">Les conducteurs d’une même famille (parents, sœurs, gym qui a le permis) sont comptés ensemble : leurs gyms ont le même nom de famille. « En famille » = trajets où la voiture n’a pris que les gyms de la famille.</div>
-      ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td><b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
-          <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
+      ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td>${f.trips.length?`<button type="button" class="cvtog" data-cv-fam="${esc(F.nom)}" aria-expanded="${COV.openFam&&COV.openFam.has(F.nom)?'true':'false'}" title="Voir les trajets"><span class="cvarr">${COV.openFam&&COV.openFam.has(F.nom)?'▾':'▸'}</span></button> `:''}<b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
+          <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>${COV.openFam&&COV.openFam.has(F.nom)&&f.trips.length?`<tr class="cvtrips"><td colspan="8"><div class="hint" style="margin-bottom:4px">A = aller · R = retour · A-R = les deux</div><div class="cvtl">${f.trips.map(t=>`<span class="cvtp${t.enf?' fam':''}" title="${esc(t.gyms.map(g=>gymName(g)).join(', '))}"><b>${cvD(t.s.date)}</b> ${t.a&&t.r?'A-R':t.a?'A':'R'}${F.conds.length>1?' · '+esc(t.qui.join(', ')):''}${t.enf?' · en famille':''}${t.s.lieu&&norm(t.s.lieu)!==norm(LIEU_DEF)?' · '+esc(t.s.lieu):''}</span>`).join('')}</div></td></tr>`:''}`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>Gyms</h3>
       ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${poss?` <span class="hint">${Math.min(100,Math.round(100*x.o/poss))} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
 }
@@ -3381,8 +3384,9 @@ function cvTry(fn,msg){
   COV.chain=p.then(()=>{}); return p;
 }
 document.addEventListener('click',async ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-cv-view],[data-cv-prop],[data-cv-open],[data-cv-reload],[data-cv-form],[data-cv-add],[data-cv-addall],[data-cv-del],[data-cv-rep],[data-cv-auto],[data-cv-copy],[data-cv-conddel],[data-cv-import]'); if(!t||!COV.acces&&!t.dataset.cvReload) return; const d=t.dataset;
+  const t=ev.target.closest&&ev.target.closest('[data-cv-view],[data-cv-prop],[data-cv-fam],[data-cv-open],[data-cv-reload],[data-cv-form],[data-cv-add],[data-cv-addall],[data-cv-del],[data-cv-rep],[data-cv-auto],[data-cv-copy],[data-cv-conddel],[data-cv-import]'); if(!t||!COV.acces&&!t.dataset.cvReload) return; const d=t.dataset;
   if(d.cvReload){ COV.loaded=false; covLoad().then(covRender); renderMain(); return }
+  if(d.cvFam){ COV.openFam=COV.openFam||new Set(); COV.openFam.has(d.cvFam)?COV.openFam.delete(d.cvFam):COV.openFam.add(d.cvFam); renderMain(); return }
   if(d.cvProp){ COV.showProp=!COV.showProp; renderMain(); return }
   if(d.cvView){ COV.view=d.cvView; COV.form=null; if(d.cvView==='sorties') COV.sel=null; renderMain(); return }
   if(d.cvOpen!==undefined){ COV.sel=d.cvOpen||null; COV.form=null; renderMain(); window.scrollTo(0,0); return }
