@@ -3250,18 +3250,25 @@ function cvCondHtml(){
       <div class="hint" style="margin-bottom:8px">La répartition automatique ne met une gym que dans une voiture qui part de son lieu (sauf avec son parent). Sans lieu, elle peut monter partout.</div>
       <div class="cvgrid">${cvByPlace(gyms,g=>`<div class="cvg"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</span>${cvPlaceField(`data-cv-gl="${g.id}" aria-label="Lieu de départ de ${esc(gymName(g))}"`,cvGymPlace(g),'—')}</div>`,h=>`<div class="cvph">${esc(h)}</div>`)}</div></div>`:''}`;
 }
+/* nombre de déplacements qu'une gym peut faire : 3 au plus par semaine scolaire, tous pendant les vacances */
+const CV_MAX_SEM=3;
+function cvPossibles(list){
+  const wk={}; let n=0;
+  list.forEach(s=>{ if(vacOf(s.date)){ n++; return } const d=new Date(s.date+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); const k=d.toISOString().slice(0,10); wk[k]=(wk[k]||0)+1 });
+  return n+Object.values(wk).reduce((t,x)=>t+Math.min(CV_MAX_SEM,x),0);
+}
 function cvSuiviHtml(){
-  const td=isoToday(), done=COV.sorties.filter(s=>s.date<=td), gyms=cvGyms();
+  const td=isoToday(), done=COV.sorties.filter(s=>s.date<=td), gyms=cvGyms(), poss=cvPossibles(done);
   const cs=cvFamilies().map(F=>({F,f:cvFollowFam(F),next:COV.sorties.find(s=>s.date>td&&F.conds.some(c=>{ const d=cvDrove(s,c); return d.a||d.r }))}))
     .sort((a,b)=>b.F.actif-a.F.actif||b.f.al.filter(x=>x.k==='sol').length-a.f.al.filter(x=>x.k==='sol').length||b.f.sans-a.f.sans||a.f.n-b.f.n||a.F.nom.localeCompare(b.F.nom,'fr'));
   const gs=gyms.map(g=>{ let o=0,n=0; done.forEach(s=>{ const r=COV.rep.find(r=>r.sortie_id===s.id&&r.licencie_id===g.id); if(r&&r.statut==='oui') o++; else if(r) n++ }); return {g,o,n,z:done.length-o-n} });
-  return `<div class="hint" style="margin:0 0 12px">Sur ${done.length} déplacement(s) jusqu’à aujourd’hui. Un conducteur a « covoituré » quand il a transporté au moins une gym, à l’aller ou au retour. Les plus à solliciter sont en haut.</div>
+  return `<div class="hint" style="margin:0 0 12px">Sur ${done.length} déplacement(s) jusqu’à aujourd’hui. Le % de présence d’une gym se calcule sur ${poss} déplacement(s) possibles : ${CV_MAX_SEM} au plus par semaine scolaire, tous pendant les vacances. Un conducteur a « covoituré » quand il a transporté au moins une gym, à l’aller ou au retour. Les plus à solliciter sont en haut.</div>
     <div class="card"><h3>Familles qui conduisent</h3>
       <div class="hint" style="margin-bottom:8px">Les conducteurs d’une même famille (parents, sœurs, gym qui a le permis) sont comptés ensemble : leurs gyms ont le même nom de famille. « En famille » = trajets où la voiture n’a pris que les gyms de la famille.</div>
       ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td><b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
           <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>Gyms</h3>
-      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${done.length?` <span class="hint">${Math.round(100*x.o/done.length)} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
+      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${poss?` <span class="hint">${Math.min(100,Math.round(100*x.o/poss))} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
 }
 /* ---- textes : sondage, relance, annonce ---- */
 function cvPollList(){ const td=isoToday(), up=COV.sorties.filter(s=>s.date>=td); if(!COV.poll) COV.poll=new Set(up.map(s=>s.id)); return up }
