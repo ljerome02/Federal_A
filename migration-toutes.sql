@@ -1154,6 +1154,7 @@ create table if not exists public.cv_config (
 );
 alter table public.cv_config add column if not exists lieux text[] not null default '{}';
 alter table public.cv_config add column if not exists depart_gyms jsonb not null default '{}'::jsonb;
+alter table public.cv_config add column if not exists exclus uuid[] not null default '{}';   -- gyms hors covoiturage
 
 create table if not exists public.cv_conducteurs (
   id          uuid primary key default gen_random_uuid(),

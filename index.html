@@ -856,7 +856,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .cvform{border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--accent-soft);text-align:left}
 .cvf{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;align-items:end}.cvf label{font-size:12px;color:var(--muted)}.cvf .w2{grid-column:span 2}.cvf .w3{grid-column:span 3}
 .cvf input:not([type=checkbox]),.cvf select{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font-size:14px}
-.cvg select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff;font:inherit;font-size:13px;max-width:150px}.cvwp{color:var(--warn)}
+.cvg select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff;font:inherit;font-size:13px;max-width:150px}.cvwp{color:var(--warn)}.cvex{margin-top:12px}.cvex summary{cursor:pointer;font-size:13px}
 .cvf textarea{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
 .cvkids{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px}.cvkids.col{flex-direction:column}
 .cvkids label{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);cursor:pointer}
@@ -2992,7 +2992,7 @@ const covNew=()=>({loaded:false,loading:false,ok:null,acces:false,err:'',club:nu
 let COV=covNew();
 const CV_TYPES={parent:'Parent',gym:'Gym avec permis',entraineur:'Entraîneur'};
 const CV_PROP_DAYS=35; // séances proposées : les 5 prochaines semaines
-const cvCfg=()=>{ const c=COV.cfg||{}; return {groupes:c.groupes||[],rdv_lieu:c.rdv_lieu||null,seuil_sans:c.seuil_sans||3,seuil_jours:c.seuil_jours||14,lieux:c.lieux||[],depart_gyms:c.depart_gyms||{}} };
+const cvCfg=()=>{ const c=COV.cfg||{}; return {groupes:c.groupes||[],rdv_lieu:c.rdv_lieu||null,seuil_sans:c.seuil_sans||3,seuil_jours:c.seuil_jours||14,lieux:c.lieux||[],depart_gyms:c.depart_gyms||{},exclus:c.exclus||[]} };
 /* lieux de départ : liste des réglages ; chaque gym et chaque voiture a le sien */
 const cvGymPlace=g=>cvCfg().depart_gyms[g.id]||'';
 const cvCarPlace=(d,so)=>d.rdv_lieu||d.c.depart_lieu||so.rdv_lieu||'';
@@ -3014,7 +3014,7 @@ async function covLoad(){
     else { COV.ok=true; COV.acces=a.data.length>0;
       if(COV.acces){
         const rs=await withTimeout(Promise.all([
-          sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours,lieux,depart_gyms').eq('club_id',CLUB.id),
+          sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours,lieux,depart_gyms,exclus').eq('club_id',CLUB.id),
           sb.from('cv_conducteurs').select('id,nom,type,places,licencie_id,enfants,telephone,depart_lieu,actif,auto').eq('club_id',CLUB.id).order('nom'),
           sb.from('cv_sorties').select('id,date,lieu,heure_debut,heure_fin,titre,rdv_lieu,rdv_heure,note').eq('club_id',CLUB.id).order('date'),
           sb.from('cv_reponses').select('sortie_id,licencie_id,statut,aller_cond,retour_cond').eq('club_id',CLUB.id),
@@ -3029,13 +3029,17 @@ async function covLoad(){
 const covRender=()=>{ if(UI.view==='pres'&&PRES.tab==='covoit') renderMain() };
 /* envoie une écriture après les précédentes ; en cas d'échec : message, puis rechargement de l'état réel */
 function cvSend(fn){
+  /* saisie faite pendant un rechargement : on relit la base une fois toutes les écritures passées, pour ne pas afficher un état périmé */
+  if(COV.busy||COV.loading) COV.stale=true;
+  COV.n=(COV.n||0)+1;
   COV.chain=COV.chain.then(async()=>{ try{ if(!presOnline()) throw new Error('connexion nécessaire'); const r=await fn(); (Array.isArray(r)?r:[r]).forEach(x=>x&&chk(x)) }
-    catch(e){ toast('Non enregistré : '+e.message); COV.loaded=false; await covLoad(); covRender() } });
+    catch(e){ toast('Non enregistré : '+e.message); COV.stale=true }
+    COV.n--; if(COV.stale&&!COV.n){ COV.stale=false; COV.loaded=false; await covLoad(); covRender() } });
   return COV.chain;
 }
-/* gyms des groupes fusionnés */
-function cvGyms(){
-  const seen=new Set(), out=[];
+/* gyms des groupes fusionnés, sans celles mises hors covoiturage (tout=true : toutes) */
+function cvGyms(tout){
+  const seen=new Set(tout?[]:cvCfg().exclus), out=[];
   cvCfg().groupes.forEach(gid=>presMembers(gid).forEach(g=>{ if(!seen.has(g.id)){ seen.add(g.id); out.push(g) } }));
   return out.sort(byNom);
 }
@@ -3182,6 +3186,7 @@ function cvCondHtml(){
       ${COV.form==='cond:new'?cvCondFormHtml({}):`<div class="quick" style="margin-top:10px"><button type="button" class="btn sm primary" data-cv-form="cond:new">+ Ajouter un conducteur</button>${sans.length?`<button type="button" class="btn sm" data-cv-import="1" title="Crée un conducteur « parent » par responsable légal indiqué sur les fiches">Créer les parents depuis les fiches adhérents (${sans.length} gyms sans conducteur)</button>`:''}</div>`}</div>
     <form id="fCvCfg" class="card" style="margin-top:14px"><h3>Réglages</h3>
       <div><b style="font-size:13px">Groupes fusionnés pour le covoiturage</b><div class="cvkids">${PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).map(g=>`<label><input type="checkbox" name="grp" value="${g.id}" ${cfg.groupes.includes(g.id)?'checked':''}> ${esc(g.nom)}</label>`).join('')}</div></div>
+      <details class="cvex" ${cfg.exclus.length?'open':''}><summary><b>Gyms hors covoiturage</b> <span class="hint">(${cfg.exclus.length}) : elles n’apparaissent ni dans la saisie, ni dans le suivi, ni dans les messages</span></summary><div class="cvkids">${cvGyms(true).map(g=>`<label><input type="checkbox" name="excl" value="${g.id}" ${cfg.exclus.includes(g.id)?'checked':''}> ${esc(gymName(g))}</label>`).join('')}</div></details>
       <div class="cvf" style="margin-top:10px"><label class="w3">Lieux de départ (un par ligne)<textarea name="lieux" rows="3" placeholder="Ex. Laon (Semilly)">${esc(cfg.lieux.join('\n'))}</textarea></label>
         <label class="w2">Alerte « à solliciter » : déplacements où sa gym est venue sans qu’il conduise<input name="seuil_sans" type="number" min="1" max="20" value="${cfg.seuil_sans}"></label>
         <label>Alerte « trop sollicité » : moins de … jours entre 2 covoiturages<input name="seuil_jours" type="number" min="1" max="120" value="${cfg.seuil_jours}"></label></div>
@@ -3287,7 +3292,12 @@ async function cvAddSortie(v){
   return id;
 }
 async function cvReload(msg){ COV.loaded=false; await covLoad(); covRender(); if(msg) toast(msg) }
-async function cvTry(fn,msg){ if(!presOnline()){ toast('Connexion nécessaire'); return false } try{ await COV.chain; await fn(); await cvReload(msg); return true }catch(e){ toast('Erreur : '+e.message); await cvReload(); return false } }
+function cvTry(fn,msg){
+  if(!presOnline()){ toast('Connexion nécessaire'); return Promise.resolve(false) }
+  COV.busy=(COV.busy||0)+1;
+  const p=COV.chain.then(async()=>{ let ok=true; try{ await fn(); await cvReload(msg) }catch(e){ ok=false; toast('Erreur : '+e.message); await cvReload() } COV.busy--; return ok });
+  COV.chain=p.then(()=>{}); return p;
+}
 document.addEventListener('click',async ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-cv-view],[data-cv-open],[data-cv-reload],[data-cv-form],[data-cv-add],[data-cv-addall],[data-cv-del],[data-cv-rep],[data-cv-auto],[data-cv-copy],[data-cv-conddel],[data-cv-import]'); if(!t||!COV.acces&&!t.dataset.cvReload) return; const d=t.dataset;
   if(d.cvReload){ COV.loaded=false; covLoad().then(covRender); renderMain(); return }
@@ -3332,7 +3342,7 @@ document.addEventListener('change',ev=>{
 document.addEventListener('submit',async ev=>{
   const f=ev.target; if(!['fCvSortie','fCvCond','fCvCfg'].includes(f.id)||!COV.acces) return; ev.preventDefault();
   const v=n=>(f.elements[n].value||'').trim();
-  if(f.id==='fCvCfg'){ const row={club_id:CLUB.id,groupes:[...f.querySelectorAll('[name=grp]:checked')].map(x=>x.value),lieux:[...new Set(v('lieux').split('\n').map(x=>x.trim().slice(0,120)).filter(Boolean))].slice(0,10),seuil_sans:Math.min(20,Math.max(1,+v('seuil_sans')||3)),seuil_jours:Math.min(120,Math.max(1,+v('seuil_jours')||14)),updated_at:new Date().toISOString()};
+  if(f.id==='fCvCfg'){ const row={club_id:CLUB.id,groupes:[...f.querySelectorAll('[name=grp]:checked')].map(x=>x.value),exclus:[...f.querySelectorAll('[name=excl]:checked')].map(x=>x.value),lieux:[...new Set(v('lieux').split('\n').map(x=>x.trim().slice(0,120)).filter(Boolean))].slice(0,10),seuil_sans:Math.min(20,Math.max(1,+v('seuil_sans')||3)),seuil_jours:Math.min(120,Math.max(1,+v('seuil_jours')||14)),updated_at:new Date().toISOString()};
     await cvTry(async()=>chk(await sb.from('cv_config').upsert(row,{onConflict:'club_id'})),'Réglages enregistrés'); return }
   if(f.id==='fCvCond'){ const id=f.dataset.id, type=v('type');
     const row={nom:v('nom'),type,places:+v('places'),telephone:v('telephone')||null,depart_lieu:v('depart_lieu')||null,actif:f.elements.actif.checked,auto:f.elements.auto.checked,licencie_id:type==='gym'?v('licencie_id')||null:null,enfants:type==='parent'?[...f.querySelectorAll('[name=enf]:checked')].map(x=>x.value):[]};
