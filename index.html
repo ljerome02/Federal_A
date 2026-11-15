@@ -2996,7 +2996,9 @@ const cvCfg=()=>{ const c=COV.cfg||{}; return {groupes:c.groupes||[],rdv_lieu:c.
 /* lieux de départ : liste des réglages ; chaque gym et chaque voiture a le sien */
 const cvGymPlace=g=>cvCfg().depart_gyms[g.id]||'';
 const cvCarPlace=(d,so)=>d.rdv_lieu||d.c.depart_lieu||so.rdv_lieu||'';
-const cvSamePlace=(g,d,so)=>{ const a=cvGymPlace(g), b=cvCarPlace(d,so); return !a||!b||norm(a)===norm(b) };
+/* « en famille » : la voiture ne prend que les gyms dont c'est aussi le lieu de départ */
+const cvFamPlace=l=>/famille|chez soi/i.test(l||'');
+const cvSamePlace=(g,d,so)=>{ const a=cvGymPlace(g), b=cvCarPlace(d,so); if(cvFamPlace(a)||cvFamPlace(b)) return norm(a)===norm(b); return !a||!b||norm(a)===norm(b) };
 const cvShortPlace=l=>String(l||'').split(/[(–,]/)[0].trim();
 function cvPlaceField(attrs,val,empty){ const ls=cvCfg().lieux;
   if(!ls.length) return `<input ${attrs} maxlength="120" value="${esc(val||'')}" placeholder="${esc(empty)}">`;
@@ -3231,7 +3233,7 @@ function cvAnnonce(so){
   const dir=(k,title)=>{ const cars=st.dispo.filter(d=>d[k]&&(st.riders(d.conducteur_id,k).length||st.oui.some(g=>cvSelf(d.c,g)&&st.car(g,k)&&st.car(g,k).conducteur_id===d.conducteur_id)));
     L.push('',title); if(!cars.length) L.push('  (voitures à définir)');
     cars.forEach(d=>{ const rs=az(st.riders(d.conducteur_id,k)), h=hhmm(d.rdv_heure)||hhmm(so.rdv_heure), l=cvCarPlace(d,so);
-      const quand=k==='aller'?(h||l?` – départ${h?' à '+h:''}${l?', '+l:''}`:''):(l&&cvCfg().lieux.length>1?` – retour à ${l}`:'');
+      const quand=cvFamPlace(l)?(k==='aller'?' – départ de chez elles':' – retour à la maison'):k==='aller'?(h||l?` – départ${h?' à '+h:''}${l?', '+l:''}`:''):(l&&cvCfg().lieux.length>1?` – retour à ${l}`:'');
       L.push(`• ${d.c.nom}${quand} : ${rs.join(', ')||(d.c.type==='gym'?'seule':'—')}`) });
     const n=st.need(k); if(n.length) L.push(`⚠ Sans place : ${az(n).join(', ')}`) };
   dir('aller','ALLER'); dir('retour',`RETOUR${hhmm(so.heure_fin)?' (fin de l’entraînement à '+hhmm(so.heure_fin)+')':''}`);
