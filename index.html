@@ -3072,6 +3072,7 @@ function cvDrove(so,c){
 }
 /* suivi d'un conducteur jusqu'à une date (exclue si « avant » est fourni) */
 function cvFollow(c,avant){
+  if(c.type!=='entraineur'){ const F=cvFamilies().find(F=>F.conds.some(x=>x.id===c.id)); if(F) return cvFollowFam(F,avant) }
   const td=isoToday(), ref=avant||addDays(td,1), kids=c.type==='gym'?[c.licencie_id]:(c.enfants||[]);
   const list=COV.sorties.filter(s=>s.date<ref).sort((a,b)=>a.date.localeCompare(b.date));
   let n=0,na=0,nr=0,last=null,prev=null,came=0,sans=0,prop=0;
@@ -3085,6 +3086,40 @@ function cvFollow(c,avant){
     if(last&&prev&&cvDays(prev,last)<cfg.seuil_jours) al.push({k:'trop',t:`2 covoiturages en ${cvDays(prev,last)} j`});
   }
   return {n,na,nr,last,prev,came,sans,prop,gap:last&&prev?cvDays(prev,last):null,since:last?cvDays(last,avant||td):null,al};
+}
+/* familles : conducteurs (hors entraîneurs) regroupés quand leurs gyms ont le même nom de famille (parents, sœurs, gym qui conduit) */
+const cvKids=c=>c.type==='gym'?[c.licencie_id]:(c.enfants||[]);
+function cvFamilies(){
+  const gyms=cvGyms(true), surn=id=>{ const g=S.gyms.find(x=>x.id===id); return g&&g.nom?norm(g.nom):null };
+  const cs=COV.cond.filter(c=>c.type!=='entraineur'), par=cs.map((_,i)=>i), f=i=>par[i]===i?i:(par[i]=f(par[i]));
+  const by={}; cs.forEach((c,i)=>cvKids(c).map(surn).filter(Boolean).forEach(n=>{ if(by[n]===undefined) by[n]=i; else par[f(i)]=f(by[n]) }));
+  const out={}; cs.forEach((c,i)=>{ const k=f(i); (out[k]=out[k]||{conds:[],noms:new Set()}).conds.push(c); cvKids(c).map(surn).filter(Boolean).forEach(n=>out[k].noms.add(n)) });
+  const fams=Object.values(out).map(F=>{ const kids=gyms.filter(g=>g.nom&&F.noms.has(norm(g.nom))).map(g=>g.id);
+    cvKids(F.conds[0]).forEach(id=>{ if(id&&!kids.includes(id)) kids.push(id) });
+    F.conds.slice(1).forEach(c=>cvKids(c).forEach(id=>{ if(id&&!kids.includes(id)) kids.push(id) }));
+    const kg=kids.map(id=>S.gyms.find(x=>x.id===id)).filter(Boolean);
+    const nom=kg.length?`Famille ${[...new Set(kg.map(g=>g.nom))].join(' / ')}`:F.conds[0].nom;
+    return {conds:F.conds.sort((a,b)=>a.nom.localeCompare(b.nom,'fr')),kids,kg,nom,actif:F.conds.some(c=>c.actif)} });
+  /* gyms dont aucun membre de la famille n'est enregistré comme conducteur */
+  const seen=new Set(fams.flatMap(F=>F.kids)), rest={};
+  cvGyms().filter(g=>!seen.has(g.id)).forEach(g=>{ const k=norm(g.nom||g.id); (rest[k]=rest[k]||[]).push(g) });
+  Object.values(rest).forEach(kg=>fams.push({conds:[],kids:kg.map(g=>g.id),kg,nom:`Famille ${kg[0].nom||''}`,actif:true}));
+  return fams.sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+}
+/* suivi d'une famille : elle a covoituré quand l'un de ses conducteurs a transporté au moins une gym */
+function cvFollowFam(F,avant){
+  const td=isoToday(), ref=avant||addDays(td,1), ids=F.conds.map(c=>c.id);
+  const list=COV.sorties.filter(s=>s.date<ref).sort((a,b)=>a.date.localeCompare(b.date));
+  let n=0,na=0,nr=0,fam=0,last=null,prev=null,came=0,sans=0,prop=0;
+  list.forEach(s=>{ const st=cvState(s), here=COV.rep.some(r=>r.sortie_id===s.id&&r.statut==='oui'&&F.kids.includes(r.licencie_id));
+    const ra=ids.flatMap(id=>st.riders(id,'aller')), rr=ids.flatMap(id=>st.riders(id,'retour'));
+    if(COV.dispo.some(x=>x.sortie_id===s.id&&ids.includes(x.conducteur_id))) prop++;
+    if(here) came++;
+    if(ra.length||rr.length){ n++; if(ra.length) na++; if(rr.length) nr++; if([...ra,...rr].every(g=>F.kids.includes(g.id))) fam++; prev=last; last=s.date; sans=0 } else if(here) sans++ });
+  const cfg=cvCfg(), al=[];
+  if(sans>=cfg.seuil_sans) al.push({k:'sol',t:n?`n’a pas conduit depuis ${sans} déplacements`:`n’a jamais conduit (${sans} déplacements)`});
+  if(last&&prev&&cvDays(prev,last)<cfg.seuil_jours) al.push({k:'trop',t:`2 covoiturages en ${cvDays(prev,last)} j`});
+  return {n,na,nr,fam,last,prev,came,sans,prop,gap:last&&prev?cvDays(prev,last):null,since:last?cvDays(last,avant||td):null,al};
 }
 /* séances à venir des groupes fusionnés (tous lieux, une par jour et par lieu), pas encore ajoutées */
 function cvProposals(){
@@ -3178,7 +3213,9 @@ function cvCondFormHtml(c){
 }
 function cvCondHtml(){
   const cfg=cvCfg(), gyms=cvGyms(), nm=id=>{ const g=S.gyms.find(x=>x.id===id); return g?gymName(g):null };
-  const rows=COV.cond.map(c=>COV.form==='cond:'+c.id?`<tr><td colspan="5">${cvCondFormHtml(c)}</td></tr>`:`<tr class="${c.actif?'':'cvoff'}"><td><b>${esc(c.nom)}</b>${c.actif?'':' <span class="lb no">inactif</span>'}${c.auto?' <span class="lb ok">part d’office</span>':''}${c.telephone?`<div class="hint">${esc(c.telephone)}</div>`:''}</td><td>${CV_TYPES[c.type]}</td><td>${c.places}</td>
+  const fam={}; cvFamilies().forEach(F=>F.conds.forEach(c=>fam[c.id]=F.nom));
+  const list=COV.cond.slice().sort((a,b)=>(a.type==='entraineur'?0:1)-(b.type==='entraineur'?0:1)||(fam[a.id]||a.nom).localeCompare(fam[b.id]||b.nom,'fr')||a.nom.localeCompare(b.nom,'fr'));
+  const rows=list.map(c=>COV.form==='cond:'+c.id?`<tr><td colspan="5">${cvCondFormHtml(c)}</td></tr>`:`<tr class="${c.actif?'':'cvoff'}"><td>${fam[c.id]&&fam[c.id]!==c.nom?`<div class="hint">${esc(fam[c.id])}</div>`:''}<b>${esc(c.nom)}</b>${c.actif?'':' <span class="lb no">inactif</span>'}${c.auto?' <span class="lb ok">part d’office</span>':''}${c.telephone?`<div class="hint">${esc(c.telephone)}</div>`:''}</td><td>${CV_TYPES[c.type]}</td><td>${c.places}</td>
       <td>${esc((c.type==='gym'?[c.licencie_id]:c.enfants||[]).map(nm).filter(Boolean).join(', ')||'—')}${c.depart_lieu?`<div class="hint">Départ : ${esc(c.depart_lieu)}</div>`:''}</td>
       <td><div class="quick"><button type="button" class="btn sm" data-cv-form="cond:${c.id}">Modifier</button><button type="button" class="btn sm ghost" data-cv-conddel="${c.id}" title="Supprimer">🗑</button></div></td></tr>`).join('');
   const sans=gyms.filter(g=>!COV.cond.some(c=>c.type==='gym'?c.licencie_id===g.id:(c.enfants||[]).includes(g.id)));
@@ -3199,12 +3236,13 @@ function cvCondHtml(){
 }
 function cvSuiviHtml(){
   const td=isoToday(), done=COV.sorties.filter(s=>s.date<=td), gyms=cvGyms();
-  const cs=COV.cond.filter(c=>c.type!=='entraineur').map(c=>({c,f:cvFollow(c),next:COV.sorties.find(s=>s.date>td&&(cvDrove(s,c).a||cvDrove(s,c).r))}))
-    .sort((a,b)=>b.f.al.filter(x=>x.k==='sol').length-a.f.al.filter(x=>x.k==='sol').length||b.f.sans-a.f.sans||a.f.n-b.f.n||a.c.nom.localeCompare(b.c.nom));
+  const cs=cvFamilies().map(F=>({F,f:cvFollowFam(F),next:COV.sorties.find(s=>s.date>td&&F.conds.some(c=>{ const d=cvDrove(s,c); return d.a||d.r }))}))
+    .sort((a,b)=>b.F.actif-a.F.actif||b.f.al.filter(x=>x.k==='sol').length-a.f.al.filter(x=>x.k==='sol').length||b.f.sans-a.f.sans||a.f.n-b.f.n||a.F.nom.localeCompare(b.F.nom,'fr'));
   const gs=gyms.map(g=>{ let o=0,n=0; done.forEach(s=>{ const r=COV.rep.find(r=>r.sortie_id===s.id&&r.licencie_id===g.id); if(r&&r.statut==='oui') o++; else if(r) n++ }); return {g,o,n,z:done.length-o-n} });
   return `<div class="hint" style="margin:0 0 12px">Sur ${done.length} déplacement(s) jusqu’à aujourd’hui. Un conducteur a « covoituré » quand il a transporté au moins une gym, à l’aller ou au retour. Les plus à solliciter sont en haut.</div>
-    <div class="card"><h3>Parents et gyms qui conduisent</h3>
-      ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Conducteur</th><th>Covoiturages</th><th>Aller / Retour</th><th>Sa gym est venue</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({c,f,next})=>`<tr class="${c.actif?'':'cvoff'}"><td><b>${esc(c.nom)}</b> <span class="hint">${CV_TYPES[c.type]} · ${c.places} pl.</span></td><td><b>${f.n}</b>${f.prop>f.n?` <span class="hint">(${f.prop} fois disponible)</span>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
+    <div class="card"><h3>Familles qui conduisent</h3>
+      <div class="hint" style="margin-bottom:8px">Les conducteurs d’une même famille (parents, sœurs, gym qui a le permis) sont comptés ensemble : leurs gyms ont le même nom de famille. « En famille » = trajets où la voiture n’a pris que les gyms de la famille.</div>
+      ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td><b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${f.came}</td>
           <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>Gyms</h3>
       ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${gs.map(x=>`<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${done.length?` <span class="hint">${Math.round(100*x.o/done.length)} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
@@ -3279,7 +3317,8 @@ function cvAuto(so){
     st.oui.forEach(g=>{ if(plan[g.id][k+'_cond']) return; const d=cars.find(d=>d.c.type==='parent'&&(d.c.enfants||[]).includes(g.id)&&room(d)); if(d) put(g,d) });
     /* les autres gyms ne montent que dans une voiture qui part de leur lieu de départ */
     const rank=d=>d.c.type==='entraineur'?0:load[d.conducteur_id]>0?1:d.c.type==='parent'?2:3;
-    const order=cars.slice().sort((a,b)=>rank(a)-rank(b)||cvFollow(b.c,so.date).sans-cvFollow(a.c,so.date).sans||a.c.nom.localeCompare(b.c.nom));
+    const sans={}; cars.forEach(d=>sans[d.conducteur_id]=cvFollow(d.c,so.date).sans);
+    const order=cars.slice().sort((a,b)=>rank(a)-rank(b)||sans[b.conducteur_id]-sans[a.conducteur_id]||a.c.nom.localeCompare(b.c.nom));
     st.oui.forEach(g=>{ if(plan[g.id][k+'_cond']) return; const d=order.find(d=>room(d)&&cvSamePlace(g,d,so)); if(d) put(g,d) }) });
   const rows=st.oui.map(g=>({sortie_id:so.id,licencie_id:g.id,statut:'oui',...plan[g.id]}));
   rows.forEach(row=>{ const i=COV.rep.findIndex(r=>r.sortie_id===so.id&&r.licencie_id===row.licencie_id); COV.rep[i]=row });
