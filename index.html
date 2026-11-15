@@ -348,6 +348,7 @@ select.todo{border-color:#e0a030;background:#fff7e6}
 .lta textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;background:#fff;color:var(--ink);resize:vertical}
 .lta textarea:disabled{background:var(--bg)}
 .cbx.wrap{white-space:normal;align-items:flex-start;margin:4px 0}
+.pmem.lgrp{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:2px 18px}.lgrp>div{min-width:0}.lgrp .cbx.wrap{margin:4px 0;line-height:1.35}.lgrp .cbx input{margin-top:2px;flex:none}
 .lauts{display:flex;flex-direction:column;gap:2px}
 .payrow{display:grid;grid-template-columns:150px 140px 110px 1fr 130px 140px auto;gap:8px;align-items:end;padding:8px 0;border-bottom:1px dashed var(--line)}
 .payrow label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
@@ -2147,7 +2148,7 @@ function groupesFiche(g,ro){ return groupesFiche0(g,ro)+(PRES.ge&&PRES.club===(C
 function groupesFiche0(g,ro){
   if(!LIC.grp) return `<h4>Groupes d’entraînement</h4><div class="hint">Disponible après l’exécution du script <b>migration-presences.sql</b> dans Supabase.</div>`;
   if(!LIC.grp.length) return `<h4>Groupes d’entraînement</h4><div class="hint">Aucun groupe pour la saison ${SAISON} : créez-les dans l’onglet Groupes, puis inscrivez ici chaque adhérent.</div>`;
-  return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem">${LIC.grp.map(x=>`<label class="cbx"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> ${esc(presGLabel(x))}</label>${x.lien_whatsapp&&LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?` <a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 Groupe WhatsApp</a>`:''}`).join('')}</div>`;
+  return `<h4>Groupes d’entraînement ${SAISON}</h4><div class="pmem lgrp">${LIC.grp.map(x=>`<div><label class="cbx wrap"><input type="checkbox" name="grp_${x.id}" ${LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?'checked':''} ${ro}> <span>${esc(presGLabel(x))}</span></label>${x.lien_whatsapp&&LIC.mem.some(m=>m.licencie_id===g.id&&m.groupe_id===x.id)?`<a class="btn sm wa" href="${esc(x.lien_whatsapp)}" target="_blank" rel="noopener">💬 Groupe WhatsApp</a>`:''}</div>`).join('')}</div>`;
 }
 
 
