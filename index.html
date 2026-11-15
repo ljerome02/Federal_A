@@ -2989,7 +2989,7 @@ document.addEventListener('submit',async ev=>{
 const covNew=()=>({loaded:false,loading:false,ok:null,acces:false,err:'',club:null,cfg:null,cond:[],sorties:[],rep:[],dispo:[],view:'sorties',sel:null,form:null,poll:null,chain:Promise.resolve()});
 let COV=covNew();
 const CV_TYPES={parent:'Parent',gym:'Gym avec permis',entraineur:'Entraîneur'};
-const CV_HORIZON=120;
+const CV_PROP_DAYS=35; // séances proposées : les 5 prochaines semaines
 const cvCfg=()=>COV.cfg||{groupes:[],rdv_lieu:null,seuil_sans:3,seuil_jours:14};
 const cvDays=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
 const cvD=iso=>{ const d=new Date(iso+'T12:00:00'); return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'numeric'}).replace('.','') };
@@ -3005,7 +3005,7 @@ async function covLoad(){
       if(COV.acces){
         const rs=await withTimeout(Promise.all([
           sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours').eq('club_id',CLUB.id),
-          sb.from('cv_conducteurs').select('id,nom,type,places,licencie_id,enfants,telephone,depart_lieu,actif').eq('club_id',CLUB.id).order('nom'),
+          sb.from('cv_conducteurs').select('id,nom,type,places,licencie_id,enfants,telephone,depart_lieu,actif,auto').eq('club_id',CLUB.id).order('nom'),
           sb.from('cv_sorties').select('id,date,lieu,heure_debut,heure_fin,titre,rdv_lieu,rdv_heure,note').eq('club_id',CLUB.id).order('date'),
           sb.from('cv_reponses').select('sortie_id,licencie_id,statut,aller_cond,retour_cond').eq('club_id',CLUB.id),
           sb.from('cv_dispos').select('sortie_id,conducteur_id,aller,retour,places,rdv_lieu,rdv_heure').eq('club_id',CLUB.id)]),10000);
@@ -3069,11 +3069,11 @@ function cvFollow(c,avant){
   }
   return {n,na,nr,last,prev,came,sans,prop,gap:last&&prev?cvDays(prev,last):null,since:last?cvDays(last,avant||td):null,al};
 }
-/* séances à venir des groupes fusionnés hors du lieu habituel, pas encore ajoutées */
+/* séances à venir des groupes fusionnés (tous lieux, une par jour et par lieu), pas encore ajoutées */
 function cvProposals(){
   const td=isoToday(), map={}, ids=cvCfg().groupes;
-  for(let i=0;i<CV_HORIZON;i++){ const d=addDays(td,i);
-    PRES.groupes.filter(g=>ids.includes(g.id)).forEach(g=>presSessionOn(g.id,d).forEach(c=>{ const lieu=crLieu(c,g,d); if(!lieu||norm(lieu)===norm(LIEU_DEF)) return;
+  for(let i=0;i<CV_PROP_DAYS;i++){ const d=addDays(td,i);
+    PRES.groupes.filter(g=>ids.includes(g.id)).forEach(g=>presSessionOn(g.id,d).forEach(c=>{ const lieu=crLieu(c,g,d)||LIEU_DEF;
       const k=d+'|'+norm(lieu), x=map[k]??={date:d,lieu,heure_debut:hhmm(c.heure_debut)||null,heure_fin:hhmm(c.heure_fin)||null,titre:crLib(c)||null};
       if(hhmm(c.heure_debut)&&(!x.heure_debut||hhmm(c.heure_debut)<x.heure_debut)) x.heure_debut=hhmm(c.heure_debut);
       if(hhmm(c.heure_fin)&&(!x.heure_fin||hhmm(c.heure_fin)>x.heure_fin)) x.heure_fin=hhmm(c.heure_fin) })) }
@@ -3104,7 +3104,7 @@ function cvListHtml(){
   const row=s=>`<div class="card cvrow"><div class="cvh"><div><b>${esc(cvTitle(s))}</b></div><button type="button" class="btn sm primary" data-cv-open="${s.id}">${s.date>=td?'Saisir':'Voir'}</button></div><div class="ccount cvc">${cvSummaryHtml(s)}</div></div>`;
   return (cvCfg().groupes.length?'':`<div class="warn" style="margin-bottom:12px">⚠ Choisis d’abord les groupes fusionnés pour le covoiturage dans « Conducteurs et réglages ».</div>`)
     +`<div class="quick" style="margin-bottom:12px">${COV.form==='sortie'?'':'<button type="button" class="btn sm primary" data-cv-form="sortie">+ Nouveau déplacement</button>'}</div>${COV.form==='sortie'?cvSortieFormHtml(null):''}`
-    +(prop.length?`<div class="card cvrow"><div class="cvh"><b>Séances prévues hors de ${esc(LIEU_DEF)} (${prop.length})</b><button type="button" class="btn sm" data-cv-addall="1">Tout ajouter</button></div>
+    +(prop.length?`<div class="card cvrow"><div class="cvh"><b>Séances des 5 prochaines semaines (${prop.length})</b><button type="button" class="btn sm" data-cv-addall="1">Tout ajouter</button></div>
         ${prop.map((x,i)=>`<div class="cvprop"><span>${esc(cvTitle(x))}</span><button type="button" class="btn sm" data-cv-add="${i}">Ajouter</button></div>`).join('')}</div>`:'')
     +(up.length?`<h3 class="cvh3">Déplacements à venir (${up.length})</h3>`+up.map(row).join(''):`<div class="card"><div class="empty">Aucun déplacement à venir. Ajoute une séance proposée ou crée un déplacement.</div></div>`)
     +(past.length?`<details class="cvpast"><summary>Déplacements passés (${past.length})</summary>${past.map(row).join('')}</details>`:'');
@@ -3155,18 +3155,18 @@ function cvCondFormHtml(c){
       <label>Téléphone<input name="telephone" type="tel" maxlength="30" value="${esc(c.telephone||'')}"></label>
       <label class="w2">Lieu de départ habituel<input name="depart_lieu" maxlength="120" value="${esc(c.depart_lieu||'')}" placeholder="vide = départ commun"></label>
       <label class="w2 cvtg">Gym qui conduit <span class="hint">(type « Gym avec permis »)</span><select name="licencie_id"><option value="">—</option>${gyms.map(g=>`<option value="${g.id}" ${c.licencie_id===g.id?'selected':''}>${esc(gymName(g))}</option>`).join('')}</select></label>
-      <label class="cvck"><span><input type="checkbox" name="actif" ${c.actif===false?'':'checked'}> Actif</span></label>
+      <div class="cvck"><label><input type="checkbox" name="actif" ${c.actif===false?'':'checked'}> Actif</label><label title="Coché disponible aller et retour à chaque nouveau déplacement"><input type="checkbox" name="auto" ${c.auto?'checked':''}> Part d’office</label></div>
       <div class="w3"><span class="hint">Ses enfants (type « Parent ») : comptés dans ses places, ils montent d’abord avec lui.</span><div class="cvkids">${gyms.map(g=>`<label><input type="checkbox" name="enf" value="${g.id}" ${kids.includes(g.id)?'checked':''}> ${esc(gymName(g))}</label>`).join('')}</div></div></div>
     <div class="quick" style="margin-top:8px"><button class="btn sm primary" type="submit">Enregistrer</button><button type="button" class="btn sm" data-cv-form="">Annuler</button></div></form>`;
 }
 function cvCondHtml(){
   const cfg=cvCfg(), gyms=cvGyms(), nm=id=>{ const g=S.gyms.find(x=>x.id===id); return g?gymName(g):null };
-  const rows=COV.cond.map(c=>COV.form==='cond:'+c.id?`<tr><td colspan="5">${cvCondFormHtml(c)}</td></tr>`:`<tr class="${c.actif?'':'cvoff'}"><td><b>${esc(c.nom)}</b>${c.actif?'':' <span class="lb no">inactif</span>'}${c.telephone?`<div class="hint">${esc(c.telephone)}</div>`:''}</td><td>${CV_TYPES[c.type]}</td><td>${c.places}</td>
+  const rows=COV.cond.map(c=>COV.form==='cond:'+c.id?`<tr><td colspan="5">${cvCondFormHtml(c)}</td></tr>`:`<tr class="${c.actif?'':'cvoff'}"><td><b>${esc(c.nom)}</b>${c.actif?'':' <span class="lb no">inactif</span>'}${c.auto?' <span class="lb ok">part d’office</span>':''}${c.telephone?`<div class="hint">${esc(c.telephone)}</div>`:''}</td><td>${CV_TYPES[c.type]}</td><td>${c.places}</td>
       <td>${esc((c.type==='gym'?[c.licencie_id]:c.enfants||[]).map(nm).filter(Boolean).join(', ')||'—')}${c.depart_lieu?`<div class="hint">Départ : ${esc(c.depart_lieu)}</div>`:''}</td>
       <td><div class="quick"><button type="button" class="btn sm" data-cv-form="cond:${c.id}">Modifier</button><button type="button" class="btn sm ghost" data-cv-conddel="${c.id}" title="Supprimer">🗑</button></div></td></tr>`).join('');
   const sans=gyms.filter(g=>!COV.cond.some(c=>c.type==='gym'?c.licencie_id===g.id:(c.enfants||[]).includes(g.id)));
   return `<div class="card"><h3>Conducteurs (${COV.cond.length})</h3>
-      <div class="hint" style="margin-bottom:8px">Parents, gyms qui ont le permis et entraîneurs, chacun avec son nombre de places. Les entraîneurs sont cochés disponibles d’office à chaque nouveau déplacement.</div>
+      <div class="hint" style="margin-bottom:8px">Parents, gyms qui ont le permis et entraîneurs, chacun avec son nombre de places. Un conducteur « part d’office » est coché disponible aller et retour à chaque nouveau déplacement (la voiture des entraîneurs).</div>
       ${COV.cond.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Nom</th><th>Type</th><th>Places</th><th>Gyms liées</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucun conducteur pour l’instant.</div>'}
       ${COV.form==='cond:new'?cvCondFormHtml({}):`<div class="quick" style="margin-top:10px"><button type="button" class="btn sm primary" data-cv-form="cond:new">+ Ajouter un conducteur</button>${sans.length?`<button type="button" class="btn sm" data-cv-import="1" title="Crée un conducteur « parent » par responsable légal indiqué sur les fiches">Créer les parents depuis les fiches adhérents (${sans.length} gyms sans conducteur)</button>`:''}</div>`}</div>
     <form id="fCvCfg" class="card" style="margin-top:14px"><h3>Réglages</h3>
@@ -3267,7 +3267,7 @@ function cvAuto(so){
 }
 async function cvAddSortie(v){
   const r=chk(await sb.from('cv_sorties').insert({club_id:CLUB.id,date:v.date,lieu:v.lieu||null,heure_debut:v.heure_debut||null,heure_fin:v.heure_fin||null,titre:v.titre||null,rdv_lieu:v.rdv_lieu||cvCfg().rdv_lieu||null,rdv_heure:v.rdv_heure||null,note:v.note||null}).select('id'));
-  const id=r.data[0].id, coach=COV.cond.filter(c=>c.type==='entraineur'&&c.actif);
+  const id=r.data[0].id, coach=COV.cond.filter(c=>c.auto&&c.actif);
   if(coach.length) chk(await sb.from('cv_dispos').insert(coach.map(c=>({sortie_id:id,conducteur_id:c.id,club_id:CLUB.id,aller:true,retour:true}))));
   return id;
 }
@@ -3318,7 +3318,7 @@ document.addEventListener('submit',async ev=>{
   if(f.id==='fCvCfg'){ const row={club_id:CLUB.id,groupes:[...f.querySelectorAll('[name=grp]:checked')].map(x=>x.value),rdv_lieu:v('rdv_lieu')||null,seuil_sans:Math.min(20,Math.max(1,+v('seuil_sans')||3)),seuil_jours:Math.min(120,Math.max(1,+v('seuil_jours')||14)),updated_at:new Date().toISOString()};
     await cvTry(async()=>chk(await sb.from('cv_config').upsert(row,{onConflict:'club_id'})),'Réglages enregistrés'); return }
   if(f.id==='fCvCond'){ const id=f.dataset.id, type=v('type');
-    const row={nom:v('nom'),type,places:+v('places'),telephone:v('telephone')||null,depart_lieu:v('depart_lieu')||null,actif:f.elements.actif.checked,licencie_id:type==='gym'?v('licencie_id')||null:null,enfants:type==='parent'?[...f.querySelectorAll('[name=enf]:checked')].map(x=>x.value):[]};
+    const row={nom:v('nom'),type,places:+v('places'),telephone:v('telephone')||null,depart_lieu:v('depart_lieu')||null,actif:f.elements.actif.checked,auto:f.elements.auto.checked,licencie_id:type==='gym'?v('licencie_id')||null:null,enfants:type==='parent'?[...f.querySelectorAll('[name=enf]:checked')].map(x=>x.value):[]};
     if(type==='gym'&&!row.licencie_id){ toast('Choisis la gym qui conduit'); return }
     COV.form=null; await cvTry(async()=>chk(id?await sb.from('cv_conducteurs').update(row).eq('id',id):await sb.from('cv_conducteurs').insert({...row,club_id:CLUB.id})),id?'Conducteur modifié':'Conducteur ajouté'); return }
   const id=f.dataset.id, row={date:v('date'),lieu:v('lieu')||null,heure_debut:v('heure_debut')||null,heure_fin:v('heure_fin')||null,titre:v('titre')||null,rdv_lieu:v('rdv_lieu')||null,rdv_heure:v('rdv_heure')||null,note:v('note')||null};

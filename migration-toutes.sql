@@ -1162,8 +1162,10 @@ create table if not exists public.cv_conducteurs (
   telephone   text check (telephone is null or char_length(telephone) <= 30),
   depart_lieu text check (depart_lieu is null or char_length(depart_lieu) <= 120),
   actif       boolean not null default true,
+  auto        boolean not null default false,    -- part d'office : disponible à chaque nouveau déplacement
   created_at  timestamptz not null default now()
 );
+alter table public.cv_conducteurs add column if not exists auto boolean not null default false;
 create index if not exists cv_conducteurs_club_idx on public.cv_conducteurs (club_id);
 
 create table if not exists public.cv_sorties (
