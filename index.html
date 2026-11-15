@@ -3306,7 +3306,7 @@ function cvAnnonce(so){
   cars.sort((a,b)=>rank(a.pl)-rank(b.pl)||norm(a.pl).localeCompare(norm(b.pl))||String(hhmm(a.d.rdv_heure)||hhmm(so.rdv_heure)||'').localeCompare(String(hhmm(b.d.rdv_heure)||hhmm(so.rdv_heure)||''))||(a.d.c.type==='entraineur'?0:1)-(b.d.c.type==='entraineur'?0:1)||who(a.d.c).localeCompare(who(b.d.c),'fr'));
   const seule=az(st.seule('aller').concat(st.seule('retour').filter(g=>!st.seule('aller').includes(g))));
   let cur=null;
-  const head=pl=>{ const h=cvFamPlace(pl)?'🏠 En famille':pl?`📍 Départ de ${pl}`:'📍 Lieu de départ non précisé'; if(h!==cur){ cur=h; L.push('',h); return true } return false };
+  const head=pl=>{ const h=cvFamPlace(pl)?'🏠 *En famille*':pl?`📍 *Départ de ${pl}*`:'📍 *Lieu de départ non précisé*'; if(h!==cur){ cur=h; L.push('',h); return true } return false };
   cars.forEach(({d,ra,rr,self,pl})=>{ if(!head(pl)) L.push('');
     const all=az([...new Set([...ra,...rr])]), t=H(d.rdv_heure)||H(so.rdv_heure);
     const va=ra.length||(self&&st.car(self,'aller')), vr=rr.length||(self&&st.car(self,'retour')), deux=va&&vr;
