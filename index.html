@@ -3149,6 +3149,11 @@ function cvSummaryHtml(so){
   return `<span class="cc">Oui <b>${st.oui.length}</b></span><span class="cc">Non <b>${st.non.length}</b></span><span class="cc">Sans réponse <b>${st.none.length}</b></span><span class="cc">Voitures aller <b>${cars('aller')}</b> · retour <b>${cars('retour')}</b></span>`
     +(st.oui.length?(na||nr?`<span class="lb warn">⚠ sans place : ${na?na+' à l’aller':''}${na&&nr?', ':''}${nr?nr+' au retour':''}</span>`:'<span class="lb ok">Tout le monde a une place</span>'):'');
 }
+/* heure de départ par défaut : 17h15 en semaine, 13h15 le week-end (45 min avant le début si l'entraînement commence plus tôt) */
+function cvDefHeure(date,debut){
+  if(!date) return null; const wd=new Date(date+'T12:00:00').getDay(); let h=wd===0||wd===6?'13:15':'17:15'; const d=hhmm(debut);
+  if(d&&h>=d){ const [a,b]=d.split(':').map(Number), m=Math.max(0,a*60+b-45); h=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0') }
+  return h }
 function cvSortieFormHtml(so){
   const v=so||{date:'',lieu:'',heure_debut:'',heure_fin:'',titre:'',rdv_lieu:cvCfg().rdv_lieu||'',rdv_heure:'',note:''};
   return `<form id="fCvSortie" data-id="${v.id||''}" class="cvform" autocomplete="off"><b>${v.id?'Modifier le déplacement':'Nouveau déplacement'}</b>
@@ -3158,7 +3163,7 @@ function cvSortieFormHtml(so){
       <label>Début<input name="heure_debut" type="time" value="${esc(hhmm(v.heure_debut))}"></label>
       <label>Fin<input name="heure_fin" type="time" value="${esc(hhmm(v.heure_fin))}"></label><span></span>
       <label class="w2">Lieu de départ commun<input name="rdv_lieu" maxlength="120" value="${esc(v.rdv_lieu||'')}" placeholder="Ex. parking du gymnase de Chauny"></label>
-      <label>Heure de départ<input name="rdv_heure" type="time" value="${esc(hhmm(v.rdv_heure))}"></label>
+      <label>Heure de départ<input name="rdv_heure" type="time" value="${esc(hhmm(v.rdv_heure))}" title="Vide : 17h15 en semaine, 13h15 le samedi"></label>
       <label class="w3">Remarque pour le message<input name="note" maxlength="500" value="${esc(v.note||'')}" placeholder="Ex. prévoir le pique-nique"></label></div>
     <div class="quick" style="margin-top:8px"><button class="btn sm primary" type="submit">Enregistrer</button><button type="button" class="btn sm" data-cv-form="">Annuler</button></div></form>`;
 }
@@ -3356,7 +3361,7 @@ function cvAuto(so){
   toast(na||nr?`Répartition faite : il manque ${na} place(s) à l’aller et ${nr} au retour`:'Répartition faite : tout le monde a une place');
 }
 async function cvAddSortie(v){
-  const r=chk(await sb.from('cv_sorties').insert({club_id:CLUB.id,date:v.date,lieu:v.lieu||null,heure_debut:v.heure_debut||null,heure_fin:v.heure_fin||null,titre:v.titre||null,rdv_lieu:v.rdv_lieu||cvCfg().rdv_lieu||null,rdv_heure:v.rdv_heure||null,note:v.note||null}).select('id'));
+  const r=chk(await sb.from('cv_sorties').insert({club_id:CLUB.id,date:v.date,lieu:v.lieu||null,heure_debut:v.heure_debut||null,heure_fin:v.heure_fin||null,titre:v.titre||null,rdv_lieu:v.rdv_lieu||cvCfg().rdv_lieu||null,rdv_heure:v.rdv_heure||cvDefHeure(v.date,v.heure_debut),note:v.note||null}).select('id'));
   const id=r.data[0].id, coach=COV.cond.filter(c=>c.auto&&c.actif);
   if(coach.length) chk(await sb.from('cv_dispos').insert(coach.map(c=>({sortie_id:id,conducteur_id:c.id,club_id:CLUB.id,aller:true,retour:true}))));
   return id;
