@@ -757,6 +757,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.jfed{display:inline-flex;align-items:center;gap:8px;margin:0 10px 0 -4px;padding:2px 8px;border-left:2px solid #f0d9a8}.jfed[hidden]{display:none}
 .musrow{padding:8px 2px 4px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}.musg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
 .musline{display:flex;align-items:center;gap:10px;padding:3px 0}.musfed{min-width:58px;text-align:center}.musdurc{min-width:60px;text-align:right}
 .musplay{width:42px;height:42px;border-radius:50%;border:0;background:#7b4fd6;color:#fff;font-size:17px;cursor:pointer;flex:0 0 auto}.musplay:hover{filter:brightness(1.1)}
@@ -2012,6 +2013,11 @@ const fctLbl=k=>(FCT.find(x=>x[0]===k)||[0,k])[1];
 const fctOf=gid=>{ const f=(LIC.info[gid]||{}).fonctions; return Array.isArray(f)?f:(LIC.fct?[]:['gymnaste']) };
 const fctHas=(gid,k)=>fctOf(gid).includes(k);
 const fctChip=k=>{ const x=FCT.find(y=>y[0]===k)||[k,k,'#eef1f5','#55606b']; return `<span class="lb fct" style="background:${x[2]};color:${x[3]}">${esc(x[1])}</span>` };
+/* juge : fédération précisée par les rôles complémentaires juge_ffg / juge_ufolep */
+const JUGE_FEDS=[['juge_ffg','FFG'],['juge_ufolep','UFOLEP']];
+const jugeLbl=list=>{ const f=JUGE_FEDS.filter(([k])=>list.includes(k)).map(x=>x[1]); return f.length?'Juge '+f.join(' + '):'Juge (fédération ?)' };
+const fctChipsOf=list=>list.filter(k=>!JUGE_FEDS.some(x=>x[0]===k)).map(k=>{ if(k!=='juge') return fctChip(k); const x=FCT.find(y=>y[0]==='juge')||[0,0,'#fff1d6','#8a5a00'];
+  return `<span class="lb fct" style="background:${x[2]};color:${x[3]}">${esc(jugeLbl(list))}</span>` }).join('');
 /* groupes d'entraînement : la colonne lien_whatsapp n'existe qu'après migration-communication.sql */
 const GRP_COLS='id,nom,jour,heure_debut,heure_fin,lieu', WA={ok:null};
 async function sbGroupes(){
@@ -2131,7 +2137,8 @@ function licCountsHtml(){
    +licChip('todo','Dossiers à traiter',td,td);
 }
 function licRolesChips(){
-  return LIC.loaded&&!LIC.err&&LIC.fct?FCT.map(([k,l])=>{ const n=S.gyms.filter(g=>fctHas(g.id,k)).length; return n?licChip('r:'+k,l,n):'' }).join(''):'';
+  const one=(k,l)=>{ const n=S.gyms.filter(g=>fctHas(g.id,k)).length; return n?licChip('r:'+k,l,n):'' };
+  return LIC.loaded&&!LIC.err&&LIC.fct?FCT.map(([k,l])=>one(k,l)+(k==='juge'?JUGE_FEDS.map(([jk,jl])=>one(jk,'Juge '+jl)).join(''):'')).join(''):'';
 }
 
 function licTableHtml(){
@@ -2152,14 +2159,14 @@ function licTableHtml(){
     const s=pc?licSolde(g.id):null;
     const feds=LIC_FEDS.map(fd=>{ const x=licOf(g.id,fd); return x?`<span class="lb ok" title="Licence ${fd}${x.numero?' n° '+esc(x.numero):''}">${fd}</span>`:'' }).join(' ')||'<span class="lb no">Aucune</span>';
     return `<tr class="${LIC.open===g.id?'sel':''}">
-      <td><label class="rsel"><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''} aria-label="Sélectionner"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}${full&&LIC.fct?(()=>{ const f=fctOf(g.id), o=f.filter(k=>k!=='gymnaste'); return o.length||!f.length?`<span class="fctl">${o.map(fctChip).join('')}${!f.length?'<span class="lb no">Aucun rôle</span>':''}</span>`:'' })():''}</span></label></td><td>${esc(yr(g))}</td>
+      <td><label class="rsel"><input type="checkbox" data-selg="${g.id}" ${UI.sel[g.id]?'checked':''} aria-label="Sélectionner"><span><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}${med}${full&&LIC.fct?(()=>{ const f=fctOf(g.id), o=f.filter(k=>k!=='gymnaste'); return o.length||!f.length?`<span class="fctl">${fctChipsOf(o)}${!f.length?'<span class="lb no">Aucun rôle</span>':''}</span>`:'' })():''}</span></label></td><td>${esc(yr(g))}</td>
       <td class="ccell ${g.compet?'':'todo'}"><select data-compsel="${g.id}" aria-label="Compétition">${compOpts(g.compet,'— À choisir —')}</select></td>
       ${full?`<td>${feds}</td>`:''}
       ${gc?`<td>${licGroupes(g.id).map(x=>`<span class="lb ok">${esc(x.nom)}</span>`).join(' ')||'<span class="lb no">—</span>'}</td>`:''}
       ${dc?`<td>${stBadge(licSante(g.id))}</td>`:''}
       ${pc?`<td><span class="lb ${PAY_CLASS[s.st]}" title="Dû ${eur(s.du)} · prévu ${eur(s.prevu)} · encaissé ${eur(s.enc)}">${PAY_TXT(s)}</span></td>`:''}
       ${full?`<td>${is.length?`<span class="lb warn" title="${esc(is.map(x=>x[1]).join(' · '))}">${is.length} à traiter</span>`:'<span class="lb ok">Complet</span>'}</td>`:''}
-      <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Fiche'}</button> <button class="btn sm" data-gym="${g.id}" title="Composer les mouvements">✏️</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer l’adhérent">✕</button>`:''}</td></tr>`}).join('');
+      <td style="white-space:nowrap"><button class="btn sm" data-lic-open="${g.id}">${LIC.open===g.id?'Fermer':'Fiche'}</button>${canDelete()?` <button class="btn sm ghost" data-delg="${g.id}" title="Supprimer l’adhérent">✕</button>`:''}</td></tr>`}).join('');
   return bar+`<div class="ltwrap"><table class="ltb"><thead><tr><th><label class="rsel"><input type="checkbox" id="selAll" ${allOn?'checked':''} title="Tout sélectionner"><span>Adhérent</span></label></th><th>Naissance</th><th>Compétition</th>${full?'<th>Licences</th>':''}${gc?'<th>Groupes</th>':''}${dc?'<th>Santé</th>':''}${pc?'<th>Cotisation</th>':''}${full?'<th>Dossier</th>':''}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`
     +(list.length?'':'<div class="empty">Aucun adhérent ne correspond.</div>');
 }
@@ -2266,7 +2273,8 @@ function licFicheHtml(){
   const urg=k=>`${inp('urgence'+k+'_nom','Nom et prénom')}${inp('urgence'+k+'_tel','Téléphone','tel')}${inp('urgence'+k+'_lien','Lien avec l’enfant')}`;
   const panId=`${call}
     <h4>État civil</h4><div class="lgrid"><label>Nom<input data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}" ${ro}></label><label>Prénom<input data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}" ${ro}></label><label>Date de naissance<input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}" ${ro}></label></div>
-    <h4>Rôles dans l’association</h4>${LIC.fct?`<div class="fcts">${FCT.map(([k,l])=>`<label class="cbx fctck"><input type="checkbox" name="fct_${k}" ${fctHas(g.id,k)?'checked':''} ${ro}> ${l}</label>`).join('')}</div>
+    <h4>Rôles dans l’association</h4>${LIC.fct?`<div class="fcts">${FCT.map(([k,l])=>`<label class="cbx fctck"><input type="checkbox" name="fct_${k}" ${fctHas(g.id,k)?'checked':''} ${ro}${k==='juge'?' data-juge="1"':''}> ${l}</label>`
+      +(k==='juge'?`<span class="jfed" id="jFed" ${fctHas(g.id,'juge')?'':'hidden'}>${JUGE_FEDS.map(([jk,jl])=>`<label class="cbx"><input type="checkbox" name="fct_${jk}" ${fctHas(g.id,jk)?'checked':''} ${ro}> ${jl}</label>`).join('')}${fctHas(g.id,'juge')&&!JUGE_FEDS.some(([jk])=>fctHas(g.id,jk))?'<span class="hint">fédération à préciser</span>':''}</span>`:'')).join('')}</div>
       <div class="lgrid" style="margin-top:8px"><label class="wide">Précisions (niveau de juge, diplôme d’entraîneur…)<input name="fonctions_note" value="${esc(c.fonctions_note||'')}" ${ro} autocomplete="off"></label></div>
       <div class="hint">Les rôles se cumulent. Ils décrivent l’association et ne donnent pas d’accès à l’application (voir « Membres »).</div>`:'<div class="hint">Disponible après l’exécution du script <b>migration-roles.sql</b> dans Supabase (SQL Editor).</div>'}
     <h4>Compétition</h4><div class="cboxes">${ro?`<span class="lb no">${esc(compLabel(g.compet)||'À choisir')}</span>`:compBoxes(g,`data-ccg="${g.id}"`)}</div>
@@ -2308,8 +2316,8 @@ function licFicheHtml(){
   return `<form class="card lfiche" id="fLic" autocomplete="off">
     <div class="lhead big"><div class="avatar" aria-hidden="true">${esc(((g.prenom||'')[0]||'')+((g.nom||'')[0]||'')).toUpperCase()||'?'}</div>
       <div class="lt"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3>
-        <div class="lsub">${LIC.fct?fctOf(g.id).map(fctChip).join(''):''}${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
-      <button type="button" class="btn sm" data-gym="${g.id}" title="Composer les mouvements de cet adhérent">✏️ Mouvements</button><button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
+        <div class="lsub">${LIC.fct?fctChipsOf(fctOf(g.id)):''}${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
+      <button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
     <div class="tabs ltabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${LIC.ftab===k?'on':''}" data-lic-ftab="${k}">${l}</button>`).join('')}</div>
     <div class="lpanel" data-p="id"${pn('id')}>${panId}</div>
     <div class="lpanel" data-p="fam"${pn('fam')}>${panFam}</div>
@@ -2376,7 +2384,7 @@ async function licSave(f){
   try{
     if(licEdit()){
       const upd={email:v('email'),telephone:v('telephone'),adresse:v('adresse'),code_postal:v('code_postal'),ville:v('ville'),responsable_legal:v('responsable_legal'),telephone_urgence:v('telephone_urgence'),parent_email:v('parent_email')};
-      if(LIC.fct){ upd.fonctions=[...fctOf(gid).filter(k=>!FCT.some(x=>x[0]===k)),...FCT.map(x=>x[0]).filter(k=>ck('fct_'+k))]; upd.fonctions_note=v('fonctions_note') }
+      if(LIC.fct){ const jg=ck('fct_juge'); upd.fonctions=[...fctOf(gid).filter(k=>!FCT.some(x=>x[0]===k)&&!JUGE_FEDS.some(x=>x[0]===k)),...FCT.map(x=>x[0]).filter(k=>ck('fct_'+k)),...(jg?JUGE_FEDS.map(x=>x[0]).filter(k=>ck('fct_'+k)):[])]; upd.fonctions_note=v('fonctions_note') }
       if(LIC.ext) for(const n of ['sexe','responsable_lien','urgence1_nom','urgence1_tel','urgence1_lien','urgence2_nom','urgence2_tel','urgence2_lien']) upd[n]=v(n);
       const r=await sb.from('licencies').update(upd).eq('id',gid).eq('club_id',CLUB.id).select('id');
       chk(r); if(!r.data.length) throw new Error('modification refusée (droits insuffisants ou licencié pas encore enregistré)');
@@ -4381,6 +4389,7 @@ document.addEventListener('click',async ev=>{
   catch(e){ toast('Suppression impossible : '+e.message) }
 });
 
+document.addEventListener('change',ev=>{ const t=ev.target; if(!t.matches||!t.matches('[data-juge]')) return; const j=document.getElementById('jFed'); if(j) j.hidden=!t.checked });
 /* ---------- musiques de sol (espace privé « musiques », table musiques_licencie) ----------
    Une musique par fédération (FFG, UFOLEP, ou la même pour les deux), avec des versions dont une principale.
    Durées : FFG 1 min ; UFOLEP selon l'évolution au sol (programme technique : A 40", B1-B2 55", B3 1'10", C 1'30").
