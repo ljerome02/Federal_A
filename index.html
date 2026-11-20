@@ -757,6 +757,24 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.lfiche .lcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;align-items:start}.lfiche .lcol{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lsec{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;background:var(--card,#fff)}
+.lsec>h4{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14.5px}.lsic{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--bg);font-size:15px}
+.lsec .lgrid.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.lsec .lgrid.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.lsec .lgrid .wide{grid-column:1/-1}
+.lsec .lfeds{flex-direction:column;gap:8px}.lsec .lfed{justify-content:space-between}.lsec .lfed input:not([type=checkbox]){flex:1;max-width:200px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}.pills .cbx{border:1px solid var(--line);border-radius:999px;padding:5px 12px;margin:0;cursor:pointer;background:var(--card,#fff);font-size:13.5px;transition:background .15s,border-color .15s}
+.pills .cbx input{position:absolute;opacity:0;width:1px;height:1px}.pills .cbx:has(input:checked){background:var(--pb,#e8f2ff);color:var(--pf,#14548a);border-color:transparent;font-weight:600}
+.pills .cbx:has(input:checked)::before{content:'✓ '}.pills .cbx:has(input:focus-visible){outline:2px solid var(--pf,#14548a);outline-offset:2px}.pills .cbx:has(input:disabled){cursor:default;opacity:.85}
+.pills .cbx.sm{padding:3px 10px;font-size:12.5px}.pills .jfed{border:0;margin:0;padding:0 4px 0 0;gap:6px}
+.lurg{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}.lurg:first-child{border-top:0;padding-top:0;margin-top:0}.lurgh{font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:4px}
+.lage{color:var(--muted);font-size:13px;margin-top:1px}.lhead.big .lcall{margin:8px 0 0}
+.ltodo{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ltodo .lb{border:0;cursor:pointer;font:inherit;font-size:12.5px;padding:3px 10px}
+.lfoot.lsticky{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;background:var(--card,#fff);border-top:1px solid var(--line);margin:16px -16px -16px;padding:12px 16px;border-radius:0 0 12px 12px}
+.lfamsec .famrow{flex-wrap:wrap}
+@media (max-width:900px){.lfiche .lcols{grid-template-columns:1fr}.lsec .lgrid.g3{grid-template-columns:1fr}.lfoot.lsticky{bottom:calc(64px + env(safe-area-inset-bottom))}}
+.lfamsec #famBox>h4{display:none}
+@media (max-width:520px){.lsec .lgrid.g2{grid-template-columns:1fr}.lfiche .lhead.big{position:relative}.lfiche .lhead.big .avatar{display:none}
+  .lfiche .lhead.big>[data-lic-close]{position:absolute;top:0;right:0}.lfiche .lhead.big .lt h3{padding-right:86px}.lsec{padding:10px 12px 12px}}
 .musdz{border:2px dashed #c9b6ef;border-radius:12px;padding:12px;text-align:center;color:#6b4bb0;background:#faf7ff;margin:4px 0 10px;font-size:13.5px}
 .musdrop{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;pointer-events:none;background:#7b4fd6;color:#fff;border-radius:16px;padding:14px 26px;text-align:center;box-shadow:0 8px 30px rgba(60,20,140,.35)}
 .musdrop .hint{color:#ede6ff}body.musdrag .musdrop{display:block}body.musdrag #main .card{outline:2px dashed #c9b6ef;outline-offset:4px}
@@ -2277,33 +2295,36 @@ function licFicheHtml(){
   const calls=[['Responsable',c.telephone_urgence],['Contact 1',c.urgence1_tel],['Contact 2',c.urgence2_tel],['Licencié',c.telephone]].filter(x=>x[1]);
   const call=calls.length?`<div class="lcall">${calls.map(([l,n])=>`<a class="btn sm" href="tel:${esc(String(n).replace(/[^+\d]/g,''))}">📞 ${l} · ${esc(n)}</a>${waNum(n)?`<a class="btn sm wa" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" title="Écrire à ${l} sur WhatsApp" aria-label="WhatsApp ${l}">💬</a>`:''}`).join('')}</div>`:'';
   const urg=k=>`${inp('urgence'+k+'_nom','Nom et prénom')}${inp('urgence'+k+'_tel','Téléphone','tel')}${inp('urgence'+k+'_lien','Lien avec l’enfant')}`;
-  const panId=`${call}
-    <h4>État civil</h4><div class="lgrid"><label>Nom<input data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}" ${ro}></label><label>Prénom<input data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}" ${ro}></label><label>Date de naissance<input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}" ${ro}></label></div>
-    <h4>Rôles dans l’association</h4>${LIC.fct?`<div class="fcts">${FCT.map(([k,l])=>`<label class="cbx fctck"><input type="checkbox" name="fct_${k}" ${fctHas(g.id,k)?'checked':''} ${ro}${k==='juge'?' data-juge="1"':''}> ${l}</label>`
-      +(k==='juge'?`<span class="jfed" id="jFed" ${fctHas(g.id,'juge')?'':'hidden'}>${JUGE_FEDS.map(([jk,jl])=>`<label class="cbx"><input type="checkbox" name="fct_${jk}" ${fctHas(g.id,jk)?'checked':''} ${ro}> ${jl}</label>`).join('')}${fctHas(g.id,'juge')&&!JUGE_FEDS.some(([jk])=>fctHas(g.id,jk))?'<span class="hint">fédération à préciser</span>':''}</span>`:'')).join('')}</div>
-      <div class="lgrid" style="margin-top:8px"><label class="wide">Précisions (niveau de juge, diplôme d’entraîneur…)<input name="fonctions_note" value="${esc(c.fonctions_note||'')}" ${ro} autocomplete="off"></label></div>
-      <div class="hint">Les rôles se cumulent. Ils décrivent l’association et ne donnent pas d’accès à l’application (voir « Membres »).</div>`:'<div class="hint">Disponible après l’exécution du script <b>migration-roles.sql</b> dans Supabase (SQL Editor).</div>'}
-    <h4>Compétition</h4><div class="cboxes">${ro?`<span class="lb no">${esc(compLabel(g.compet)||'À choisir')}</span>`:compBoxes(g,`data-ccg="${g.id}"`)}</div>
-    <h4>Licences ${SAISON}</h4><div class="lfeds">${feds}</div>
-    <h4>Identité et coordonnées</h4><div class="lgrid">${LIC.ext?sel('sexe','Sexe',[['F','Féminin'],['M','Masculin']]):''}${inp('adresse','Adresse')}${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>`;
-  const panFam=`<div id="famBox">${famBoxHtml(g)}</div>
-    <h4>Autorité parentale</h4><div class="lgrid">${LIC.ext?sel('responsable_lien','Le responsable est',[['pere','Père'],['mere','Mère'],['tuteur','Tuteur ou tutrice']]):''}${inp('responsable_legal','Nom et prénom du responsable')}${inp('telephone_urgence','Téléphone du responsable','tel')}${inp('parent_email','Mail du responsable','email')}</div>
-    <h4>Autres personnes à contacter en cas d’urgence</h4>${LIC.ext?`<div class="lgrid">${urg(1)}</div><div class="lgrid" style="margin-top:8px">${urg(2)}</div>`:licNoExt()}`;
+  const sec=(ic,t,body,cls='')=>`<section class="lsec ${cls}"><h4><span class="lsic" aria-hidden="true">${ic}</span>${t}</h4>${body}</section>`;
+  const roles=LIC.fct?`<div class="pills">${FCT.map(([k,l,bg,fg])=>`<label class="cbx pill" style="--pb:${bg};--pf:${fg}"><input type="checkbox" name="fct_${k}" ${fctHas(g.id,k)?'checked':''} ${ro}${k==='juge'?' data-juge="1"':''}> ${l}</label>`
+      +(k==='juge'?`<span class="jfed" id="jFed" ${fctHas(g.id,'juge')?'':'hidden'}>${JUGE_FEDS.map(([jk,jl])=>`<label class="cbx pill sm" style="--pb:${bg};--pf:${fg}"><input type="checkbox" name="fct_${jk}" ${fctHas(g.id,jk)?'checked':''} ${ro}> ${jl}</label>`).join('')}${fctHas(g.id,'juge')&&!JUGE_FEDS.some(([jk])=>fctHas(g.id,jk))?'<span class="hint">fédération à préciser</span>':''}</span>`:'')).join('')}</div>
+      <div class="lgrid" style="margin-top:10px"><label class="wide">Précisions (niveau de juge, diplôme d’entraîneur…)<input name="fonctions_note" value="${esc(c.fonctions_note||'')}" ${ro} autocomplete="off"></label></div>
+      <div class="hint">Les rôles se cumulent. Ils décrivent l’association et ne donnent pas d’accès à l’application (voir Paramètres › Membres).</div>`:'<div class="hint">Disponible après l’exécution du script <b>migration-roles.sql</b> dans Supabase (SQL Editor).</div>';
+  const panId=`<div class="lcols">
+    <div class="lcol">${sec('👤','Identité',`<div class="lgrid g2"><label>Nom<input data-mf="nom" data-gid="${g.id}" value="${esc(g.nom||'')}" ${ro}></label><label>Prénom<input data-mf="prenom" data-gid="${g.id}" value="${esc(g.prenom||'')}" ${ro}></label><label>Date de naissance<input type="date" data-mf="naissance" data-gid="${g.id}" value="${esc(g.naissance||'')}" ${ro}></label>${LIC.ext?sel('sexe','Sexe',[['F','Féminin'],['M','Masculin']]):''}</div>`)}
+      ${sec('📍','Coordonnées',`<div class="lgrid g2"><label class="wide">Adresse<input name="adresse" value="${esc(c.adresse||'')}" ${ro} autocomplete="off"></label>${inp('code_postal','Code postal')}${inp('ville','Ville')}${inp('email','Mail','email')}${inp('telephone','Téléphone','tel')}</div>`)}</div>
+    <div class="lcol">${sec('🏅',`Licences ${SAISON}`,`<div class="lfeds">${feds}</div>`)}
+      ${sec('🤸','Compétition',`<div class="cboxes pills">${ro?`<span class="lb no">${esc(compLabel(g.compet)||'À choisir')}</span>`:compBoxes(g,`data-ccg="${g.id}"`)}</div>`)}
+      ${sec('🤝','Rôles dans l’association',roles)}</div></div>`;
+  const panFam=`<div class="lcols">
+    <div class="lcol">${sec('👨‍👩‍👧','Responsable légal',`<div class="lgrid g2">${LIC.ext?sel('responsable_lien','Le responsable est',[['pere','Père'],['mere','Mère'],['tuteur','Tuteur ou tutrice']]):''}${inp('responsable_legal','Nom et prénom')}${inp('telephone_urgence','Téléphone','tel')}${inp('parent_email','Mail','email')}</div>`)}
+      ${sec('🔗','Liens avec d’autres adhérents',`<div id="famBox">${famBoxHtml(g)}</div>`,'lfamsec')}</div>
+    <div class="lcol">${sec('🚨','Contacts en cas d’urgence',LIC.ext?`<div class="lurg"><div class="lurgh">Contact 1</div><div class="lgrid g3">${urg(1)}</div></div><div class="lurg"><div class="lurgh">Contact 2</div><div class="lgrid g3">${urg(2)}</div></div>`:licNoExt())}</div></div>`;
   const panGrp=groupesFiche(g,ro)+assidFiche(g.id);
   const ck=(n,t)=>`<label class="cbx wrap"><input type="checkbox" name="${n}" ${ins[n]?'checked':''} ${ro}> ${t}</label>`;
-  const panIns=!LIC.ext||LIC.insc===null?licNoExt():`<div class="lgrid"><label>Date d’inscription<input type="date" name="date_inscription" value="${esc(ins.date_inscription||'')}" ${ro}></label></div>
-    <h4>Renseignements médicaux (annexe 1)</h4>
-    <label class="lta"><textarea name="infos_medicales" rows="3" placeholder="Allergies, asthme, traitement… tout ce que le club et les entraîneurs doivent savoir" ${ro}>${esc(ins.infos_medicales||'')}</textarea></label>
+  const panIns=!LIC.ext||LIC.insc===null?licNoExt():`<div class="lcols">
+    <div class="lcol">${sec('🗓️','Inscription',`<div class="lgrid g2"><label>Date d’inscription<input type="date" name="date_inscription" value="${esc(ins.date_inscription||'')}" ${ro}></label></div>`)}
+    ${sec('🩺','Renseignements médicaux (annexe 1)',`<label class="lta"><textarea name="infos_medicales" rows="4" placeholder="Allergies, asthme, traitement… tout ce que le club et les entraîneurs doivent savoir" ${ro}>${esc(ins.infos_medicales||'')}</textarea></label>
     ${ck('mdph','Dossier M.D.P.H.')}
-    <div class="hint">Ces informations ne sont visibles que par les administrateurs et les entraîneurs. Le signe 🩺 apparaît dans la liste des licenciés lorsqu’elles sont renseignées.</div>
-    <h4>Autorisations (annexe 2)</h4><div class="lauts">
+    <div class="hint">Visible uniquement par les administrateurs et les entraîneurs. Le signe 🩺 apparaît dans la liste quand c’est renseigné.</div>`)}</div>
+    <div class="lcol"><section class="lsec"><h4><span class="lsic" aria-hidden="true">✍️</span>Autorisations (annexe 2)</h4><div class="lauts">
       ${ck('aut_urgence','J’autorise les responsables du club à prendre toutes les mesures d’urgence nécessaires (premiers soins, appel des pompiers…).')}
       ${ck('aut_hopital','Je souhaite que mon enfant soit conduit à l’hôpital par les services de secours.')}
       ${ck('aut_droit_image','J’accepte que mon enfant soit inclus sur les photos et vidéos réalisées et publiées par le club (droit à l’image).')}
       ${ck('aut_depart_seul','J’autorise mon enfant à partir non accompagné à la fin des activités.')}
       ${ck('reglement_lu','Je reconnais avoir pris connaissance du règlement intérieur.')}</div>
-    <div class="lgrid" style="margin-top:8px"><label>Fait à<input name="lieu_signature" value="${esc(ins.lieu_signature||'')}" ${ro} autocomplete="off"></label><label>Le<input type="date" name="date_signature" value="${esc(ins.date_signature||'')}" ${ro}></label></div>
-    ${ins.id&&!ins.aut_droit_image?'<div class="warn" style="margin-top:8px">Droit à l’image non accordé : ne pas publier de photo ni de vidéo où figure ce licencié.</div>':''}`;
+    <div class="lgrid g2" style="margin-top:10px"><label>Fait à<input name="lieu_signature" value="${esc(ins.lieu_signature||'')}" ${ro} autocomplete="off"></label><label>Le<input type="date" name="date_signature" value="${esc(ins.date_signature||'')}" ${ro}></label></div>
+    ${ins.id&&!ins.aut_droit_image?'<div class="warn" style="margin-top:8px">Droit à l’image non accordé : ne pas publier de photo ni de vidéo où figure ce licencié.</div>':''}</section></div></div>`;
   const fl=licEdit()&&g.id; if(fl) filEnsure();
   const panPiece=licDocs()?`<table class="ltb ldocs"><thead><tr><th>Pièce</th><th>Remise le</th><th>Valable jusqu'au</th><th>État</th>${fl?'<th>Fichiers</th>':''}</tr></thead><tbody>${licDocList().map(([t,l,simple])=>{ const d=docOf(g.id,t)||{};
       return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td>${simple?'<span class="hint">—</span>':`<input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}>`}</td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td>${fl?`<td class="lfil" data-fcell="${t}" data-fgid="${g.id}">${filCell(g.id,t)}</td>`:''}</tr>` }).join('')}
@@ -2319,10 +2340,16 @@ function licFicheHtml(){
     <div id="payRows">${ps.map(p=>payRowHtml(p,rp)).join('')}</div>
     ${licPay()?`<div class="lfoot" style="margin-top:8px"><button type="button" class="btn sm" data-pay-add="1">+ Ajouter un règlement</button> <button type="button" class="btn sm" data-pay-model="modele" title="${LIC_ECHEANCIER.length} chèques : ${LIC_ECHEANCIER.join(' + ')} €, le 10 de chaque mois">Échéancier du club (${LIC_ECHEANCIER.length} chèques)</button> <button type="button" class="btn sm" data-pay-model="once">Paiement en une fois</button></div>`:''}
     <div class="hint">Chèques, chèques vacances (nature : ANCV, Sport…), Pass’Sport ou espèces. Un règlement est « encaissé » dès que sa date d’encaissement est saisie ; la cotisation est payée quand le total encaissé atteint le montant dû.</div>`);
+  const age=(()=>{ if(!g.naissance) return ''; const d=new Date(g.naissance+'T12:00'), n=new Date(); let a=n.getFullYear()-d.getFullYear(); if(n<new Date(n.getFullYear(),d.getMonth(),d.getDate())) a--;
+    return `${d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · ${a} ans` })();
+  const sold=licPay()&&LIC.cot!==null?licSolde(g.id):null;
+  const todo=[nMiss?['piece',`📄 ${nMiss} document${nMiss>1?'s':''} manquant${nMiss>1?'s':''}`,'bad']:null, sold&&sold.st!=='paye'&&sold.st!=='nr'?['cot','💶 '+PAY_TXT(sold),PAY_CLASS[sold.st]]:null,
+    !g.compet?['id','🤸 Compétition à choisir','warn']:null, licEdit()&&LIC.fct&&fctHas(g.id,'juge')&&!JUGE_FEDS.some(([k])=>fctHas(g.id,k))?['id','⚖️ Fédération du juge à préciser','warn']:null].filter(Boolean);
   return `<form class="card lfiche" id="fLic" autocomplete="off">
     <div class="lhead big"><div class="avatar" aria-hidden="true">${esc(((g.prenom||'')[0]||'')+((g.nom||'')[0]||'')).toUpperCase()||'?'}</div>
-      <div class="lt"><h3>${esc(gymName(g))}${yr(g)?` <span class="hint">née en ${esc(yr(g))}</span>`:''}</h3>
-        <div class="lsub">${LIC.fct?fctChipsOf(fctOf(g.id)):''}${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div></div>
+      <div class="lt"><h3>${esc(gymName(g))}</h3>${age?`<div class="lage">${esc(age)}</div>`:''}
+        <div class="lsub">${LIC.fct?fctChipsOf(fctOf(g.id)):''}${LIC_FEDS.filter(fd=>licOf(g.id,fd)).map(fd=>`<span class="lb ok">${fd}</span>`).join('')}${licGroupes(g.id).map(x=>`<span class="lb no">${esc(x.nom)}</span>`).join('')}${licPay()&&LIC.cot!==null?`<span>Cotisation ${SAISON} : <b>${eur(licSolde(g.id).enc)}</b> / ${eur(licSolde(g.id).du)}</span>`:''}</div>
+        ${call}${todo.length?`<div class="ltodo">${todo.map(([t,l,c2])=>`<button type="button" class="lb ${c2}" data-lic-ftab="${t}" title="Aller à l’onglet concerné">${l}</button>`).join('')}</div>`:''}</div>
       <button type="button" class="btn sm" data-lic-close="1">✕ Fermer</button></div>
     <div class="tabs ltabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${LIC.ftab===k?'on':''}" data-lic-ftab="${k}">${l}</button>`).join('')}</div>
     <div class="lpanel" data-p="id"${pn('id')}>${panId}</div>
@@ -2331,7 +2358,7 @@ function licFicheHtml(){
     ${licEdit()?`<div class="lpanel" data-p="insc"${pn('insc')}>${panIns}</div>`:''}
     ${licDocs()?`<div class="lpanel" data-p="piece"${pn('piece')}>${panPiece}</div>`:''}
     ${licPay()?`<div class="lpanel" data-p="cot"${pn('cot')}>${panCot}</div>`:''}
-    <div class="lfoot">${licEdit()||licPay()?'<button class="btn primary" type="submit">Enregistrer le dossier</button>':'<span class="hint">Lecture seule avec votre rôle.</span>'}</div>
+    <div class="lfoot lsticky">${licEdit()||licPay()?'<button class="btn primary" type="submit">💾 Enregistrer le dossier</button><button type="button" class="btn" data-lic-close="1">Fermer</button>':'<span class="hint">Lecture seule avec votre rôle.</span>'}</div>
   </form>`;
 }
 
