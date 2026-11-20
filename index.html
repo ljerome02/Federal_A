@@ -757,6 +757,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.muserr{color:#b3261e;font-size:12.5px;margin-top:3px}
 .mussec{margin:14px 0 2px;padding:6px 10px;background:var(--bg);border-radius:8px;border-left:4px solid #7b4fd6}
 .jfed{display:inline-flex;align-items:center;gap:8px;margin:0 10px 0 -4px;padding:2px 8px;border-left:2px solid #f0d9a8}.jfed[hidden]{display:none}
 .musrow{padding:8px 2px 4px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}.musg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
@@ -4492,15 +4493,20 @@ async function musUpload(){
     try{ if(x.f.size>MUS_MAX) throw new Error(`trop lourd (${filMo(x.f.size)}, 15 Mo max)`);
       const g=S.gyms.find(y=>y.id===x.gid), nom=musFileName(g,x.fed,musExt(x.f.name)), mime=musMime(x.f.name)||x.f.type||'audio/mpeg';
       const path=`${CLUB.id}/${x.gid}/${Date.now()}-${filSafe(nom)}`;
-      const up=await withTimeout(sb.storage.from(MUS_B).upload(path,x.f,{contentType:mime,upsert:false}),90000); if(up.error) throw up.error;
+      let body; try{ body=new File([await x.f.arrayBuffer()],nom,{type:mime}) }catch(e){ throw new Error('fichier illisible : copie-le d’abord sur l’ordinateur (Bureau, Documents…) puis réessaie') }
+      const up=await withTimeout(sb.storage.from(MUS_B).upload(path,body,{contentType:mime,upsert:false}),90000); if(up.error) throw new Error(up.error.message||'envoi refusé');
       if(x.main){ chk(await sb.from('musiques_licencie').update({principale:false}).eq('licencie_id',x.gid).eq('federation',x.fed).eq('principale',true)); MUS.rows.filter(m=>m.licencie_id===x.gid&&m.federation===x.fed).forEach(m=>m.principale=false) }
       const r=await sb.from('musiques_licencie').insert({club_id:CLUB.id,licencie_id:x.gid,federation:x.fed,nom,version:x.version||null,chemin:path,taille:x.f.size,mime,duree:x.dur,principale:!!x.main}).select('id,licencie_id,agres,federation,nom,version,chemin,taille,mime,duree,principale,created_at');
       if(r.error){ await sb.storage.from(MUS_B).remove([path]); throw r.error }
       MUS.rows.push(r.data[0]); ok++;
       try{ if('caches' in window){ const c=await caches.open(MUS_CACHE); await c.put(location.origin+'/m/'+r.data[0].id,new Response(x.f,{headers:{'Content-Type':mime}})); MUS.off.add(r.data[0].id) } }catch(e){}
-    }catch(e){ toast(`« ${x.f.name} » : ${e.message||e}`) }
+      x.done=true;
+    }catch(e){ x.err=String(e.message||e) }
   }
-  MUS.busy=false; MUS.imp=null; lsSet('fa-mus-'+CLUB.id,MUS.rows); toast(`${ok} musique${ok>1?'s':''} enregistrée${ok>1?'s':''}`); renderMain();
+  /* les musiques non envoyées restent affichées avec la raison, pour réessayer */
+  const left=(MUS.imp||[]).filter(x=>!x.done&&(x.err||!x.gid||!x.fed));
+  MUS.busy=false; MUS.imp=left.length?left:null; lsSet('fa-mus-'+CLUB.id,MUS.rows);
+  toast(`${ok} musique${ok>1?'s':''} enregistrée${ok>1?'s':''}`+(left.some(x=>x.err)?` · ${left.filter(x=>x.err).length} en erreur (voir la liste)`:'')); renderMain();
 }
 const musMainRows=()=>MUS.rows.filter(m=>m.principale&&(!MUS.fed||m.federation===MUS.fed||m.federation==='FFG+UFOLEP'));
 async function musDownloadAll(){
@@ -4526,7 +4532,7 @@ function renderMusic(){
       <div class="hint" style="margin-bottom:8px">Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
       <div class="ltwrap"><table class="ltb musimp"><thead><tr><th></th><th>Fichier</th><th>Gymnaste</th><th>Fédération</th><th>Durée</th><th>Nouveau nom</th><th>⭐</th></tr></thead><tbody>
       ${MUS.imp.map((x,i)=>{ const g=S.gyms.find(y=>y.id===x.gid), lic=g?musLic(g):[];
-        return `<tr class="${x.gid&&x.fed?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div></td>
+        return `<tr class="${x.gid&&x.fed?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div>${x.err?`<div class="muserr">⚠️ Non envoyée : ${esc(x.err)}</div>`:''}</td>
         <td><select data-mi-gid="${i}"><option value="">— à choisir —</option>${opts.map(o=>`<option value="${o.id}" ${o.id===x.gid?'selected':''}>${esc(gymName(o))}</option>`).join('')}</select>${x.why?`<div class="hint">${esc(x.why)}</div>`:''}</td>
         <td><select data-mi-fed="${i}"><option value="">— à choisir —</option>${MUS_FEDS.map(f=>`<option value="${f}" ${x.fed===f?'selected':''}>${musFedLbl(f)}</option>`).join('')}</select>${g?`<div class="hint">licence${lic.length>1?'s':''} : ${lic.join(' + ')||'aucune'}</div>`:''}</td>
         <td>${x.gid&&x.fed?musDurHtml(x.gid,x.fed,x.dur):musDur(x.dur)}</td>
