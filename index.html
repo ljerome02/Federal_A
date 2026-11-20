@@ -757,6 +757,9 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.lfil{min-width:150px}.filc{display:inline-flex;align-items:center;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12.5px}
+.filn{border:0;background:none;padding:3px 4px 3px 9px;cursor:pointer;font:inherit;color:inherit;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.filn:hover{text-decoration:underline}
+.filx{border:0;background:none;padding:3px 8px 3px 2px;cursor:pointer;color:#a33;font-size:12px}.filup{cursor:pointer}.filup input{display:none}
 .crq{font-weight:800;min-width:30px;margin-left:4px}.crq.on{background:#2fa56a;border-color:#2fa56a;color:#fff}.crq:disabled{opacity:1}.crqb{font-weight:800;margin-left:3px}
 .doctools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}.doctools select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--card,#fff)}
 .docfl{display:block;margin-bottom:10px}.docfl textarea{display:block;width:100%;margin-top:4px;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical;box-sizing:border-box}
@@ -968,7 +971,10 @@ async function sync(){
       for(const a of AGRES) if(r[a.k] && !same(r[a.k],o[a.k])) rows.push({licencie_id:g.id, saison:SAISON, agres:a.k, data:r[a.k], updated_at:new Date().toISOString()}) }
     if(rows.length) chk(await sb.from('mouvements').upsert(rows,{onConflict:'licencie_id,saison,agres'}));
     const dg=old.gyms.filter(g=>!cG.has(g.id)).map(g=>g.id);
-    if(dg.length) chk(await sb.from('licencies').delete().in('id',dg));
+    if(dg.length){
+      /* fichiers des adhérents supprimés : on vide aussi l'espace de stockage */
+      try{ const r=await sb.from('fichiers_licencie').select('chemin').in('licencie_id',dg); if(!r.error&&r.data.length){ await sb.storage.from('documents-adherents').remove(r.data.map(x=>x.chemin)); if(typeof FIL!=='undefined') FIL.rows=FIL.rows.filter(f=>!dg.includes(f.licencie_id)) } }catch(e){}
+      chk(await sb.from('licencies').delete().in('id',dg)); }
     const dt=old.teams.filter(t=>!cT.has(t.id)).map(t=>t.id);
     if(dt.length) chk(await sb.from('equipes').delete().in('id',dt));
     SNAP=cur; SYNC='ok'; SYNCERR=''; lastSync=new Date(); OFFLINE=false;
@@ -2270,8 +2276,11 @@ function licFicheHtml(){
       ${ck('reglement_lu','Je reconnais avoir pris connaissance du règlement intérieur.')}</div>
     <div class="lgrid" style="margin-top:8px"><label>Fait à<input name="lieu_signature" value="${esc(ins.lieu_signature||'')}" ${ro} autocomplete="off"></label><label>Le<input type="date" name="date_signature" value="${esc(ins.date_signature||'')}" ${ro}></label></div>
     ${ins.id&&!ins.aut_droit_image?'<div class="warn" style="margin-top:8px">Droit à l’image non accordé : ne pas publier de photo ni de vidéo où figure ce licencié.</div>':''}`;
-  const panPiece=licDocs()?`<table class="ltb ldocs"><thead><tr><th>Pièce</th><th>Remise le</th><th>Valable jusqu'au</th><th>État</th></tr></thead><tbody>${licDocList().map(([t,l,simple])=>{ const d=docOf(g.id,t)||{};
-      return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td>${simple?'<span class="hint">—</span>':`<input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}>`}</td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td></tr>` }).join('')}</tbody></table>
+  const fl=licEdit()&&g.id; if(fl) filEnsure();
+  const panPiece=licDocs()?`<table class="ltb ldocs"><thead><tr><th>Pièce</th><th>Remise le</th><th>Valable jusqu'au</th><th>État</th>${fl?'<th>Fichiers</th>':''}</tr></thead><tbody>${licDocList().map(([t,l,simple])=>{ const d=docOf(g.id,t)||{};
+      return `<tr><td>${l}</td><td><input type="date" name="dr_${t}" value="${esc(d.date_remise||'')}" ${ro}></td><td>${simple?'<span class="hint">—</span>':`<input type="date" name="dv_${t}" value="${esc(d.date_validite||'')}" ${ro}>`}</td><td>${t==='droit_image'?(d.date_remise||d.date_validite?'<span class="lb ok">Renseigné</span>':'<span class="lb no">Non renseigné</span>'):stBadge(docState(d))}</td>${fl?`<td class="lfil" data-fcell="${t}" data-fgid="${g.id}">${filCell(g.id,t)}</td>`:''}</tr>` }).join('')}
+      ${fl?`<tr><td>Autres documents</td><td colspan="3" class="hint">Attestation, justificatif, licence…</td><td class="lfil" data-fcell="autre" data-fgid="${g.id}">${filCell(g.id,'autre')}</td></tr>`:''}</tbody></table>
+    ${fl?'<div class="hint" id="filUse">'+filUseHtml()+'</div>':''}
     <div class="hint">Cadre « réservé au club » de la fiche d’inscription : une pièce remise est comptée dès que sa date est saisie. Le certificat médical et le questionnaire de santé comptent l'un pour l'autre ; un document est signalé ${LIC_ALERTE_JOURS} jours avant sa date de validité.</div>`:'';
   const ps=paysOf(g.id).slice().sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
   const panCot=!licPay()?'':(LIC.cot===null?licNoExt():`<div class="lgrid"><label>Montant de la cotisation (€)<input type="number" name="montant_du" step="0.01" min="0" inputmode="decimal" value="${ct.montant_du!=null?esc(String(ct.montant_du)):''}" ${rp}></label>
@@ -4290,6 +4299,72 @@ document.addEventListener('click',async ev=>{
     try{ chk(await sb.from('parametres_club').upsert({club_id:CLUB.id,cle:'dossier',valeur:v,updated_at:new Date().toISOString()},{onConflict:'club_id,cle'}));
       PARAM.vals={...(PARAM.vals||{}),dossier:v}; lsSet(paramCache(),PARAM.vals); DOC.edit=false; toast('Textes enregistrés'); renderMain() }
     catch(e){ toast('Erreur : '+e.message); t.disabled=false } }
+});
+
+/* ---------- fichiers des adhérents (espace privé « documents-adherents ») ----------
+   Visible et modifiable par les administrateurs et les entraîneurs seulement (comme les dates des documents).
+   Chemin : <club>/<adhérent>/<type>/<horodatage>-<nom>. Liste dans la table fichiers_licencie (migration-fichiers.sql). */
+const FIL_B='documents-adherents', FIL_MAX=10*1024*1024, FIL_QUOTA=1024*1024*1024;
+const FIL={club:null,ok:null,rows:[],loading:false,busy:new Set()};
+const filMo=n=>!n?'0 Ko':n<1024*1024?Math.max(1,Math.round(n/1024))+' Ko':(n/1048576).toFixed(n<10*1048576?1:0).replace('.',',')+' Mo';
+async function filEnsure(){
+  if(!CLUB||!licEdit()) return; if(FIL.club===CLUB.id&&(FIL.ok!==null||FIL.loading)) return;
+  FIL.club=CLUB.id; FIL.loading=true; FIL.ok=null;
+  try{ const r=await withTimeout(sb.from('fichiers_licencie').select('id,licencie_id,type,nom,chemin,taille,mime,created_at').eq('club_id',CLUB.id).order('created_at'),10000);
+    if(r.error){ FIL.ok=/fichiers_licencie|does not exist|schema cache/i.test(r.error.message)?false:null; FIL.rows=[] } else { FIL.ok=true; FIL.rows=r.data||[] } }
+  catch(e){ FIL.ok=null }
+  FIL.loading=false; filPaint();
+}
+const filOf=(gid,t)=>FIL.rows.filter(f=>f.licencie_id===gid&&f.type===t);
+function filCell(gid,t){
+  if(!gid||!licEdit()) return '';
+  if(FIL.ok===false) return t==='autre'?'<span class="hint">Pour joindre des fichiers, lance migration-fichiers.sql dans Supabase.</span>':'';
+  if(FIL.ok!==true) return '<span class="hint">…</span>';
+  const fs=filOf(gid,t), busy=FIL.busy.has(gid+'|'+t);
+  return fs.map(f=>`<span class="filc"><button type="button" class="filn" data-fopen="${f.id}" title="Ouvrir ${esc(f.nom)} (${filMo(f.taille)})">${/pdf/.test(f.mime||'')?'📄':'🖼️'} ${esc(f.nom.length>26?f.nom.slice(0,23)+'…':f.nom)}</button><button type="button" class="filx" data-fdel="${f.id}" title="Supprimer ce fichier" aria-label="Supprimer ${esc(f.nom)}">✕</button></span>`).join('')
+    +(busy?'<span class="hint">Envoi…</span>':`<label class="btn sm filup" title="Joindre un fichier : PDF ou photo, 10 Mo maximum">📎${fs.length?'':' Joindre'}<input type="file" accept="application/pdf,image/*" data-fup="${t}" data-fgid="${gid}" hidden></label>`);
+}
+function filPaint(){ document.querySelectorAll('[data-fcell]').forEach(el=>{ el.innerHTML=filCell(el.dataset.fgid,el.dataset.fcell) }); const u=document.getElementById('filUse'); if(u) u.innerHTML=filUseHtml() }
+function filUseHtml(){ if(FIL.ok!==true) return ''; const t=FIL.rows.reduce((a,f)=>a+(+f.taille||0),0);
+  return `Fichiers du club : ${FIL.rows.length} · ${filMo(t)} utilisés sur 1 Go (formule gratuite Supabase)${t>FIL_QUOTA*0.8?' — <b>bientôt plein</b>':''}.` }
+/* photos : réduites à 2000 px (JPEG) pour économiser la place ; les PDF sont envoyés tels quels */
+async function filShrink(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size<1.2*1024*1024) return file;
+  try{ const bmp=await createImageBitmap(file), k=Math.min(1,2000/Math.max(bmp.width,bmp.height)), c=document.createElement('canvas');
+    c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k); c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82)); return b&&b.size<file.size?new File([b],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'}):file }
+  catch(e){ return file }
+}
+const filSafe=n=>n.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(-80)||'fichier';
+async function filUpload(gid,t,file){
+  const k=gid+'|'+t; if(FIL.busy.has(k)) return;
+  if(!/^(application\/pdf|image\/)/.test(file.type||'')&&!/\.(pdf|jpe?g|png|webp|heic|heif)$/i.test(file.name)){ toast('Formats acceptés : PDF ou photo (JPEG, PNG, HEIC…)'); return }
+  FIL.busy.add(k); filPaint();
+  try{
+    const f=await filShrink(file); if(f.size>FIL_MAX) throw new Error(`fichier trop lourd (${filMo(f.size)}, 10 Mo maximum) : scanne-le en PDF ou réduis la photo`);
+    const mime=f.type||(/\.pdf$/i.test(f.name)?'application/pdf':/\.hei[cf]$/i.test(f.name)?'image/heic':'image/jpeg');
+    const path=`${CLUB.id}/${gid}/${t}/${Date.now()}-${filSafe(f.name)}`;
+    const up=await withTimeout(sb.storage.from(FIL_B).upload(path,f,{contentType:mime,upsert:false}),60000); if(up.error) throw up.error;
+    const r=await sb.from('fichiers_licencie').insert({club_id:CLUB.id,licencie_id:gid,type:t,nom:f.name.slice(0,200),chemin:path,taille:f.size,mime}).select('id,licencie_id,type,nom,chemin,taille,mime,created_at');
+    if(r.error){ await sb.storage.from(FIL_B).remove([path]); throw r.error }
+    FIL.rows.push(r.data[0]);
+    /* la pièce est considérée comme remise aujourd'hui si aucune date n'était saisie */
+    const dr=document.querySelector(`[name="dr_${t}"]`); let msg='Fichier joint';
+    if(dr&&!dr.value&&!dr.disabled){ dr.value=new Date().toISOString().slice(0,10); dr.dispatchEvent(new Event('input',{bubbles:true})); msg+=' — date de remise mise à aujourd’hui, pense à enregistrer la fiche' }
+    toast(msg);
+  }catch(e){ toast('Envoi impossible : '+(e.message||e)) }
+  FIL.busy.delete(k); filPaint();
+}
+document.addEventListener('change',ev=>{ const t=ev.target.closest&&ev.target.closest('[data-fup]'); if(!t||!t.files||!t.files[0]) return; const file=t.files[0]; t.value=''; filUpload(t.dataset.fgid,t.dataset.fup,file) });
+document.addEventListener('click',async ev=>{
+  const o=ev.target.closest&&ev.target.closest('[data-fopen],[data-fdel]'); if(!o) return; ev.preventDefault();
+  const f=FIL.rows.find(x=>x.id===(o.dataset.fopen||o.dataset.fdel)); if(!f) return;
+  if(o.dataset.fopen){ const w=window.open('','_blank');
+    try{ const r=await sb.storage.from(FIL_B).createSignedUrl(f.chemin,300); if(r.error) throw r.error; if(w) w.location=r.data.signedUrl; else location.assign(r.data.signedUrl) }
+    catch(e){ if(w) w.close(); toast('Ouverture impossible : '+e.message) } return }
+  if(!confirm(`Supprimer définitivement « ${f.nom} » ?`)) return;
+  try{ const r=await sb.storage.from(FIL_B).remove([f.chemin]); if(r.error) throw r.error; chk(await sb.from('fichiers_licencie').delete().eq('id',f.id)); FIL.rows=FIL.rows.filter(x=>x!==f); filPaint(); toast('Fichier supprimé') }
+  catch(e){ toast('Suppression impossible : '+e.message) }
 });
 
 /* ---------- messages (e-mail et WhatsApp) ---------- */
