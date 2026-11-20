@@ -757,6 +757,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.mussec{margin:14px 0 2px;padding:6px 10px;background:var(--bg);border-radius:8px;border-left:4px solid #7b4fd6}
 .jfed{display:inline-flex;align-items:center;gap:8px;margin:0 10px 0 -4px;padding:2px 8px;border-left:2px solid #f0d9a8}.jfed[hidden]{display:none}
 .musrow{padding:8px 2px 4px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}.musg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
 .musline{display:flex;align-items:center;gap:10px;padding:3px 0}.musfed{min-width:58px;text-align:center}.musdurc{min-width:60px;text-align:right}
@@ -4397,7 +4398,7 @@ document.addEventListener('change',ev=>{ const t=ev.target; if(!t.matches||!t.ma
    Une musique écoutée une fois est gardée sur l'appareil (cache) : elle se rejoue sans réseau dans la salle. */
 const MUS_B='musiques', MUS_MAX=15*1024*1024, MUS_CACHE='fa-musiques', MUS_FEDS=['FFG','UFOLEP','FFG+UFOLEP'];
 const MUS_FFG=60, MUS_UFO={A:40,B1:55,B2:55,B3:70,C:90};
-const MUS={club:null,ok:null,rows:[],loading:false,q:'',fed:'',imp:null,busy:false,off:new Set(),play:null,url:null,dl:null};
+const MUS={club:null,ok:null,rows:[],loading:false,q:'',fed:'',by:'gym',imp:null,busy:false,off:new Set(),play:null,url:null,dl:null};
 const musEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const musDur=s=>s==null||isNaN(s)?'—':Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0');
 const musMime=n=>/\.(mp3|mpe?g|mpga)$/i.test(n)?'audio/mpeg':/\.(m4a|aac)$/i.test(n)?'audio/mp4':/\.mp4$/i.test(n)?'video/mp4':/\.wav$/i.test(n)?'audio/wav':/\.og[ga]$/i.test(n)?'audio/ogg':/\.webm$/i.test(n)?'audio/webm':'';
@@ -4551,10 +4552,23 @@ function renderMusic(){
   const row=g=>{ const feds=MUS_FEDS.filter(f=>(!F||f===F||f==='FFG+UFOLEP')&&musOf(g.id,f).length), lack=musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f));
     return `<div class="musrow"><div class="musg"><b>${esc(gymName(g))}</b>${lack.map(f=>` <span class="lb bad" title="Licence ${f} sans musique">${f} manquante</span>`).join('')}
       ${ed&&lack.length?lack.map(f=>`<label class="btn sm filup" title="Ajouter la musique ${f}">+ ${f}<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${f}" hidden></label>`).join(' '):''}</div>${feds.map(f=>line(g,f)).join('')}</div>` };
+  /* classement : par gym, par groupe d'entraînement, par équipe FFG ou par équipe UFOLEP (une gym peut apparaître dans plusieurs groupes) */
+  const BY=[['gym','Gym (A → Z)'],['grp','Groupe'],['teamf','Équipe FFG'],['teamu','Équipe UFOLEP']], by=BY.some(x=>x[0]===MUS.by)?MUS.by:'gym';
+  if(by==='teamu') try{ ufEnsure() }catch(e){}
+  const sec=(()=>{ if(by==='gym') return [['',shown]];
+    const m=new Map(), put=(k,g)=>{ if(!m.has(k)) m.set(k,[]); m.get(k).push(g) }, none=by==='grp'?'Sans groupe':'Sans équipe';
+    shown.forEach(g=>{ let ks=[];
+      if(by==='grp') ks=licGroupes(g.id).map(x=>x.nom);
+      else if(by==='teamf'){ const t=S.teams.find(x=>x.id===g.team); if(t) ks=[t.name] }
+      else { try{ const e=ufEng(g.id), t=e&&ufTeam(e.equipe_id); if(t) ks=[t.nom+' (évolution '+t.evolution+')']; else if(e&&e.individuel) ks=['Individuel UFOLEP'] }catch(e){} }
+      (ks.length?ks:[none]).forEach(k=>put(k,g)) });
+    return [...m.entries()].sort((a,b)=>(a[0]===none)-(b[0]===none)||a[0].localeCompare(b[0],'fr',{numeric:true})) })();
+  const body=sec.map(([t,gs])=>(t?`<div class="mussec"><b>${esc(t)}</b> <span class="hint">${gs.length} gym${gs.length>1?'s':''}</span></div>`:'')+gs.map(row).join('')).join('');
   return head+`<div class="card"><div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px"><input id="musQ" placeholder="Rechercher une gym…" value="${esc(MUS.q)}" style="flex:1 1 200px">
+      <label class="cbx">Classer par <select data-mby="1">${BY.map(([k,l])=>`<option value="${k}" ${by===k?'selected':''}>${l}</option>`).join('')}</select></label>
       <select data-mfedf="1" aria-label="Fédération"><option value="">FFG et UFOLEP</option><option value="FFG" ${F==='FFG'?'selected':''}>FFG</option><option value="UFOLEP" ${F==='UFOLEP'?'selected':''}>UFOLEP</option></select>
       <span class="hint">${withM.length} gym${withM.length>1?'s':''} avec musique · ${nOff}/${mains.length} disponibles hors ligne ici · ${filMo(tot)} en ligne</span></div>
-    ${shown.map(row).join('')||'<div class="empty">Aucune musique pour l’instant. Importe les fichiers de la clé USB avec « 📥 Importer des musiques » : ils seront rattachés aux gyms d’après leur nom.</div>'}
+    ${body||'<div class="empty">Aucune musique pour l’instant. Importe les fichiers de la clé USB avec « 📥 Importer des musiques » : ils seront rattachés aux gyms d’après leur nom.</div>'}
     ${miss.length?`<details style="margin-top:10px"><summary class="hint">${miss.length} gym${miss.length>1?'s':''} en compétition avec une musique manquante</summary><div class="musmiss">${miss.map(([g,fs])=>`<span class="lb no">${esc(gymName(g))} : ${fs.join(', ')}</span>`).join(' ')}</div></details>`:''}
     <div class="hint" style="margin-top:10px">Durées maximales (bip non compris) : <b>FFG 1 min</b> ; <b>UFOLEP</b> selon l’évolution au sol — A 40", B1-B2 55", B3 1'10", C 1'30" (programme technique). En orange : musique trop longue. Une musique écoutée une fois reste sur l’appareil et se rejoue sans réseau ; « ⬇️ Disponible hors ligne » les prépare toutes avant une compétition.</div></div>`;
 }
@@ -4562,6 +4576,7 @@ document.addEventListener('change',async ev=>{
   const t=ev.target; if(!t.closest) return;
   if(t.matches('[data-mimp]')&&t.files&&t.files.length){ const fs=[...t.files], gid=t.dataset.mgid||'', fed=t.dataset.mfed||''; t.value=''; await musPrepare(fs,gid,fed); return }
   if(t.matches('[data-mfedf]')){ MUS.fed=t.value; renderMain(); return }
+  if(t.matches('[data-mby]')){ MUS.by=t.value; renderMain(); return }
   if(t.matches('[data-mfedchg]')){ const m=MUS.rows.find(x=>x.id===t.dataset.mfedchg), g=m&&S.gyms.find(y=>y.id===m.licencie_id); if(!m||!g) return;
     const fed=t.value, nom=musFileName(g,fed,musExt(m.nom)), main=!musOf(g.id,fed).some(x=>x.principale);
     try{ chk(await sb.from('musiques_licencie').update({federation:fed,nom,principale:main}).eq('id',m.id)); Object.assign(m,{federation:fed,nom,principale:main}); renderMain() }catch(e){ toast('Erreur : '+e.message); renderMain() } return }
