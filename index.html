@@ -757,6 +757,10 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
+.musdz{border:2px dashed #c9b6ef;border-radius:12px;padding:12px;text-align:center;color:#6b4bb0;background:#faf7ff;margin:4px 0 10px;font-size:13.5px}
+.musdrop{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;pointer-events:none;background:#7b4fd6;color:#fff;border-radius:16px;padding:14px 26px;text-align:center;box-shadow:0 8px 30px rgba(60,20,140,.35)}
+.musdrop .hint{color:#ede6ff}body.musdrag .musdrop{display:block}body.musdrag #main .card{outline:2px dashed #c9b6ef;outline-offset:4px}
+.mustgt{outline:3px solid #7b4fd6!important;outline-offset:2px;border-radius:10px;background:#f3ecff!important}
 .muserr{color:#b3261e;font-size:12.5px;margin-top:3px}
 .mussec{margin:14px 0 2px;padding:6px 10px;background:var(--bg);border-radius:8px;border-left:4px solid #7b4fd6}
 .jfed{display:inline-flex;align-items:center;gap:8px;margin:0 10px 0 -4px;padding:2px 8px;border-left:2px solid #f0d9a8}.jfed[hidden]{display:none}
@@ -4449,6 +4453,7 @@ async function musPlay(id){
 }
 async function musSave(m){ try{ const b=await musBlob(m), a=document.createElement('a'), u=URL.createObjectURL(b); a.href=u; a.download=m.nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); return true }catch(e){ toast(`« ${m.nom} » : ${e.message}`); return false } }
 /* lecteur fixé en bas de l'écran : la musique continue quand on change de page */
+(function(){ const d=document.createElement('div'); d.className='musdrop'; d.innerHTML='<div><div style="font-size:42px">🎵</div><b>Déposer les musiques</b><div id="musDropHint" class="hint"></div></div>'; (document.body?Promise.resolve():new Promise(r=>addEventListener('DOMContentLoaded',r))).then(()=>document.body.appendChild(d)) })();
 function musDock(){ let d=document.getElementById('musDock'); if(!d){ d=document.createElement('div'); d.id='musDock'; d.className='musdock'; document.body.appendChild(d) } d.hidden=false; return d }
 function musBarPaint(auto){
   const bar=musDock(), m=MUS.rows.find(x=>x.id===MUS.play);
@@ -4481,7 +4486,7 @@ async function musPrepare(files,gidForced,fedForced){
   const L=[]; for(const f of files){ if(!musMime(f.name)&&!/^(audio|video)\//.test(f.type)){ toast(`« ${f.name} » ignoré : ce n’est pas un fichier audio`); continue }
     const gs=gidForced?{gid:gidForced,why:''}:musGuess(f.name);
     L.push({f,gid:gs.gid,why:gs.why,fed:fedForced||musFedGuess(f.name,gs.gid),dur:await musMeasure(f),version:f.name.replace(/(\.(mp3|mpe?g|m4a|mp4|aac|wav|ogg|webm))+$/i,'').slice(0,120),on:true}) }
-  MUS.imp=L; musImpMain(); renderMain(); window.scrollTo(0,0);
+  MUS.imp=[...(MUS.imp&&!MUS.busy?MUS.imp:[]),...L]; musImpMain(); renderMain(); window.scrollTo(0,0);
 }
 /* plusieurs versions d'une même gym et fédération : la plus récente devient principale (si aucune ne l'est déjà) */
 function musImpMain(){ const L=(MUS.imp||[]).filter(x=>x.gid&&x.fed), by={}; L.forEach(x=>(by[x.gid+'|'+x.fed]??=[]).push(x));
@@ -4529,7 +4534,7 @@ function renderMusic(){
   if(MUS.ok!==true) return head+'<div class="card"><div class="empty">Chargement…</div></div>';
   if(MUS.imp){ const opts=S.gyms.slice().sort(byName), n=MUS.imp.filter(x=>x.on&&x.gid&&x.fed).length;
     return head+`<div class="card"><h3>Importer ${MUS.imp.length} musique${MUS.imp.length>1?'s':''}</h3>
-      <div class="hint" style="margin-bottom:8px">Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
+      <div class="hint" style="margin-bottom:8px">Tu peux encore glisser d’autres fichiers ici : ils s’ajoutent à la liste. Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
       <div class="ltwrap"><table class="ltb musimp"><thead><tr><th></th><th>Fichier</th><th>Gymnaste</th><th>Fédération</th><th>Durée</th><th>Nouveau nom</th><th>⭐</th></tr></thead><tbody>
       ${MUS.imp.map((x,i)=>{ const g=S.gyms.find(y=>y.id===x.gid), lic=g?musLic(g):[];
         return `<tr class="${x.gid&&x.fed?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div>${x.err?`<div class="muserr">⚠️ Non envoyée : ${esc(x.err)}</div>`:''}</td>
@@ -4546,7 +4551,7 @@ function renderMusic(){
   const miss=S.gyms.filter(g=>g.compet&&g.compet!=='aucune').map(g=>[g,musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f))]).filter(x=>x[1].length).sort((a,b)=>byName(a[0],b[0]));
   const tot=MUS.rows.reduce((a,m)=>a+(+m.taille||0),0), mains=musMainRows(), nOff=mains.filter(m=>MUS.off.has(m.id)).length;
   const line=(g,fed)=>{ const ms=musOf(g.id,fed), m=ms[0]; if(!m) return '';
-    return `<div class="musline"><button class="musplay" data-mplay="${m.id}" title="Écouter">${MUS.play===m.id?'🔊':'▶'}</button>
+    return `<div class="musline" data-mdrop-gid="${g.id}" data-mdrop-fed="${fed}"><button class="musplay" data-mplay="${m.id}" title="Écouter">${MUS.play===m.id?'🔊':'▶'}</button>
       <span class="lb ${fed==='UFOLEP'?'no':'ok'} musfed">${esc(musFedLbl(fed))}</span>
       <div class="musinfo">${esc(m.nom)}${m.principale?'':' <span class="lb bad">aucune version principale</span>'}${m.version?`<div class="hint">d’origine : ${esc(m.version)}</div>`:''}</div>
       <div class="musdurc">${musDurHtml(g.id,fed,m.duree)}</div>
@@ -4556,7 +4561,7 @@ function renderMusic(){
       ${ms.length>1||ed?`<details class="musvers"><summary>${ms.length} version${ms.length>1?'s':''} ${esc(musFedLbl(fed))}</summary>${ms.map(v=>`<div class="musv"><button class="btn sm" data-mplay="${v.id}">▶</button> ${v.principale?'⭐ ':''}${esc(v.version||v.nom)} <span class="hint">${musDur(v.duree)} · ${filMo(v.taille)}</span>
         ${ed&&!v.principale?`<button class="btn sm" data-mmain="${v.id}">⭐ Principale</button>`:''}${ed?`<select data-mfedchg="${v.id}" title="Changer la fédération">${MUS_FEDS.map(f=>`<option value="${f}" ${v.federation===f?'selected':''}>${musFedLbl(f)}</option>`).join('')}</select><button class="btn sm" data-mdel="${v.id}" title="Supprimer cette version">✕</button>`:''}</div>`).join('')}</details>`:''}` };
   const row=g=>{ const feds=MUS_FEDS.filter(f=>(!F||f===F||f==='FFG+UFOLEP')&&musOf(g.id,f).length), lack=musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f));
-    return `<div class="musrow"><div class="musg"><b>${esc(gymName(g))}</b>${lack.map(f=>` <span class="lb bad" title="Licence ${f} sans musique">${f} manquante</span>`).join('')}
+    return `<div class="musrow" data-mdrop-gid="${g.id}"><div class="musg"><b>${esc(gymName(g))}</b>${lack.map(f=>` <span class="lb bad" title="Licence ${f} sans musique">${f} manquante</span>`).join('')}
       ${ed&&lack.length?lack.map(f=>`<label class="btn sm filup" title="Ajouter la musique ${f}">+ ${f}<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${f}" hidden></label>`).join(' '):''}</div>${feds.map(f=>line(g,f)).join('')}</div>` };
   /* classement : par gym, par groupe d'entraînement, par équipe FFG ou par équipe UFOLEP (une gym peut apparaître dans plusieurs groupes) */
   const BY=[['gym','Gym (A → Z)'],['grp','Groupe'],['teamf','Équipe FFG'],['teamu','Équipe UFOLEP']], by=BY.some(x=>x[0]===MUS.by)?MUS.by:'gym';
@@ -4574,8 +4579,9 @@ function renderMusic(){
       <label class="cbx">Classer par <select data-mby="1">${BY.map(([k,l])=>`<option value="${k}" ${by===k?'selected':''}>${l}</option>`).join('')}</select></label>
       <select data-mfedf="1" aria-label="Fédération"><option value="">FFG et UFOLEP</option><option value="FFG" ${F==='FFG'?'selected':''}>FFG</option><option value="UFOLEP" ${F==='UFOLEP'?'selected':''}>UFOLEP</option></select>
       <span class="hint">${withM.length} gym${withM.length>1?'s':''} avec musique · ${nOff}/${mains.length} disponibles hors ligne ici · ${filMo(tot)} en ligne</span></div>
+    ${ed?'<div class="musdz">🎵 Glisse des musiques ici (ou n’importe où sur la page) — sur la ligne d’une gym pour la lui rattacher directement</div>':''}
     ${body||'<div class="empty">Aucune musique pour l’instant. Importe les fichiers de la clé USB avec « 📥 Importer des musiques » : ils seront rattachés aux gyms d’après leur nom.</div>'}
-    ${miss.length?`<details style="margin-top:10px"><summary class="hint">${miss.length} gym${miss.length>1?'s':''} en compétition avec une musique manquante</summary><div class="musmiss">${miss.map(([g,fs])=>`<span class="lb no">${esc(gymName(g))} : ${fs.join(', ')}</span>`).join(' ')}</div></details>`:''}
+    ${miss.length?`<details style="margin-top:10px"><summary class="hint">${miss.length} gym${miss.length>1?'s':''} en compétition avec une musique manquante</summary><div class="musmiss">${miss.map(([g,fs])=>`<span class="lb no" ${fs.length===1?`data-mdrop-gid="${g.id}" data-mdrop-fed="${fs[0]}"`:`data-mdrop-gid="${g.id}"`}>${esc(gymName(g))} : ${fs.join(', ')}</span>`).join(' ')}</div></details>`:''}
     <div class="hint" style="margin-top:10px">Durées maximales (bip non compris) : <b>FFG 1 min</b> ; <b>UFOLEP</b> selon l’évolution au sol — A 40", B1-B2 55", B3 1'10", C 1'30" (programme technique). En orange : musique trop longue. Une musique écoutée une fois reste sur l’appareil et se rejoue sans réseau ; « ⬇️ Disponible hors ligne » les prépare toutes avant une compétition.</div></div>`;
 }
 document.addEventListener('change',async ev=>{
@@ -4593,6 +4599,22 @@ document.addEventListener('change',async ev=>{
   else if(t.dataset.miMain!=null){ x.main=t.checked; if(t.checked) MUS.imp.forEach(y=>{ if(y!==x&&y.gid===x.gid&&y.fed===x.fed) y.main=false }) }
   renderMain();
 });
+/* glisser-déposer de fichiers sur la page Musiques (administrateurs et entraîneurs) */
+const musDragOk=ev=>UI.view==='music'&&musEdit()&&MUS.ok===true&&ev.dataTransfer&&[...(ev.dataTransfer.types||[])].includes('Files');
+let musDragN=0;
+const musDragClear=()=>{ musDragN=0; document.body.classList.remove('musdrag'); document.querySelectorAll('.mustgt').forEach(e=>e.classList.remove('mustgt')) };
+document.addEventListener('dragenter',ev=>{ if(!musDragOk(ev)) return; ev.preventDefault(); musDragN++; document.body.classList.add('musdrag') });
+document.addEventListener('dragleave',ev=>{ if(!musDragOk(ev)) return; if(--musDragN<=0) musDragClear() });
+document.addEventListener('dragover',ev=>{ if(!musDragOk(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect='copy';
+  const z=ev.target.closest&&ev.target.closest('[data-mdrop-gid]'); document.querySelectorAll('.mustgt').forEach(e=>{ if(e!==z) e.classList.remove('mustgt') }); if(z) z.classList.add('mustgt');
+  const h=document.getElementById('musDropHint'); if(h){ const g=z&&S.gyms.find(x=>x.id===z.dataset.mdropGid); h.textContent=g?`Rattacher à ${gymName(g)}${z.dataset.mdropFed?' ('+musFedLbl(z.dataset.mdropFed)+')':''}`:'Déposer pour importer (rattachement d’après le nom du fichier)' } });
+document.addEventListener('drop',async ev=>{ if(!musDragOk(ev)) return; ev.preventDefault();
+  const z=ev.target.closest&&ev.target.closest('[data-mdrop-gid]'), fs=[...(ev.dataTransfer.files||[])]; musDragClear();
+  if(!fs.length) return; if(MUS.busy){ toast('Envoi en cours : attends la fin avant d’en ajouter'); return }
+  await musPrepare(fs,z?z.dataset.mdropGid:'',z?(z.dataset.mdropFed||''):'') });
+/* hors de la page Musiques, un fichier lâché par erreur ne doit pas remplacer l'appli */
+window.addEventListener('dragover',ev=>{ if(ev.dataTransfer&&[...(ev.dataTransfer.types||[])].includes('Files')&&!ev.defaultPrevented) ev.preventDefault() });
+window.addEventListener('drop',ev=>{ if(!ev.defaultPrevented&&ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files.length&&!(ev.target.closest&&ev.target.closest('input[type=file]'))) ev.preventDefault() });
 document.addEventListener('input',ev=>{ if(ev.target.id!=='musQ') return; MUS.q=ev.target.value; const p=ev.target.selectionStart; renderMain(); const e=document.getElementById('musQ'); if(e){ e.focus(); e.setSelectionRange(p,p) } });
 document.addEventListener('click',async ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-mplay],[data-mdl],[data-musb],[data-msave],[data-mup-go],[data-mup-cancel],[data-mmain],[data-mdel],[data-mstop]'); if(!t) return; const d=t.dataset;
