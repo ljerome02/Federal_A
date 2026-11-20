@@ -757,11 +757,12 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .statmap{height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#eef2f5}
 .statgym{font-size:24px;line-height:30px;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .statmapl{height:520px}
-.musrow{display:flex;align-items:center;gap:10px;padding:8px 2px 2px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}
+.musrow{padding:8px 2px 4px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}.musg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.musline{display:flex;align-items:center;gap:10px;padding:3px 0}.musfed{min-width:58px;text-align:center}.musdurc{min-width:60px;text-align:right}
 .musplay{width:42px;height:42px;border-radius:50%;border:0;background:#7b4fd6;color:#fff;font-size:17px;cursor:pointer;flex:0 0 auto}.musplay:hover{filter:brightness(1.1)}
 .musinfo{flex:1 1 auto;min-width:0}.musinfo .hint{display:inline-block;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
-.musdur{font-variant-numeric:tabular-nums;font-weight:700;min-width:44px;text-align:right}.muslong{color:#c26a00}.musoff{min-width:70px}
-.musvers{margin:0 0 6px 52px;font-size:13px}.musvers summary{cursor:pointer;color:var(--muted,#6b7480)}.musv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}
+.musdur{font-variant-numeric:tabular-nums;font-weight:700}.muslong{color:#c26a00}.musoff{min-width:70px}
+.musvers{margin:0 0 6px 120px;font-size:13px}.musvers summary{cursor:pointer;color:var(--muted,#6b7480)}.musv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}
 .musimp select,.musimp input:not([type=checkbox]){max-width:230px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font:inherit}.musimp tr.musno td{background:#fff7e6}
 .musmiss{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .musdock{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:70;width:min(560px,calc(100vw - 24px));background:var(--card,#fff);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px 12px}
@@ -4381,23 +4382,45 @@ document.addEventListener('click',async ev=>{
 });
 
 /* ---------- musiques de sol (espace privé « musiques », table musiques_licencie) ----------
-   Écoute : tous les membres du club ; ajout / suppression : administrateurs et entraîneurs.
+   Une musique par fédération (FFG, UFOLEP, ou la même pour les deux), avec des versions dont une principale.
+   Durées : FFG 1 min ; UFOLEP selon l'évolution au sol (programme technique : A 40", B1-B2 55", B3 1'10", C 1'30").
+   Les fichiers sont renommés « NOM Prénom - FÉDÉRATION ». Écoute : tous les membres du club ; ajout / suppression : admin et entraîneurs.
    Une musique écoutée une fois est gardée sur l'appareil (cache) : elle se rejoue sans réseau dans la salle. */
-const MUS_B='musiques', MUS_MAX=15*1024*1024, MUS_LIM=60, MUS_CACHE='fa-musiques';
-const MUS={club:null,ok:null,rows:[],loading:false,q:'',imp:null,busy:false,off:new Set(),play:null,url:null,dl:null};
+const MUS_B='musiques', MUS_MAX=15*1024*1024, MUS_CACHE='fa-musiques', MUS_FEDS=['FFG','UFOLEP','FFG+UFOLEP'];
+const MUS_FFG=60, MUS_UFO={A:40,B1:55,B2:55,B3:70,C:90};
+const MUS={club:null,ok:null,rows:[],loading:false,q:'',fed:'',imp:null,busy:false,off:new Set(),play:null,url:null,dl:null};
 const musEdit=()=>ROLE==='admin'||ROLE==='entraineur';
 const musDur=s=>s==null||isNaN(s)?'—':Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0');
 const musMime=n=>/\.(mp3|mpe?g|mpga)$/i.test(n)?'audio/mpeg':/\.(m4a|aac)$/i.test(n)?'audio/mp4':/\.mp4$/i.test(n)?'video/mp4':/\.wav$/i.test(n)?'audio/wav':/\.og[ga]$/i.test(n)?'audio/ogg':/\.webm$/i.test(n)?'audio/webm':'';
+const musExt=n=>{ const m=String(n).match(/\.(mp3|m4a|mp4|aac|wav|ogg|oga|webm|mpe?g)$/i); return m?('.'+m[1].toLowerCase()).replace(/^\.mpe?g$/,'.mp3'):'.mp3' };
+const musFedLbl=f=>f==='FFG+UFOLEP'?'FFG et UFOLEP':f||'Fédération ?';
+/* nom du fichier : « NOM Prénom - FFG.mp3 » */
+const musFileName=(g,fed,ext)=>`${upNom(g.nom||'')} ${g.prenom||''}`.trim()+' - '+(fed==='FFG+UFOLEP'?'FFG-UFOLEP':fed||'')+ext;
+/* évolution UFOLEP au sol de la gym (engagement de la saison), et durée maximale par fédération */
+function musUfoEvo(gid){ try{ if(typeof ufEnsure==='function') ufEnsure(); if(!UF.loaded||!ufEng(gid)) return null; return ufEvo(gid,'sol') }catch(e){ return null } }
+function musLims(gid,fed){
+  const out=[]; if(fed==='FFG'||fed==='FFG+UFOLEP') out.push({f:'FFG',s:MUS_FFG,l:'FFG : 1 min max'});
+  if(fed==='UFOLEP'||fed==='FFG+UFOLEP'){ const e=musUfoEvo(gid), k=e?(/^C/.test(e)?'C':/^A/.test(e)?'A':e):null; out.push(k&&MUS_UFO[k]?{f:'UFOLEP',s:MUS_UFO[k],l:`UFOLEP évolution ${e} : ${musDur(MUS_UFO[k])} max`}:{f:'UFOLEP',s:null,l:'UFOLEP : évolution au sol non renseignée'}) }
+  return out;
+}
+function musDurHtml(gid,fed,d){
+  const L=musLims(gid,fed), over=L.filter(x=>x.s!=null&&d!=null&&d>x.s);
+  return `<span class="musdur ${over.length?'muslong':''}" title="${esc(L.map(x=>x.l).join(' · '))}">${musDur(d)}</span>${over.length?`<div class="hint muslong">trop longue (${over.map(x=>x.f+' '+musDur(x.s)).join(', ')})</div>`:''}`;
+}
 async function musEnsure(){
   if(!CLUB) return; if(MUS.club===CLUB.id&&(MUS.ok!==null||MUS.loading)) return;
   MUS.club=CLUB.id; MUS.loading=true; MUS.ok=null;
-  try{ const r=await withTimeout(sb.from('musiques_licencie').select('id,licencie_id,agres,nom,version,chemin,taille,mime,duree,principale,created_at').eq('club_id',CLUB.id).order('created_at'),10000);
-    if(r.error){ MUS.ok=/musiques_licencie|does not exist|schema cache/i.test(r.error.message)?false:null; MUS.rows=[] } else { MUS.ok=true; MUS.rows=r.data||[]; lsSet('fa-mus-'+CLUB.id,MUS.rows) } }
+  try{ const r=await withTimeout(sb.from('musiques_licencie').select('id,licencie_id,agres,federation,nom,version,chemin,taille,mime,duree,principale,created_at').eq('club_id',CLUB.id).order('created_at'),10000);
+    if(r.error){ MUS.ok=/musiques_licencie|does not exist|schema cache|federation/i.test(r.error.message)?false:null; MUS.rows=[] } else { MUS.ok=true; MUS.rows=r.data||[]; lsSet('fa-mus-'+CLUB.id,MUS.rows) } }
   catch(e){ const c=lsGet('fa-mus-'+CLUB.id); if(c){ MUS.ok=true; MUS.rows=c } else MUS.ok=null }
   MUS.loading=false; await musOffScan(); if(UI.view==='music') renderMain();
 }
 async function musOffScan(){ try{ if(!('caches' in window)) return; const c=await caches.open(MUS_CACHE), ks=await c.keys(); MUS.off=new Set(ks.map(k=>k.url.split('/m/')[1]).filter(Boolean)) }catch(e){} }
-const musOf=gid=>MUS.rows.filter(m=>m.licencie_id===gid).sort((a,b)=>(b.principale-a.principale)||String(b.created_at).localeCompare(String(a.created_at)));
+const musSort=(a,b)=>(b.principale-a.principale)||String(b.created_at).localeCompare(String(a.created_at));
+const musOf=(gid,fed)=>MUS.rows.filter(m=>m.licencie_id===gid&&(fed===undefined||(m.federation||'')===fed)).sort(musSort);
+/* fédérations où la gym a une musique ; « FFG+UFOLEP » couvre les deux */
+const musHas=(gid,f)=>MUS.rows.some(m=>m.licencie_id===gid&&(m.federation===f||m.federation==='FFG+UFOLEP'));
+const musLic=g=>{ try{ return ['FFG','UFOLEP'].filter(f=>hasLic(g,f)) }catch(e){ return [] } };
 /* fichier audio : depuis le cache de l'appareil, sinon téléchargé puis gardé en cache */
 async function musBlob(m){
   const key=location.origin+'/m/'+m.id;
@@ -4409,17 +4432,17 @@ async function musBlob(m){
 }
 async function musPlay(id){
   const m=MUS.rows.find(x=>x.id===id); if(!m) return; const bar=musDock();
-  if(bar) bar.innerHTML=`<div class="musnow">⏳ Chargement de ${esc(gymName(S.gyms.find(g=>g.id===m.licencie_id)||{prenom:'?'}))}…</div>`;
+  bar.innerHTML=`<div class="musnow">⏳ Chargement de ${esc(m.nom)}…</div>`;
   try{ const b=await musBlob(m); if(MUS.url) URL.revokeObjectURL(MUS.url); MUS.url=URL.createObjectURL(b); MUS.play=id; musBarPaint(true) }
   catch(e){ toast(navigator.onLine?'Lecture impossible : '+e.message:'Hors ligne : cette musique n’a pas encore été téléchargée sur cet appareil'); musBarPaint(false) }
 }
+async function musSave(m){ try{ const b=await musBlob(m), a=document.createElement('a'), u=URL.createObjectURL(b); a.href=u; a.download=m.nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); return true }catch(e){ toast(`« ${m.nom} » : ${e.message}`); return false } }
 /* lecteur fixé en bas de l'écran : la musique continue quand on change de page */
 function musDock(){ let d=document.getElementById('musDock'); if(!d){ d=document.createElement('div'); d.id='musDock'; d.className='musdock'; document.body.appendChild(d) } d.hidden=false; return d }
 function musBarPaint(auto){
   const bar=musDock(), m=MUS.rows.find(x=>x.id===MUS.play);
   if(!m||!MUS.url){ bar.hidden=true; bar.innerHTML=''; return }
-  const g=S.gyms.find(x=>x.id===m.licencie_id);
-  bar.innerHTML=`<div class="musnow">🎵 <b>${esc(g?gymName(g):'?')}</b> <span class="hint">${esc(m.version||m.nom)} · ${musDur(m.duree)}</span><button class="musclose" data-mstop="1" title="Fermer le lecteur" aria-label="Fermer le lecteur">✕</button></div><audio id="musAudio" controls preload="auto" src="${MUS.url}"></audio>`;
+  bar.innerHTML=`<div class="musnow">🎵 <b>${esc(m.nom.replace(/\.[^.]+$/,''))}</b> <span class="hint">${musDur(m.duree)}</span><button class="musclose" data-mstop="1" title="Fermer le lecteur" aria-label="Fermer le lecteur">✕</button></div><audio id="musAudio" controls preload="auto" src="${MUS.url}"></audio>`;
   if(auto){ const a=document.getElementById('musAudio'); a.play().catch(()=>{}) }
 }
 /* rattachement d'un nom de fichier à une gym : prénom, nom, initiale (« Ambre R. »), début de prénom (« Val ») */
@@ -4429,35 +4452,39 @@ function musGuess(fname){
   const toks=base.split(/[^a-z]+/).filter(t=>t.length>=2), out=[];
   for(const g of S.gyms){ const p=musNorm(g.prenom).split(/[^a-z]+/).filter(Boolean), n=musNorm(g.nom).split(/[^a-z]+/).filter(Boolean); let s=0;
     const pi=toks.findIndex(t=>p.includes(t)); if(pi>=0) s+=2; else if(toks.some(t=>t.length>=3&&p.some(x=>x.startsWith(t)))) s+=1.5;
-    if(n.length&&n.every(x=>toks.includes(x))) s+=3;
-    if(pi>=0&&!(n.length&&n.every(x=>toks.includes(x)))){ const m=base.match(new RegExp('\\b'+p[0]+'\\s+([a-z])\\b')); if(m&&n[0]&&n[0][0]===m[1]) s+=1.5 }
+    const full=n.length&&n.every(x=>toks.includes(x)); if(full) s+=3;
+    if(pi>=0&&!full){ const m=base.match(new RegExp('\\b'+p[0]+'\\s+([a-z])\\b')); if(m&&n[0]&&n[0][0]===m[1]) s+=1.5 }
     if(s>=1.5) out.push([g,s]) }
   out.sort((a,b)=>b[1]-a[1]); if(!out.length) return {gid:'',why:'aucune gym reconnue'};
   if(out.length>1&&out[1][1]===out[0][1]) return {gid:'',why:`${out.filter(x=>x[1]===out[0][1]).length} gyms possibles : ${out.filter(x=>x[1]===out[0][1]).map(x=>gymName(x[0])).join(', ')}`};
   return {gid:out[0][0].id,why:''};
 }
+/* fédération : écrite dans le nom du fichier, sinon la seule licence de la gym ; sinon à choisir */
+function musFedGuess(fname,gid){
+  const b=musNorm(fname); if(/ufolep/.test(b)&&/\bffg\b|ffgym|federal/.test(b)) return 'FFG+UFOLEP'; if(/ufolep/.test(b)) return 'UFOLEP'; if(/\bffg\b|ffgym|federal/.test(b)) return 'FFG';
+  const g=S.gyms.find(x=>x.id===gid); if(!g) return ''; const L=musLic(g); return L.length===1?L[0]:'';
+}
 function musMeasure(file){ return new Promise(res=>{ const a=new Audio(), u=URL.createObjectURL(file); let done=false; const end=v=>{ if(done) return; done=true; URL.revokeObjectURL(u); res(v) };
   a.preload='metadata'; a.onloadedmetadata=()=>end(isFinite(a.duration)?Math.round(a.duration*10)/10:null); a.onerror=()=>end(null); setTimeout(()=>end(null),6000); a.src=u }) }
-async function musPrepare(files,gidForced){
+async function musPrepare(files,gidForced,fedForced){
   const L=[]; for(const f of files){ if(!musMime(f.name)&&!/^(audio|video)\//.test(f.type)){ toast(`« ${f.name} » ignoré : ce n’est pas un fichier audio`); continue }
     const gs=gidForced?{gid:gidForced,why:''}:musGuess(f.name);
-    L.push({f,gid:gs.gid,why:gs.why,dur:await musMeasure(f),version:f.name.replace(/(\.(mp3|mpe?g|m4a|mp4|aac|wav|ogg|webm))+$/i,'').slice(0,120),on:true}) }
-  /* plusieurs versions d'une même gym : la plus récente devient principale (si la gym n'en a pas déjà une) */
-  const by={}; L.forEach(x=>{ if(x.gid)(by[x.gid]??=[]).push(x) });
-  Object.entries(by).forEach(([gid,xs])=>{ xs.sort((a,b)=>b.f.lastModified-a.f.lastModified); if(!musOf(gid).some(m=>m.principale)) xs[0].main=true });
-  MUS.imp=L; renderMain(); window.scrollTo(0,0);
+    L.push({f,gid:gs.gid,why:gs.why,fed:fedForced||musFedGuess(f.name,gs.gid),dur:await musMeasure(f),version:f.name.replace(/(\.(mp3|mpe?g|m4a|mp4|aac|wav|ogg|webm))+$/i,'').slice(0,120),on:true}) }
+  MUS.imp=L; musImpMain(); renderMain(); window.scrollTo(0,0);
 }
+/* plusieurs versions d'une même gym et fédération : la plus récente devient principale (si aucune ne l'est déjà) */
+function musImpMain(){ const L=(MUS.imp||[]).filter(x=>x.gid&&x.fed), by={}; L.forEach(x=>(by[x.gid+'|'+x.fed]??=[]).push(x));
+  Object.values(by).forEach(xs=>{ if(xs.some(x=>x.main)||musOf(xs[0].gid,xs[0].fed).some(m=>m.principale)) return; xs.sort((a,b)=>b.f.lastModified-a.f.lastModified)[0].main=true }) }
 async function musUpload(){
-  const L=(MUS.imp||[]).filter(x=>x.on&&x.gid); if(!L.length){ toast('Aucune musique rattachée à une gym'); return }
-  /* une gym sans version principale : la plus récente des musiques envoyées le devient */
-  [...new Set(L.map(x=>x.gid))].forEach(gid=>{ const xs=L.filter(x=>x.gid===gid); if(!xs.some(x=>x.main)&&!musOf(gid).some(m=>m.principale)) xs.sort((a,b)=>b.f.lastModified-a.f.lastModified)[0].main=true });
-  MUS.busy=true; renderMain(); let ok=0;
+  const L=(MUS.imp||[]).filter(x=>x.on&&x.gid&&x.fed); if(!L.length){ toast('Choisis la gym et la fédération de chaque musique'); return }
+  musImpMain(); MUS.busy=true; renderMain(); let ok=0;
   for(const x of L){
     try{ if(x.f.size>MUS_MAX) throw new Error(`trop lourd (${filMo(x.f.size)}, 15 Mo max)`);
-      const mime=musMime(x.f.name)||x.f.type||'audio/mpeg', path=`${CLUB.id}/${x.gid}/${Date.now()}-${filSafe(x.f.name)}`;
+      const g=S.gyms.find(y=>y.id===x.gid), nom=musFileName(g,x.fed,musExt(x.f.name)), mime=musMime(x.f.name)||x.f.type||'audio/mpeg';
+      const path=`${CLUB.id}/${x.gid}/${Date.now()}-${filSafe(nom)}`;
       const up=await withTimeout(sb.storage.from(MUS_B).upload(path,x.f,{contentType:mime,upsert:false}),90000); if(up.error) throw up.error;
-      if(x.main){ chk(await sb.from('musiques_licencie').update({principale:false}).eq('licencie_id',x.gid).eq('principale',true)); MUS.rows.filter(m=>m.licencie_id===x.gid).forEach(m=>m.principale=false) }
-      const r=await sb.from('musiques_licencie').insert({club_id:CLUB.id,licencie_id:x.gid,nom:x.f.name.slice(0,200),version:x.version||null,chemin:path,taille:x.f.size,mime,duree:x.dur,principale:!!x.main}).select('id,licencie_id,agres,nom,version,chemin,taille,mime,duree,principale,created_at');
+      if(x.main){ chk(await sb.from('musiques_licencie').update({principale:false}).eq('licencie_id',x.gid).eq('federation',x.fed).eq('principale',true)); MUS.rows.filter(m=>m.licencie_id===x.gid&&m.federation===x.fed).forEach(m=>m.principale=false) }
+      const r=await sb.from('musiques_licencie').insert({club_id:CLUB.id,licencie_id:x.gid,federation:x.fed,nom,version:x.version||null,chemin:path,taille:x.f.size,mime,duree:x.dur,principale:!!x.main}).select('id,licencie_id,agres,federation,nom,version,chemin,taille,mime,duree,principale,created_at');
       if(r.error){ await sb.storage.from(MUS_B).remove([path]); throw r.error }
       MUS.rows.push(r.data[0]); ok++;
       try{ if('caches' in window){ const c=await caches.open(MUS_CACHE); await c.put(location.origin+'/m/'+r.data[0].id,new Response(x.f,{headers:{'Content-Type':mime}})); MUS.off.add(r.data[0].id) } }catch(e){}
@@ -4465,66 +4492,91 @@ async function musUpload(){
   }
   MUS.busy=false; MUS.imp=null; lsSet('fa-mus-'+CLUB.id,MUS.rows); toast(`${ok} musique${ok>1?'s':''} enregistrée${ok>1?'s':''}`); renderMain();
 }
+const musMainRows=()=>MUS.rows.filter(m=>m.principale&&(!MUS.fed||m.federation===MUS.fed||m.federation==='FFG+UFOLEP'));
 async function musDownloadAll(){
-  const L=MUS.rows.filter(m=>m.principale&&!MUS.off.has(m.id)); if(!L.length){ toast('Toutes les musiques principales sont déjà sur cet appareil'); return }
+  const L=musMainRows().filter(m=>!MUS.off.has(m.id)); if(!L.length){ toast('Les musiques principales sont déjà sur cet appareil'); return }
   MUS.dl={n:0,t:L.length}; renderMain();
   for(const m of L){ try{ await musBlob(m) }catch(e){} MUS.dl.n++; const el=document.getElementById('musDl'); if(el) el.textContent=`${MUS.dl.n} / ${MUS.dl.t}` }
   MUS.dl=null; await musOffScan(); toast('Musiques principales disponibles sans réseau sur cet appareil'); renderMain();
 }
+/* clé USB : enregistre les musiques principales, renommées « NOM Prénom - FÉDÉRATION », dans Téléchargements */
+async function musToUsb(){
+  const L=musMainRows(); if(!L.length){ toast('Aucune musique principale'); return }
+  if(!confirm(`Enregistrer ${L.length} musique${L.length>1?'s':''} principale${L.length>1?'s':''}${MUS.fed?' ('+MUS.fed+')':''} dans tes Téléchargements, avec le nom de la gym et la fédération ? Tu pourras ensuite les copier sur la clé USB.\n\nSi le navigateur demande d’autoriser plusieurs téléchargements, accepte.`)) return;
+  let n=0; for(const m of L){ if(await musSave(m)) n++; await new Promise(r=>setTimeout(r,350)) } toast(`${n} fichier${n>1?'s':''} enregistré${n>1?'s':''}`);
+}
 function renderMusic(){
-  musEnsure(); const ed=musEdit();
-  const head=licHead('Musiques de sol',`Saison ${SAISON} · centralisées en ligne, écoutables dans toutes les salles`,
-    `${ed?'<label class="btn sm primary filup">📥 Importer des musiques<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" multiple data-mimp="1" hidden></label> ':''}<button class="btn sm" data-mdl="1" title="Télécharger toutes les musiques principales sur cet appareil pour les jouer sans réseau">${MUS.dl?`⬇️ <span id="musDl">${MUS.dl.n} / ${MUS.dl.t}</span>`:'⬇️ Disponible hors ligne'}</button>`);
+  musEnsure(); const ed=musEdit(), F=MUS.fed;
+  const head=licHead('Musiques de sol',`Saison ${SAISON} · FFG et UFOLEP · centralisées en ligne, écoutables dans toutes les salles`,
+    `${ed?'<label class="btn sm primary filup">📥 Importer des musiques<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" multiple data-mimp="1" hidden></label> ':''}<button class="btn sm" data-mdl="1" title="Télécharger les musiques principales sur cet appareil pour les jouer sans réseau">${MUS.dl?`⬇️ <span id="musDl">${MUS.dl.n} / ${MUS.dl.t}</span>`:'⬇️ Disponible hors ligne'}</button> <button class="btn sm" data-musb="1" title="Enregistrer les musiques principales, renommées, pour les copier sur une clé USB">💾 Pour la clé USB</button>`);
   if(MUS.ok===false) return head+'<div class="card"><div class="empty">Lance d’abord <b>migration-musiques.sql</b> dans Supabase.</div></div>';
   if(MUS.ok!==true) return head+'<div class="card"><div class="empty">Chargement…</div></div>';
-  const bar='';
-  if(MUS.imp){ const opts=S.gyms.slice().sort(byName);
+  if(MUS.imp){ const opts=S.gyms.slice().sort(byName), n=MUS.imp.filter(x=>x.on&&x.gid&&x.fed).length;
     return head+`<div class="card"><h3>Importer ${MUS.imp.length} musique${MUS.imp.length>1?'s':''}</h3>
-      <div class="hint" style="margin-bottom:8px">Chaque fichier est rattaché à une gym d’après son nom. Vérifie, corrige si besoin, puis envoie. ⭐ = version principale (celle jouée en compétition).</div>
-      <div class="ltwrap"><table class="ltb musimp"><thead><tr><th></th><th>Fichier</th><th>Durée</th><th>Gymnaste</th><th>Version</th><th>⭐</th></tr></thead><tbody>
-      ${MUS.imp.map((x,i)=>`<tr class="${x.gid?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div></td>
-        <td class="${x.dur>MUS_LIM?'muslong':''}">${musDur(x.dur)}${x.dur>MUS_LIM?'<div class="hint">plus d’1 min</div>':''}</td>
-        <td><select data-mi-gid="${i}"><option value="">— à choisir —</option>${opts.map(g=>`<option value="${g.id}" ${g.id===x.gid?'selected':''}>${esc(gymName(g))}</option>`).join('')}</select>${x.why?`<div class="hint">${esc(x.why)}</div>`:''}</td>
-        <td><input data-mi-ver="${i}" value="${esc(x.version)}" maxlength="120"></td><td><input type="checkbox" data-mi-main="${i}" ${x.main?'checked':''} title="Version principale"></td></tr>`).join('')}</tbody></table></div>
-      <div class="quick" style="margin-top:10px"><button class="btn primary" data-mup-go="1" ${MUS.busy?'disabled':''}>${MUS.busy?'Envoi en cours…':`Envoyer ${MUS.imp.filter(x=>x.on&&x.gid).length} musique(s)`}</button><button class="btn" data-mup-cancel="1" ${MUS.busy?'disabled':''}>Annuler</button></div></div>`+bar;
+      <div class="hint" style="margin-bottom:8px">Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
+      <div class="ltwrap"><table class="ltb musimp"><thead><tr><th></th><th>Fichier</th><th>Gymnaste</th><th>Fédération</th><th>Durée</th><th>Nouveau nom</th><th>⭐</th></tr></thead><tbody>
+      ${MUS.imp.map((x,i)=>{ const g=S.gyms.find(y=>y.id===x.gid), lic=g?musLic(g):[];
+        return `<tr class="${x.gid&&x.fed?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div></td>
+        <td><select data-mi-gid="${i}"><option value="">— à choisir —</option>${opts.map(o=>`<option value="${o.id}" ${o.id===x.gid?'selected':''}>${esc(gymName(o))}</option>`).join('')}</select>${x.why?`<div class="hint">${esc(x.why)}</div>`:''}</td>
+        <td><select data-mi-fed="${i}"><option value="">— à choisir —</option>${MUS_FEDS.map(f=>`<option value="${f}" ${x.fed===f?'selected':''}>${musFedLbl(f)}</option>`).join('')}</select>${g?`<div class="hint">licence${lic.length>1?'s':''} : ${lic.join(' + ')||'aucune'}</div>`:''}</td>
+        <td>${x.gid&&x.fed?musDurHtml(x.gid,x.fed,x.dur):musDur(x.dur)}</td>
+        <td class="hint">${g&&x.fed?esc(musFileName(g,x.fed,musExt(x.f.name))):'—'}</td>
+        <td><input type="checkbox" data-mi-main="${i}" ${x.main?'checked':''} title="Version principale"></td></tr>` }).join('')}</tbody></table></div>
+      <div class="quick" style="margin-top:10px"><button class="btn primary" data-mup-go="1" ${MUS.busy||!n?'disabled':''}>${MUS.busy?'Envoi en cours…':`Envoyer ${n} musique${n>1?'s':''}`}</button><button class="btn" data-mup-cancel="1" ${MUS.busy?'disabled':''}>Annuler</button>
+        ${MUS.imp.length>n?`<span class="hint">${MUS.imp.length-n} ligne(s) sans gym ou sans fédération ne seront pas envoyées.</span>`:''}</div></div>`;
   }
-  const q=musNorm(MUS.q), withM=S.gyms.filter(g=>musOf(g.id).length).sort(byName), without=S.gyms.filter(g=>!musOf(g.id).length&&(g.compet&&g.compet!=='aucune')).sort(byName);
+  const q=musNorm(MUS.q), withM=S.gyms.filter(g=>MUS.rows.some(m=>m.licencie_id===g.id&&(!F||m.federation===F||m.federation==='FFG+UFOLEP'))).sort(byName);
   const shown=withM.filter(g=>!q||musNorm(gymName(g)).includes(q));
-  const tot=MUS.rows.reduce((a,m)=>a+(+m.taille||0),0), nOff=MUS.rows.filter(m=>m.principale&&MUS.off.has(m.id)).length, nMain=MUS.rows.filter(m=>m.principale).length;
-  const row=g=>{ const ms=musOf(g.id), m=ms[0];
-    return `<div class="musrow"><button class="musplay" data-mplay="${m.id}" title="Écouter">${MUS.play===m.id?'🔊':'▶'}</button>
-      <div class="musinfo"><b>${esc(gymName(g))}</b> <span class="hint">${esc(m.version||m.nom)}</span>${m.principale?'':' <span class="lb no">aucune version principale</span>'}</div>
-      <div class="musdur ${m.duree>MUS_LIM?'muslong':''}" title="${m.duree>MUS_LIM?'Plus d’1 minute':''}">${musDur(m.duree)}</div>
+  const miss=S.gyms.filter(g=>g.compet&&g.compet!=='aucune').map(g=>[g,musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f))]).filter(x=>x[1].length).sort((a,b)=>byName(a[0],b[0]));
+  const tot=MUS.rows.reduce((a,m)=>a+(+m.taille||0),0), mains=musMainRows(), nOff=mains.filter(m=>MUS.off.has(m.id)).length;
+  const line=(g,fed)=>{ const ms=musOf(g.id,fed), m=ms[0]; if(!m) return '';
+    return `<div class="musline"><button class="musplay" data-mplay="${m.id}" title="Écouter">${MUS.play===m.id?'🔊':'▶'}</button>
+      <span class="lb ${fed==='UFOLEP'?'no':'ok'} musfed">${esc(musFedLbl(fed))}</span>
+      <div class="musinfo">${esc(m.nom)}${m.principale?'':' <span class="lb bad">aucune version principale</span>'}${m.version?`<div class="hint">d’origine : ${esc(m.version)}</div>`:''}</div>
+      <div class="musdurc">${musDurHtml(g.id,fed,m.duree)}</div>
       <div class="musoff">${MUS.off.has(m.id)?'<span class="lb ok" title="Jouable sans réseau sur cet appareil">hors ligne</span>':''}</div>
-      ${ed?`<label class="btn sm filup" title="Ajouter une version pour ${esc(gymName(g))}">+<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" hidden></label>`:''}</div>
-      ${ms.length>1||ed?`<details class="musvers"><summary>${ms.length} version${ms.length>1?'s':''}</summary>${ms.map(v=>`<div class="musv"><button class="btn sm" data-mplay="${v.id}">▶</button> ${v.principale?'⭐ ':''}${esc(v.version||v.nom)} <span class="hint">${musDur(v.duree)} · ${filMo(v.taille)}</span>
-        ${ed&&!v.principale?`<button class="btn sm" data-mmain="${v.id}">⭐ Principale</button>`:''}${ed?`<button class="btn sm" data-mdel="${v.id}" title="Supprimer cette version">✕</button>`:''}</div>`).join('')}</details>`:''}` };
-  return head+bar+`<div class="card"><div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px"><input id="musQ" placeholder="Rechercher une gym…" value="${esc(MUS.q)}" style="flex:1 1 200px">
-      <span class="hint">${withM.length} gym${withM.length>1?'s':''} avec musique · ${nOff}/${nMain} disponibles hors ligne ici · ${filMo(tot)} en ligne</span></div>
+      <button class="btn sm" data-msave="${m.id}" title="Enregistrer ${esc(m.nom)}">💾</button>
+      ${ed?`<label class="btn sm filup" title="Ajouter une version ${esc(musFedLbl(fed))}">+<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${fed}" hidden></label>`:''}</div>
+      ${ms.length>1||ed?`<details class="musvers"><summary>${ms.length} version${ms.length>1?'s':''} ${esc(musFedLbl(fed))}</summary>${ms.map(v=>`<div class="musv"><button class="btn sm" data-mplay="${v.id}">▶</button> ${v.principale?'⭐ ':''}${esc(v.version||v.nom)} <span class="hint">${musDur(v.duree)} · ${filMo(v.taille)}</span>
+        ${ed&&!v.principale?`<button class="btn sm" data-mmain="${v.id}">⭐ Principale</button>`:''}${ed?`<select data-mfedchg="${v.id}" title="Changer la fédération">${MUS_FEDS.map(f=>`<option value="${f}" ${v.federation===f?'selected':''}>${musFedLbl(f)}</option>`).join('')}</select><button class="btn sm" data-mdel="${v.id}" title="Supprimer cette version">✕</button>`:''}</div>`).join('')}</details>`:''}` };
+  const row=g=>{ const feds=MUS_FEDS.filter(f=>(!F||f===F||f==='FFG+UFOLEP')&&musOf(g.id,f).length), lack=musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f));
+    return `<div class="musrow"><div class="musg"><b>${esc(gymName(g))}</b>${lack.map(f=>` <span class="lb bad" title="Licence ${f} sans musique">${f} manquante</span>`).join('')}
+      ${ed&&lack.length?lack.map(f=>`<label class="btn sm filup" title="Ajouter la musique ${f}">+ ${f}<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${f}" hidden></label>`).join(' '):''}</div>${feds.map(f=>line(g,f)).join('')}</div>` };
+  return head+`<div class="card"><div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px"><input id="musQ" placeholder="Rechercher une gym…" value="${esc(MUS.q)}" style="flex:1 1 200px">
+      <select data-mfedf="1" aria-label="Fédération"><option value="">FFG et UFOLEP</option><option value="FFG" ${F==='FFG'?'selected':''}>FFG</option><option value="UFOLEP" ${F==='UFOLEP'?'selected':''}>UFOLEP</option></select>
+      <span class="hint">${withM.length} gym${withM.length>1?'s':''} avec musique · ${nOff}/${mains.length} disponibles hors ligne ici · ${filMo(tot)} en ligne</span></div>
     ${shown.map(row).join('')||'<div class="empty">Aucune musique pour l’instant. Importe les fichiers de la clé USB avec « 📥 Importer des musiques » : ils seront rattachés aux gyms d’après leur nom.</div>'}
-    ${without.length?`<details style="margin-top:10px"><summary class="hint">${without.length} gym${without.length>1?'s':''} en compétition sans musique</summary><div class="musmiss">${without.map(g=>`<span class="lb no">${esc(gymName(g))}</span>`).join(' ')}</div></details>`:''}
-    <div class="hint" style="margin-top:10px">Durée en orange : plus d’1 minute (bip non compris). Une musique écoutée une fois reste sur l’appareil : dans une salle sans réseau, elle se rejoue quand même. Pour préparer une tablette avant une compétition, utilise « ⬇️ Disponible hors ligne ».</div></div>`;
+    ${miss.length?`<details style="margin-top:10px"><summary class="hint">${miss.length} gym${miss.length>1?'s':''} en compétition avec une musique manquante</summary><div class="musmiss">${miss.map(([g,fs])=>`<span class="lb no">${esc(gymName(g))} : ${fs.join(', ')}</span>`).join(' ')}</div></details>`:''}
+    <div class="hint" style="margin-top:10px">Durées maximales (bip non compris) : <b>FFG 1 min</b> ; <b>UFOLEP</b> selon l’évolution au sol — A 40", B1-B2 55", B3 1'10", C 1'30" (programme technique). En orange : musique trop longue. Une musique écoutée une fois reste sur l’appareil et se rejoue sans réseau ; « ⬇️ Disponible hors ligne » les prépare toutes avant une compétition.</div></div>`;
 }
 document.addEventListener('change',async ev=>{
   const t=ev.target; if(!t.closest) return;
-  if(t.matches('[data-mimp]')&&t.files&&t.files.length){ const fs=[...t.files], gid=t.dataset.mgid||''; t.value=''; await musPrepare(fs,gid); return }
-  if(!MUS.imp) return; const i=+(t.dataset.miOn??t.dataset.miGid??t.dataset.miVer??t.dataset.miMain??-1); const x=MUS.imp[i]; if(!x) return;
-  if(t.dataset.miOn!=null) x.on=t.checked; else if(t.dataset.miGid!=null){ x.gid=t.value; x.why='' } else if(t.dataset.miVer!=null) x.version=t.value.trim();
-  else if(t.dataset.miMain!=null){ x.main=t.checked; if(t.checked) MUS.imp.forEach(y=>{ if(y!==x&&y.gid===x.gid) y.main=false }) }
+  if(t.matches('[data-mimp]')&&t.files&&t.files.length){ const fs=[...t.files], gid=t.dataset.mgid||'', fed=t.dataset.mfed||''; t.value=''; await musPrepare(fs,gid,fed); return }
+  if(t.matches('[data-mfedf]')){ MUS.fed=t.value; renderMain(); return }
+  if(t.matches('[data-mfedchg]')){ const m=MUS.rows.find(x=>x.id===t.dataset.mfedchg), g=m&&S.gyms.find(y=>y.id===m.licencie_id); if(!m||!g) return;
+    const fed=t.value, nom=musFileName(g,fed,musExt(m.nom)), main=!musOf(g.id,fed).some(x=>x.principale);
+    try{ chk(await sb.from('musiques_licencie').update({federation:fed,nom,principale:main}).eq('id',m.id)); Object.assign(m,{federation:fed,nom,principale:main}); renderMain() }catch(e){ toast('Erreur : '+e.message); renderMain() } return }
+  if(!MUS.imp) return; const i=+(t.dataset.miOn??t.dataset.miGid??t.dataset.miFed??t.dataset.miMain??-1); const x=MUS.imp[i]; if(!x) return;
+  if(t.dataset.miOn!=null) x.on=t.checked;
+  else if(t.dataset.miGid!=null){ x.gid=t.value; x.why=''; if(!x.fed) x.fed=musFedGuess(x.f.name,x.gid); x.main=false; musImpMain() }
+  else if(t.dataset.miFed!=null){ x.fed=t.value; x.main=false; musImpMain() }
+  else if(t.dataset.miMain!=null){ x.main=t.checked; if(t.checked) MUS.imp.forEach(y=>{ if(y!==x&&y.gid===x.gid&&y.fed===x.fed) y.main=false }) }
   renderMain();
 });
 document.addEventListener('input',ev=>{ if(ev.target.id!=='musQ') return; MUS.q=ev.target.value; const p=ev.target.selectionStart; renderMain(); const e=document.getElementById('musQ'); if(e){ e.focus(); e.setSelectionRange(p,p) } });
 document.addEventListener('click',async ev=>{
-  const t=ev.target.closest&&ev.target.closest('[data-mplay],[data-mdl],[data-mup-go],[data-mup-cancel],[data-mmain],[data-mdel],[data-mstop]'); if(!t) return; const d=t.dataset;
+  const t=ev.target.closest&&ev.target.closest('[data-mplay],[data-mdl],[data-musb],[data-msave],[data-mup-go],[data-mup-cancel],[data-mmain],[data-mdel],[data-mstop]'); if(!t) return; const d=t.dataset;
   if(d.mstop){ const a=document.getElementById('musAudio'); if(a) a.pause(); if(MUS.url) URL.revokeObjectURL(MUS.url); MUS.url=null; MUS.play=null; musBarPaint(false); document.querySelectorAll('[data-mplay].musplay').forEach(b=>b.textContent='▶'); return }
   if(d.mplay){ await musPlay(d.mplay); document.querySelectorAll('[data-mplay].musplay').forEach(b=>b.textContent=b.dataset.mplay===MUS.play?'🔊':'▶'); return }
   if(d.mdl){ if(!MUS.dl) musDownloadAll(); return }
+  if(d.musb){ musToUsb(); return }
   if(d.mupGo){ await musUpload(); return }
   if(d.mupCancel){ MUS.imp=null; renderMain(); return }
-  const m=MUS.rows.find(x=>x.id===(d.mmain||d.mdel)); if(!m) return;
-  if(d.mmain){ try{ chk(await sb.from('musiques_licencie').update({principale:false}).eq('licencie_id',m.licencie_id).eq('principale',true)); chk(await sb.from('musiques_licencie').update({principale:true}).eq('id',m.id));
-      MUS.rows.filter(x=>x.licencie_id===m.licencie_id).forEach(x=>x.principale=x.id===m.id); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
-  if(d.mdel){ if(!confirm(`Supprimer définitivement « ${m.version||m.nom} » ?`)) return;
+  const m=MUS.rows.find(x=>x.id===(d.mmain||d.mdel||d.msave)); if(!m) return;
+  if(d.msave){ musSave(m); return }
+  if(d.mmain){ try{ chk(await sb.from('musiques_licencie').update({principale:false}).eq('licencie_id',m.licencie_id).eq('federation',m.federation).eq('principale',true)); chk(await sb.from('musiques_licencie').update({principale:true}).eq('id',m.id));
+      MUS.rows.filter(x=>x.licencie_id===m.licencie_id&&x.federation===m.federation).forEach(x=>x.principale=x.id===m.id); renderMain() }catch(e){ toast('Erreur : '+e.message) } return }
+  if(d.mdel){ if(!confirm(`Supprimer définitivement « ${m.version||m.nom} » (${musFedLbl(m.federation)}) ?`)) return;
     try{ const r=await sb.storage.from(MUS_B).remove([m.chemin]); if(r.error) throw r.error; chk(await sb.from('musiques_licencie').delete().eq('id',m.id)); MUS.rows=MUS.rows.filter(x=>x!==m);
       try{ const c=await caches.open(MUS_CACHE); await c.delete(location.origin+'/m/'+m.id) }catch(e){} renderMain(); toast('Version supprimée') }catch(e){ toast('Suppression impossible : '+e.message) } }
 });
@@ -4751,7 +4803,7 @@ const ufHasUfo=gid=>LIC.loaded&&!LIC.err&&LIC.lic&&!!licOf(gid,'UFOLEP');
 function ufEnsure(){
   if(!CLUB) return false;
   if(UF.club!==CLUB.id){ UF={...UF,club:CLUB.id,loaded:false,loading:false,ok:null,eq:[],eng:[],mv:{},sel:null} }
-  if(!UF.loaded&&!UF.loading) ufLoad().then(()=>{ if(['uteams','umvt','usum','cresu'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input:not([type=checkbox]),textarea'))) renderMain() });
+  if(!UF.loaded&&!UF.loading) ufLoad().then(()=>{ if(['uteams','umvt','usum','cresu','music'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input:not([type=checkbox]),textarea'))) renderMain() });
   return UF.loaded;
 }
 async function ufLoad(){

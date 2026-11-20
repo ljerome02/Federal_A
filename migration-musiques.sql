@@ -74,3 +74,12 @@ create policy musiques_obj_modif on storage.objects for update to authenticated
   with check (bucket_id = 'musiques' and public.musique_droit(name, true));
 create policy musiques_obj_suppression on storage.objects for delete to authenticated
   using (bucket_id = 'musiques' and public.musique_droit(name, true));
+
+-- fédération de la musique (durées différentes en FFG et en UFOLEP) ; « FFG+UFOLEP » = même musique pour les deux
+alter table public.musiques_licencie add column if not exists federation text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'musiques_federation_check') then
+    alter table public.musiques_licencie add constraint musiques_federation_check
+      check (federation is null or federation in ('FFG', 'UFOLEP', 'FFG+UFOLEP'));
+  end if;
+end $$;
