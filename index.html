@@ -930,6 +930,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .cvf input:not([type=checkbox]),.cvf select{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font-size:14px}
 .cvg select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:#fff;font:inherit;font-size:13px;max-width:150px}.cvwp{color:var(--warn)}.cvex{margin-top:12px}.cvex summary{cursor:pointer;font-size:13px}
 .cvf textarea{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
+.cvexl td,.cvexl th{text-align:center}.cvexl td:first-child,.cvexl th:first-child{text-align:left}
 .cvkids{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px}.cvkids.col{flex-direction:column}
 .cvkids label{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);cursor:pointer}
 .cvpre{white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:10px 12px;font:13px/1.5 system-ui,sans-serif;margin:10px 0 0;max-height:340px;overflow:auto}
@@ -3092,7 +3093,11 @@ const covNew=()=>({loaded:false,loading:false,ok:null,acces:false,err:'',club:nu
 let COV=covNew();
 const CV_TYPES={parent:'Parent',gym:'Gym avec permis',entraineur:'Entraîneur'};
 const CV_PROP_DAYS=35; // séances proposées : les 5 prochaines semaines
-const cvCfg=()=>{ const c=COV.cfg||{}; return {groupes:c.groupes||[],rdv_lieu:c.rdv_lieu||null,seuil_sans:c.seuil_sans||3,seuil_jours:c.seuil_jours||14,lieux:c.lieux||[],depart_gyms:c.depart_gyms||{},exclus:c.exclus||[]} };
+const cvCfg=()=>{ const c=COV.cfg||{}; return {groupes:c.groupes||[],rdv_lieu:c.rdv_lieu||null,seuil_sans:c.seuil_sans||3,seuil_jours:c.seuil_jours||14,lieux:c.lieux||[],depart_gyms:c.depart_gyms||{},exclus:c.exclus||[],exclus_lieux:c.exclus_lieux||{}} };
+/* gym hors covoiturage quand l'entraînement a lieu à cet endroit (ex. elle habite Chauny) */
+const cvOutAt=(g,so)=>!!(so&&so.lieu&&(cvCfg().exclus_lieux[g.id]||[]).some(l=>norm(l)===norm(so.lieu)));
+/* lieux d'entraînement connus : ceux des réglages du club, puis ceux des déplacements */
+const cvTrainPlaces=()=>[...new Set([...(LIEUX||[]),...COV.sorties.map(s=>s.lieu).filter(Boolean)].map(l=>String(l).trim()))].filter((l,i,a)=>a.findIndex(x=>norm(x)===norm(l))===i);
 /* lieux de départ : liste des réglages ; chaque gym et chaque voiture a le sien */
 const cvGymPlace=g=>cvCfg().depart_gyms[g.id]||'';
 const cvCarPlace=(d,so)=>d.rdv_lieu||d.c.depart_lieu||so.rdv_lieu||'';
@@ -3116,7 +3121,7 @@ async function covLoad(){
     else { COV.ok=true; COV.acces=a.data.length>0;
       if(COV.acces){
         const rs=await withTimeout(Promise.all([
-          sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours,lieux,depart_gyms,exclus').eq('club_id',CLUB.id),
+          sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours,lieux,depart_gyms,exclus,exclus_lieux').eq('club_id',CLUB.id),
           sb.from('cv_conducteurs').select('id,nom,type,places,licencie_id,enfants,telephone,depart_lieu,actif,auto').eq('club_id',CLUB.id).order('nom'),
           sb.from('cv_sorties').select('id,date,lieu,heure_debut,heure_fin,titre,rdv_lieu,rdv_heure,note').eq('club_id',CLUB.id).order('date'),
           sb.from('cv_reponses').select('sortie_id,licencie_id,statut,aller_cond,retour_cond').eq('club_id',CLUB.id),
@@ -3139,11 +3144,11 @@ function cvSend(fn){
     COV.n--; if(COV.stale&&!COV.n){ COV.stale=false; COV.loaded=false; await covLoad(); covRender() } });
   return COV.chain;
 }
-/* gyms des groupes fusionnés, sans celles mises hors covoiturage (tout=true : toutes) */
-function cvGyms(tout){
+/* gyms des groupes fusionnés, sans celles mises hors covoiturage (tout=true : toutes) ; so : déplacement (retire celles exclues pour son lieu) */
+function cvGyms(tout,so){
   const seen=new Set(tout?[]:cvCfg().exclus), out=[];
   cvCfg().groupes.forEach(gid=>presMembers(gid).forEach(g=>{ if(!seen.has(g.id)){ seen.add(g.id); out.push(g) } }));
-  return out.sort((a,b)=>cvPlaceRank(a)-cvPlaceRank(b)||byNom(a,b));
+  return (so&&!tout?out.filter(g=>!cvOutAt(g,so)):out).sort((a,b)=>cvPlaceRank(a)-cvPlaceRank(b)||byNom(a,b));
 }
 /* ordre des lieux de départ : le 1er lieu, puis les gyms sans lieu, puis les autres lieux dans l'ordre des réglages */
 function cvPlaceRank(g){ const ls=cvCfg().lieux, p=cvGymPlace(g); if(!p) return 1; const i=ls.findIndex(l=>norm(l)===norm(p)); return i<0?ls.length+1:i===0?0:i+1 }
@@ -3157,7 +3162,7 @@ const cvCond=id=>COV.cond.find(c=>c.id===id)||null;
 const cvSelf=(c,g)=>c&&c.type==='gym'&&c.licencie_id===g.id;
 /* état d'un déplacement : réponses, voitures, places */
 function cvState(so){
-  const gyms=cvGyms(), rep={}; COV.rep.filter(r=>r.sortie_id===so.id).forEach(r=>rep[r.licencie_id]=r);
+  const gyms=cvGyms(false,so), rep={}; COV.rep.filter(r=>r.sortie_id===so.id).forEach(r=>rep[r.licencie_id]=r);
   const tous=COV.dispo.filter(d=>d.sortie_id===so.id).map(d=>({...d,c:cvCond(d.conducteur_id)})).filter(d=>d.c);
   /* seuls les conducteurs retenus servent à placer les gyms */
   const dispo=tous.filter(d=>d.retenu!==false)
@@ -3346,6 +3351,8 @@ function cvCondHtml(){
     <form id="fCvCfg" class="card" style="margin-top:14px"><h3>Réglages</h3>
       <div><b style="font-size:13px">Groupes fusionnés pour le covoiturage</b><div class="cvkids">${PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).map(g=>`<label><input type="checkbox" name="grp" value="${g.id}" ${cfg.groupes.includes(g.id)?'checked':''}> ${esc(g.nom)}</label>`).join('')}</div></div>
       <details class="cvex" ${cfg.exclus.length?'open':''}><summary><b>Gyms hors covoiturage</b> <span class="hint">(${cfg.exclus.length}) : elles n’apparaissent ni dans la saisie, ni dans le suivi, ni dans les messages</span></summary><div class="cvkids">${cvGyms(true).map(g=>`<label><input type="checkbox" name="excl" value="${g.id}" ${cfg.exclus.includes(g.id)?'checked':''}> ${esc(gymName(g))}</label>`).join('')}</div></details>
+      <details class="cvex" ${Object.values(cfg.exclus_lieux).some(x=>x&&x.length)?'open':''}><summary><b>Hors covoiturage selon le lieu d’entraînement</b> <span class="hint">(${Object.values(cfg.exclus_lieux).filter(x=>x&&x.length).length}) : par exemple une gym qui habite Chauny n’a pas besoin de voiture quand l’entraînement est à Chauny</span></summary>
+        <div class="ltwrap"><table class="ltb cvt cvexl"><thead><tr><th>Gymnaste</th>${cvTrainPlaces().map(l=>`<th>Pas à ${esc(l)}</th>`).join('')}</tr></thead><tbody>${cvGyms().map(g=>`<tr><td>${esc(gymName(g))}</td>${cvTrainPlaces().map(l=>`<td><input type="checkbox" name="exl" value="${g.id}|${esc(l)}" aria-label="${esc(gymName(g))} : pas de covoiturage quand l’entraînement est à ${esc(l)}" ${(cfg.exclus_lieux[g.id]||[]).some(x=>norm(x)===norm(l))?'checked':''}></td>`).join('')}</tr>`).join('')}</tbody></table></div></details>
       <div class="cvf" style="margin-top:10px"><label class="w3">Lieux de départ (un par ligne)<textarea name="lieux" rows="3" placeholder="Ex. Laon (Semilly)">${esc(cfg.lieux.join('\n'))}</textarea></label>
         <label class="w2">Alerte « à solliciter » : déplacements où sa gym est venue sans qu’il conduise<input name="seuil_sans" type="number" min="1" max="20" value="${cfg.seuil_sans}"></label>
         <label>Alerte « trop sollicité » : moins de … jours entre 2 covoiturages<input name="seuil_jours" type="number" min="1" max="120" value="${cfg.seuil_jours}"></label></div>
@@ -3366,14 +3373,14 @@ function cvSuiviHtml(){
   const coach={conds:COV.cond.filter(c=>c.type==='entraineur'),kids:[],kg:[],nom:'Anne et Jérôme (entraîneurs)',actif:true,coach:true};
   const cs=[...(coach.conds.length?[coach]:[]),...cvFamilies()].map(F=>({F,f:cvFollowFam(F),next:COV.sorties.find(s=>s.date>td&&F.conds.some(c=>{ const d=cvDrove(s,c); return d.a||d.r }))}))
     .sort((a,b)=>!!b.F.coach-!!a.F.coach||b.F.actif-a.F.actif||b.f.al.filter(x=>x.k==='sol').length-a.f.al.filter(x=>x.k==='sol').length||b.f.sans-a.f.sans||a.f.n-b.f.n||a.F.nom.localeCompare(b.F.nom,'fr'));
-  const gs=gyms.map(g=>{ let o=0,n=0; done.forEach(s=>{ const r=COV.rep.find(r=>r.sortie_id===s.id&&r.licencie_id===g.id); if(r&&r.statut==='oui') o++; else if(r) n++ }); return {g,o,n,z:done.length-o-n} });
+  const gs=gyms.map(g=>{ let o=0,n=0; const mine=done.filter(s=>!cvOutAt(g,s)); mine.forEach(s=>{ const r=COV.rep.find(r=>r.sortie_id===s.id&&r.licencie_id===g.id); if(r&&r.statut==='oui') o++; else if(r) n++ }); return {g,o,n,z:mine.length-o-n,poss:mine.length===done.length?poss:cvPossibles(mine)} });
   return `<div class="hint" style="margin:0 0 12px">Sur ${done.length} déplacement(s) jusqu’à aujourd’hui. Le % de présence d’une gym se calcule sur ${poss} déplacement(s) possibles : ${CV_MAX_SEM} au plus par semaine scolaire, tous pendant les vacances. Un conducteur a « covoituré » quand il a transporté au moins une gym, à l’aller ou au retour. Les plus à solliciter sont en haut.</div>
     <div class="card"><h3>Familles qui conduisent</h3>
       <div class="hint" style="margin-bottom:8px">Les conducteurs d’une même famille (parents, sœurs, gym qui a le permis) sont comptés ensemble : leurs gyms ont le même nom de famille. « En famille » = trajets où la voiture n’a pris que les gyms de la famille.</div>
       ${cs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Famille</th><th>Covoiturages</th><th>Aller / Retour</th><th>Ses gyms sont venues</th><th>Dernier</th><th>Écart entre les 2 derniers</th><th>Sans conduire depuis</th><th>Alertes</th></tr></thead><tbody>${cs.map(({F,f,next})=>`<tr class="${F.actif?'':'cvoff'}"><td>${f.trips.length?`<button type="button" class="cvtog" data-cv-fam="${esc(F.nom)}" aria-expanded="${COV.openFam&&COV.openFam.has(F.nom)?'true':'false'}" title="Voir les trajets"><span class="cvarr">${COV.openFam&&COV.openFam.has(F.nom)?'▾':'▸'}</span></button> `:''}<b>${esc(F.nom)}</b>${F.kg.length?` <span class="hint">(${esc(F.kg.map(g=>g.prenom).join(', '))})</span>`:''}<div class="hint">🚗 ${F.conds.length?F.conds.map(c=>esc(c.nom)+(c.actif?'':' (inactif)')).join(' · '):'aucun conducteur enregistré'}</div></td><td><b>${f.n}</b>${f.fam?` <span class="hint">dont ${f.fam} en famille</span>`:''}${f.prop>f.n?`<div class="hint">${f.prop} fois disponible</div>`:''}</td><td>${f.na} / ${f.nr}</td><td>${F.coach?'—':f.came}</td>
           <td>${f.last?`${cvD(f.last)} <span class="hint">il y a ${f.since} j</span>`:'—'}${next?`<div class="hint">prévu ${cvD(next.date)}</div>`:''}</td><td>${f.gap!==null?f.gap+' j':'—'}</td><td>${f.sans?f.sans+' déplacement'+(f.sans>1?'s':''):'—'}</td><td>${cvAlertHtml(f)||'<span class="hint">—</span>'}</td></tr>${COV.openFam&&COV.openFam.has(F.nom)&&f.trips.length?`<tr class="cvtrips"><td colspan="8"><div class="cvtl">${f.trips.map(t=>`<span class="cvtp${t.enf?' fam':''}" title="${esc(t.gyms.map(g=>gymName(g)).join(', '))}"><b>${cvD(t.s.date)}</b> ${t.a&&t.r?'A-R':t.a?'A':'R'}${F.conds.length>1?' · '+esc(t.qui.join(', ')):''}${t.enf?' · en famille':''}${t.s.lieu&&norm(t.s.lieu)!==norm(LIEU_DEF)?' · '+esc(t.s.lieu):''}</span>`).join('')}</div></td></tr>`:''}`).join('')}</tbody></table></div>`:'<div class="empty">Aucun conducteur.</div>'}</div>
     <div class="card" style="margin-top:14px"><h3>Gyms</h3>
-      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${poss?` <span class="hint">${Math.min(100,Math.round(100*x.o/poss))} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
+      ${gs.length?`<div class="ltwrap"><table class="ltb cvt"><thead><tr><th>Gymnaste</th><th>Est venue</th><th>N’est pas venue</th><th>Sans réponse</th></tr></thead><tbody>${cvByPlace(gs.map(x=>x.g),g=>{ const x=gs.find(y=>y.g===g); return `<tr><td><b>${esc(x.g.nom||'')}</b> ${esc(x.g.prenom||'')}</td><td><b>${x.o}</b>${x.poss?` <span class="hint">${Math.min(100,Math.round(100*x.o/x.poss))} %</span>`:''}</td><td>${x.n}</td><td>${x.z?`<span class="lb warn">${x.z}</span>`:'0'}</td></tr>` },h=>`<tr class="cvphr"><td colspan="4">${esc(h)}</td></tr>`)}</tbody></table></div>`:'<div class="empty">Aucune gym.</div>'}</div>`;
 }
 /* ---- textes : sondage, relance, annonce ---- */
 function cvPollList(){ const td=isoToday(), up=COV.sorties.filter(s=>s.date>=td); if(!COV.poll) COV.poll=new Set(up.map(s=>s.id)); return up }
@@ -3532,7 +3539,7 @@ document.addEventListener('change',ev=>{
 document.addEventListener('submit',async ev=>{
   const f=ev.target; if(!['fCvSortie','fCvCond','fCvCfg'].includes(f.id)||!COV.acces) return; ev.preventDefault();
   const v=n=>(f.elements[n].value||'').trim();
-  if(f.id==='fCvCfg'){ const row={club_id:CLUB.id,groupes:[...f.querySelectorAll('[name=grp]:checked')].map(x=>x.value),exclus:[...f.querySelectorAll('[name=excl]:checked')].map(x=>x.value),lieux:[...new Set(v('lieux').split('\n').map(x=>x.trim().slice(0,120)).filter(Boolean))].slice(0,10),seuil_sans:Math.min(20,Math.max(1,+v('seuil_sans')||3)),seuil_jours:Math.min(120,Math.max(1,+v('seuil_jours')||14)),updated_at:new Date().toISOString()};
+  if(f.id==='fCvCfg'){ const row={club_id:CLUB.id,groupes:[...f.querySelectorAll('[name=grp]:checked')].map(x=>x.value),exclus:[...f.querySelectorAll('[name=excl]:checked')].map(x=>x.value),exclus_lieux:[...f.querySelectorAll('[name=exl]:checked')].reduce((o,x)=>{ const k=x.value.indexOf('|'), id=x.value.slice(0,k); (o[id]=o[id]||[]).push(x.value.slice(k+1)); return o },{}),lieux:[...new Set(v('lieux').split('\n').map(x=>x.trim().slice(0,120)).filter(Boolean))].slice(0,10),seuil_sans:Math.min(20,Math.max(1,+v('seuil_sans')||3)),seuil_jours:Math.min(120,Math.max(1,+v('seuil_jours')||14)),updated_at:new Date().toISOString()};
     await cvTry(async()=>chk(await sb.from('cv_config').upsert(row,{onConflict:'club_id'})),'Réglages enregistrés'); return }
   if(f.id==='fCvCond'){ const id=f.dataset.id, type=v('type');
     const row={nom:v('nom'),type,places:+v('places'),telephone:v('telephone')||null,depart_lieu:v('depart_lieu')||null,actif:f.elements.actif.checked,auto:f.elements.auto.checked,licencie_id:type==='gym'?v('licencie_id')||null:null,enfants:type==='parent'?[...f.querySelectorAll('[name=enf]:checked')].map(x=>x.value):[]};
@@ -3874,8 +3881,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.1', APP_DATE='2026-11-21';
+const APP_VER='2.1.1', APP_DATE='2026-11-21';
 const APP_LOG=[
+  ['2.1.1','2026-11-21',['Covoiturage : une gym peut être retirée de la liste selon le lieu de l’entraînement (ex. pas de covoiturage quand c’est à Chauny) — réglage dans Conducteurs › Réglages']],
   ['2.1','2026-11-21',['Musiques de sol : le nom d’origine du fichier n’est plus affiché','3 versions au plus par gym et par fédération : les plus anciennes sont supprimées après confirmation','Sur ordinateur, bouton 🎼 « Titres et compositeurs » : titre original et compositeur lus dans le fichier, ou saisis à la main, et page 📝 Déclaration (tableur ou PDF) pour les fédérations']],
   ['2.0.2','2026-11-21',['Musiques de sol : chaque musique sur deux lignes lisibles (fédération, durée et alerte, puis nom d’origine), boutons à droite']],
   ['2.0.1','2026-11-21',['Musiques de sol : zone de glisser-déposer masquée sur téléphone et tablette tactile (le bouton « Importer des musiques » reste disponible)']],
