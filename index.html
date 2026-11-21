@@ -797,16 +797,22 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .mussec{margin:14px 0 2px;padding:6px 10px;background:var(--bg);border-radius:8px;border-left:4px solid #7b4fd6}
 .jfed{display:inline-flex;align-items:center;gap:8px;margin:0 10px 0 -4px;padding:2px 8px;border-left:2px solid #f0d9a8}.jfed[hidden]{display:none}
 .musrow{padding:8px 2px 4px;border-top:1px solid var(--line)}.musrow:first-of-type{border-top:0}.musg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
-.musline{display:flex;align-items:center;gap:10px;padding:3px 0}.musfed{min-width:58px;text-align:center}.musdurc{min-width:60px;text-align:right}
+.musline{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:10px;padding:4px 0}
+.musmid{min-width:0}.lfoot:has(#musQ) #musQ,.lfoot:has(#musQ) select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:var(--card,#fff)}
+.musl1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.musl1 .musdur{font-size:15px}
+.musl2{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.muswarn{font-size:12px;font-weight:600;color:#c26a00;background:#fff4e0;border-radius:999px;padding:1px 8px}
+.musact{display:flex;gap:6px;align-items:center}.musfed{min-width:0}
 .musplay{width:42px;height:42px;border-radius:50%;border:0;background:#7b4fd6;color:#fff;font-size:17px;cursor:pointer;flex:0 0 auto}.musplay:hover{filter:brightness(1.1)}
 .musinfo{flex:1 1 auto;min-width:0}.musinfo .hint{display:inline-block;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .musdur{font-variant-numeric:tabular-nums;font-weight:700}.muslong{color:#c26a00}.musoff{min-width:70px}
-.musvers{margin:0 0 6px 120px;font-size:13px}.musvers summary{cursor:pointer;color:var(--muted,#6b7480)}.musv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}
+.musvers{margin:0 0 6px 52px;font-size:13px}.musvers summary{cursor:pointer;color:var(--muted,#6b7480)}.musv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}
 .musimp select,.musimp input:not([type=checkbox]){max-width:230px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font:inherit}.musimp tr.musno td{background:#fff7e6}
 .musmiss{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .musdock{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:70;width:min(560px,calc(100vw - 24px));background:var(--card,#fff);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px 12px}
 .musdock audio{width:100%;height:40px;display:block}.musnow{display:flex;align-items:center;gap:6px;font-size:13.5px;margin-bottom:4px}.musnow .hint{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .musclose{border:0;background:none;cursor:pointer;font-size:14px;color:var(--muted,#6b7480)}
+@media (max-width:700px){.lfoot:has(#musQ){gap:8px}.lfoot:has(#musQ) #musQ{flex:1 1 100%!important}.lfoot:has(#musQ) .cbx,.lfoot:has(#musQ) select[data-mfedf]{flex:1 1 40%}.lfoot:has(#musQ) .hint{flex:1 1 100%}.musline{grid-template-columns:40px minmax(0,1fr) auto;gap:8px}.musplay{width:40px;height:40px;font-size:15px}.musact .btn{padding:6px 9px}.musvers{margin-left:0}.musg{gap:6px}}
 @media (max-width:900px){.musdock{bottom:calc(74px + env(safe-area-inset-bottom))}.musinfo .hint{display:block;max-width:none}}
 @media print{.musdock{display:none!important}}
 .lfil{min-width:150px}.filc{display:inline-flex;align-items:center;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:12.5px}
@@ -3862,8 +3868,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.0.1', APP_DATE='2026-11-21';
+const APP_VER='2.0.2', APP_DATE='2026-11-21';
 const APP_LOG=[
+  ['2.0.2','2026-11-21',['Musiques de sol : chaque musique sur deux lignes lisibles (fédération, durée et alerte, puis nom d’origine), boutons à droite']],
   ['2.0.1','2026-11-21',['Musiques de sol : zone de glisser-déposer masquée sur téléphone et tablette tactile (le bouton « Importer des musiques » reste disponible)']],
   ['2.0','2026-11-21',['Nouveau menu : Vie du club, Compétition avec bascule FFG / UFOLEP, Pilotage ; Paramètres en pied de menu','Onglets Équipes · Mouvements · Résumé · Résultats en tête des pages de compétition','Numéro de version et page des nouveautés (cette fenêtre)']],
   ['1.9','2026-11-20',['Fiche adhérent réorganisée : blocs, rôles en pastilles, points à régler, bouton Enregistrer toujours visible','Musiques de sol en ligne : import groupé ou glisser-déposer, une musique par fédération, durées FFG / UFOLEP contrôlées, écoute hors ligne, export pour clé USB','Fichiers joints aux documents des adhérents (certificat médical, autorisations…)','Juge FFG ou UFOLEP dans la fiche ; accès aux mouvements retiré des fiches']],
@@ -4510,7 +4517,7 @@ function musLims(gid,fed){
 }
 function musDurHtml(gid,fed,d){
   const L=musLims(gid,fed), over=L.filter(x=>x.s!=null&&d!=null&&d>x.s);
-  return `<span class="musdur ${over.length?'muslong':''}" title="${esc(L.map(x=>x.l).join(' · '))}">${musDur(d)}</span>${over.length?`<div class="hint muslong">trop longue (${over.map(x=>x.f+' '+musDur(x.s)).join(', ')})</div>`:''}`;
+  return `<span class="musdur ${over.length?'muslong':''}" title="${esc(L.map(x=>x.l).join(' · '))}">${musDur(d)}</span>${over.length?`<span class="muswarn">trop longue · max ${over.map(x=>(L.length>1?x.f+' ':'')+musDur(x.s)).join(', ')}</span>`:''}`;
 }
 async function musEnsure(){
   if(!CLUB) return; if(MUS.club===CLUB.id&&(MUS.ok!==null||MUS.loading)) return;
@@ -4641,13 +4648,11 @@ function renderMusic(){
   const miss=S.gyms.filter(g=>g.compet&&g.compet!=='aucune').map(g=>[g,musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f))]).filter(x=>x[1].length).sort((a,b)=>byName(a[0],b[0]));
   const tot=MUS.rows.reduce((a,m)=>a+(+m.taille||0),0), mains=musMainRows(), nOff=mains.filter(m=>MUS.off.has(m.id)).length;
   const line=(g,fed)=>{ const ms=musOf(g.id,fed), m=ms[0]; if(!m) return '';
-    return `<div class="musline" data-mdrop-gid="${g.id}" data-mdrop-fed="${fed}"><button class="musplay" data-mplay="${m.id}" title="Écouter">${MUS.play===m.id?'🔊':'▶'}</button>
-      <span class="lb ${fed==='UFOLEP'?'no':'ok'} musfed">${esc(musFedLbl(fed))}</span>
-      <div class="musinfo">${esc(m.nom)}${m.principale?'':' <span class="lb bad">aucune version principale</span>'}${m.version?`<div class="hint">d’origine : ${esc(m.version)}</div>`:''}</div>
-      <div class="musdurc">${musDurHtml(g.id,fed,m.duree)}</div>
-      <div class="musoff">${MUS.off.has(m.id)?'<span class="lb ok" title="Jouable sans réseau sur cet appareil">hors ligne</span>':''}</div>
-      <button class="btn sm" data-msave="${m.id}" title="Enregistrer ${esc(m.nom)}">💾</button>
-      ${ed?`<label class="btn sm filup" title="Ajouter une version ${esc(musFedLbl(fed))}">+<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${fed}" hidden></label>`:''}</div>
+    return `<div class="musline" data-mdrop-gid="${g.id}" data-mdrop-fed="${fed}"><button class="musplay" data-mplay="${m.id}" title="Écouter" aria-label="Écouter ${esc(m.nom)}">${MUS.play===m.id?'🔊':'▶'}</button>
+      <div class="musmid"><div class="musl1"><span class="lb ${fed==='UFOLEP'?'no':'ok'} musfed">${esc(musFedLbl(fed))}</span>${musDurHtml(g.id,fed,m.duree)}${MUS.off.has(m.id)?'<span class="lb ok" title="Jouable sans réseau sur cet appareil">hors ligne</span>':''}${m.principale?'':'<span class="lb bad">aucune version principale</span>'}</div>
+        <div class="musl2" title="${esc(m.nom)}">${esc(m.version?'d’origine : '+m.version:m.nom)}</div></div>
+      <div class="musact"><button class="btn sm" data-msave="${m.id}" title="Enregistrer ${esc(m.nom)}" aria-label="Enregistrer ${esc(m.nom)}">💾</button>
+      ${ed?`<label class="btn sm filup" title="Ajouter une version ${esc(musFedLbl(fed))}" aria-label="Ajouter une version ${esc(musFedLbl(fed))}">+<input type="file" accept="audio/*,video/mp4,.mp3,.m4a,.mpeg,.mp4,.wav" data-mimp="1" data-mgid="${g.id}" data-mfed="${fed}" hidden></label>`:''}</div></div>
       ${ms.length>1||ed?`<details class="musvers"><summary>${ms.length} version${ms.length>1?'s':''} ${esc(musFedLbl(fed))}</summary>${ms.map(v=>`<div class="musv"><button class="btn sm" data-mplay="${v.id}">▶</button> ${v.principale?'⭐ ':''}${esc(v.version||v.nom)} <span class="hint">${musDur(v.duree)} · ${filMo(v.taille)}</span>
         ${ed&&!v.principale?`<button class="btn sm" data-mmain="${v.id}">⭐ Principale</button>`:''}${ed?`<select data-mfedchg="${v.id}" title="Changer la fédération">${MUS_FEDS.map(f=>`<option value="${f}" ${v.federation===f?'selected':''}>${musFedLbl(f)}</option>`).join('')}</select><button class="btn sm" data-mdel="${v.id}" title="Supprimer cette version">✕</button>`:''}</div>`).join('')}</details>`:''}` };
   const row=g=>{ const feds=MUS_FEDS.filter(f=>(!F||f===F||f==='FFG+UFOLEP')&&musOf(g.id,f).length), lack=musLic(g).filter(f=>(!F||f===F)&&!musHas(g.id,f));
