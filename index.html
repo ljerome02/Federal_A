@@ -492,7 +492,18 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 .nvb{margin-left:auto;font-size:11px;font-weight:700;background:#fdecea;color:var(--bad);border-radius:999px;padding:1px 7px;min-width:20px;text-align:center}
 .nvmore{display:none}
 .nvl .ns{display:none}
-.nvfoot{margin-top:auto;padding:14px 8px 0;font-size:11.5px;color:var(--muted)}
+.nvfoot{padding:10px 8px 0;font-size:11.5px;color:var(--muted);line-height:1.5}
+.nvend{margin-top:auto;border-top:1px solid var(--line);margin-bottom:6px;padding-top:6px}
+.nvfed{display:flex;margin:2px 4px 6px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.nvfed button{flex:1;border:0;background:transparent;padding:6px 0;font:inherit;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer}
+.nvfed button.on{background:var(--accent);color:#fff}.nvfed button:not(.on):hover{color:var(--ink)}
+.nvver{border:0;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.nvnew{display:inline-block;background:#ffe9a8;color:#7a5200;border-radius:999px;padding:0 6px;font-size:10.5px;text-decoration:none;margin-left:2px}
+.ctabs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}.ctabs .lb{margin-right:6px}.ctabs .tab{white-space:nowrap}
+.verdlg{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:84vh;box-shadow:0 20px 60px rgba(0,0,0,.3)}.verdlg::backdrop{background:rgba(20,24,40,.45)}
+.verh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+.verl{padding:6px 18px 16px;overflow:auto}.verl section{padding:10px 0;border-bottom:1px dashed var(--line)}.verl section:last-child{border:0}
+.verl h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:6px}.verl ul{margin:0;padding-left:20px;font-size:13.5px;line-height:1.5}.verl section.cur ul{font-weight:500}
 
 /* page d'accueil */
 .hello{margin-bottom:16px}.hello h2{font-size:26px;text-transform:none;letter-spacing:0;color:var(--ink);margin:0 0 2px}.hello .meta{color:var(--muted)}
@@ -549,12 +560,14 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
   .nvi{width:auto;padding:5px;justify-content:center;min-height:44px}
   .nvi.on::before{left:-8px}
   .nvsec{display:block;height:1px;padding:0;margin:8px 10px;background:var(--line);font-size:0}
+  .nvfed{flex-direction:column;margin:2px 0 6px}.nvfed button{padding:4px 2px;font-size:9.5px}
 }
 @media (max-width:700px){
   .app{grid-template-columns:1fr}
   header.top h1 small{display:none}
   #snav{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:40;flex-direction:row;gap:0;padding:0 0 env(safe-area-inset-bottom);border-right:0;border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.08);overflow:visible;background:#fff}
-  .nvclub,.nvsec,.nvfoot{display:none}
+  .nvclub,.nvsec,.nvfoot,.nvfed,.nvend{display:none}
+  #snav.open .nvfed{display:flex;flex:0 0 100%;margin:4px 6px 8px}#snav.open .nvfoot{display:block;flex:0 0 100%;text-align:center;padding:8px 0 2px}
   .nvi{flex:1 1 0;min-width:0;flex-direction:column;gap:1px;padding:6px 1px 5px;border-radius:0;font-size:10px;text-align:center;justify-content:center;min-height:56px}
   .nvi.on::before{left:20%;right:20%;top:0;bottom:auto;width:auto;height:3px;border-radius:0 0 4px 4px}
   .nvi:not(.pri):not(.nvmore){display:none}
@@ -1763,6 +1776,10 @@ function navBarOld(){
   return `<div class="tabs navtabs">${[['manage','👥 Gymnastes'],['lic','📋 Licences'],['pres','✅ Présences'],['teams','🏅 Équipes'],['gym','✏️ Mouvements'],['summary','📊 Résumé']].map(([k,l])=>{ const [ic,...tx]=l.split(' '); return `<button class="tab ${act===k?'on':''}" data-nav="${k}"><span class="nti">${ic}</span><span class="ntl">${tx.join(' ')}</span></button>` }).join('')}</div>`;
 }
 function renderMain(){
+  renderMain1();
+  const ct=compTabs(), m=document.getElementById('main'); if(ct&&m) m.insertAdjacentHTML('afterbegin',ct);
+}
+function renderMain1(){
   if(UI.view==='manage') UI.view='lic';
   if(UI.view==='members'){ UI.view='param'; PARAM.tab='membres' }
   paintNav();
@@ -1888,6 +1905,7 @@ function indivBlock(g,rank){
 /* ---------- événements des nouveaux onglets ---------- */
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('[data-nav],[data-sum],[data-eqdel],[data-eqrm]'); if(!t) return; const d=t.dataset;
+  if(d.nav==='doc'){ UI.view='stats'; STAT.det=null; STAT.doc=true; if(typeof DOC!=='undefined') DOC.edit=false; render(); window.scrollTo(0,0); return }
   if(d.nav){ if(UI.view==='gym'||UI.view==='team') UI.prevWork=UI.view;
     if(d.nav==='umvt'&&typeof UF!=='undefined') UF.menu=true;
     if(d.nav==='gym') UI.gmenu=true;
@@ -3821,21 +3839,58 @@ setInterval(()=>{ if(PRES.queue.length) presFlush() },30000);
 /* Disposition inspirée de GestGym (fiche adhérent à onglets, liste des paiements, envois en masse)
    et de MonClub Pro (menu latéral, tuiles de chiffres, barres de répartition). */
 const ROLE_LBL={admin:'Administrateur',entraineur:'Entraîneur',tresorier:'Trésorier'};
+/* menu : Accueil · Vie du club · Compétition (bascule FFG / UFOLEP) · Pilotage ; Paramètres, saison et version en pied */
+const COMP_V={FFG:{teams:'teams',mvt:'gym',sum:'summary',res:'cresf'},UFOLEP:{teams:'uteams',mvt:'umvt',sum:'usum',res:'cresu'}};
+const COMP_OF=v=>{ for(const f of ['FFG','UFOLEP']) for(const [k,x] of Object.entries(COMP_V[f])) if(x===v||(f==='FFG'&&k==='mvt'&&v==='team')) return [f,k]; return null };
+const navFed=()=>{ const c=COMP_OF(UI.view); if(c) UI.fed=c[0]; if(UI.fed!=='FFG'&&UI.fed!=='UFOLEP'){ try{ UI.fed=localStorage.getItem('fa-fed')==='UFOLEP'?'UFOLEP':'FFG' }catch(e){ UI.fed='FFG' } } return UI.fed };
 function navList(){
-  const L=[['sec','Pilotage'],['home','Tableau de bord','🏠','#e8efff','Accueil'],
-    ['sec','Le club'],['lic','Adhérents','👥','#ffeede'],['pres','Groupes','✅','#e6f4ea'],['music','Musiques de sol','🎵','#f3e8ff','Musiques']];
-  if(licPay()) L.push(['sec','Finances'],['pay','Paiements','💶','#fff3e2']);
-  L.push(['sec','Communication'],['comm','Messages et WhatsApp','✉️','#efe8ff','Messages'],
-    ['sec','Compétition FFG'],['teams','Équipes','🏅','#fde8f1'],['gym','Mouvements','✏️','#e6f0f0'],['summary','Résumé','📊','#eef1f5'],['cresf','Résultats','🏆','#fff3d6','Résultats FFG'],
-    ['sec','Compétition UFOLEP'],['uteams','Équipes','🏆','#e7f5ff','Équipes UFOLEP'],['umvt','Mouvements','🤸','#e6f4ea','Mouvements UFOLEP'],['usum','Résumé','📋','#fff3e2','Résumé UFOLEP'],['cresu','Résultats','🥇','#fff3d6','Résultats UFOLEP'],
-    ['sec','Analyse'],['stats','Statistiques','📈','#e7f5ff'],
-    ['sec','Réglages'],['param','Paramètres','⚙️','#eef1f5']);
+  const F=navFed(), V=COMP_V[F];
+  const L=[['home','Tableau de bord','🏠','#e8efff','Accueil'],
+    ['sec','Vie du club'],['lic','Adhérents','👥','#ffeede'],['pres','Groupes et présences','📅','#e6f4ea','Groupes']];
+  if(licPay()) L.push(['pay','Paiements','💶','#fff3e2']);
+  L.push(['comm','Messages','💬','#efe8ff'],
+    ['sec','Compétition'],['fed'],
+    [V.teams,'Équipes','🏅','#fde8f1',F==='FFG'?'Équipes':'Équipes UFOLEP'],[V.mvt,'Mouvements','🤸','#e6f0f0',F==='FFG'?'Mouvements':'Mouvements UFOLEP'],[V.res,'Résultats','🏆','#fff3d6',F==='FFG'?'Résultats':'Résultats UFOLEP'],['music','Musiques de sol','🎵','#f3e8ff','Musiques'],
+    ['sec','Pilotage'],['stats','Statistiques','📊','#e7f5ff'],['doc','Dossier subventions','📄','#eaf6ef','Subventions'],
+    ['end'],['param','Paramètres','⚙️','#eef1f5']);
   return L;
 }
+/* onglets en tête des pages de compétition : Équipes · Mouvements · Résumé · Résultats */
+function compTabs(){
+  const c=COMP_OF(UI.view); if(!c) return ''; const [F,k]=c, V=COMP_V[F];
+  return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
+}
+/* version en ligne et nouveautés */
+const APP_VER='2.0', APP_DATE='2026-11-21';
+const APP_LOG=[
+  ['2.0','2026-11-21',['Nouveau menu : Vie du club, Compétition avec bascule FFG / UFOLEP, Pilotage ; Paramètres en pied de menu','Onglets Équipes · Mouvements · Résumé · Résultats en tête des pages de compétition','Numéro de version et page des nouveautés (cette fenêtre)']],
+  ['1.9','2026-11-20',['Fiche adhérent réorganisée : blocs, rôles en pastilles, points à régler, bouton Enregistrer toujours visible','Musiques de sol en ligne : import groupé ou glisser-déposer, une musique par fédération, durées FFG / UFOLEP contrôlées, écoute hors ligne, export pour clé USB','Fichiers joints aux documents des adhérents (certificat médical, autorisations…)','Juge FFG ou UFOLEP dans la fiche ; accès aux mouvements retiré des fiches']],
+  ['1.8','2026-11-15',['Covoiturage : suivi par famille, plusieurs lieux de départ, annonce WhatsApp groupée par voiture','Fiche adhérent : liste des groupes plus lisible']],
+  ['1.7','2026-11-14',['Statistiques : carte du club, détail au clic, dossier pour les subventions et les partenaires','Résultats FFG : individuel ou par équipe, catégories par année d’âge, niveau Interdépartemental','Bouton Q : qualification et recopie dans la compétition suivante']],
+  ['1.6','2026-11-13',['Résultats des compétitions FFG et UFOLEP : saisie D / E / pénalités, classements et statistiques','UFOLEP : arches cliquables, barème officiel, contrôle du nombre d’éléments','Listes des gymnastes en sous-menu pour les mouvements FFG et UFOLEP']],
+  ['1.5','2026-11-12',['Compétition UFOLEP (GAF) : équipes, mouvements, vérification du programme, résumé','Page Paramètres : listes modifiables, membres, sauvegarde, compte']],
+  ['1.4','2026-11-11',['Refonte : menu latéral, tableau de bord, paiements, statistiques, messages et WhatsApp','Groupes : planning, vacances scolaires, séances ponctuelles, rotations d’agrès','Adhérents : rôles cumulables, liens de parenté, filtres rapides']],
+  ['1.3','2026-11-10',['Dossier d’inscription : annexes 1 à 3, pièces, cotisation et règlements']],
+  ['1.2','2026-11-09',['Licences et présences hors ligne, affichage téléphone / tablette / ordinateur','Choix de compétition par gymnaste ; résumé individuel détaillé par agrès']],
+  ['1.0','2026-11-04',['Première version en ligne : compositeur Fédéral A']]];
+const appDate=d=>new Date(d+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+const verSeen=()=>{ try{ return localStorage.getItem('fa-ver-vue')===APP_VER }catch(e){ return true } };
+function verOpen(){
+  let d=document.getElementById('verDlg'); if(!d){ d=document.createElement('dialog'); d.id='verDlg'; d.className='verdlg'; document.body.appendChild(d) }
+  d.innerHTML=`<div class="verh"><div><b>Nouveautés de l’application</b><div class="hint">Version en ligne : ${APP_VER} · mise à jour du ${appDate(APP_DATE)}</div></div><button type="button" class="btn sm" data-ver-close="1" aria-label="Fermer">✕</button></div>
+    <div class="verl">${APP_LOG.map(([v,dt,items],i)=>`<section class="${i?'':'cur'}"><h4><span class="lb ${i?'no':'ok'}">v${v}</span> ${appDate(dt)}${i?'':' <span class="hint">· version actuelle</span>'}</h4><ul>${items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>`).join('')}</div>`;
+  if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  try{ localStorage.setItem('fa-ver-vue',APP_VER) }catch(e){} paintNav();
+}
+document.addEventListener('click',ev=>{
+  if(ev.target.closest&&ev.target.closest('[data-ver]')){ verOpen(); return }
+  const d=document.getElementById('verDlg'); if(!d) return;
+  if(ev.target.closest('[data-ver-close]')||ev.target===d){ d.close?d.close():d.removeAttribute('open') }
+});
 function paintNav(){
   const el=document.getElementById('snav'); if(!el) return;
   if(!CLUB){ el.innerHTML=''; return }
-  const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view;
+  const act=(UI.view==='gym'||UI.view==='team')?'gym':UI.view==='summary'?'teams':UI.view==='usum'?'uteams':UI.view==='stats'&&STAT.doc?'doc':UI.view;
   const pri=['home','lic','pres',licPay()?'pay':'comm'], L=navList(), badge={};
   if(LIC.loaded&&!LIC.err&&LIC.club===CLUB.id){ try{
     badge.lic=S.gyms.filter(g=>licIssues(g).length).length;
@@ -3843,14 +3898,18 @@ function paintNav(){
   }catch(e){} }
   const ini=(CLUB.nom||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'C';
   el.innerHTML=`<div class="nvclub"><div class="nvlogo">${esc(ini)}</div><div><div class="nvname">${esc(CLUB.nom)}</div><div class="nvrole">${ROLE_LBL[ROLE]||''}</div></div></div>`
-    +L.map(x=>x[0]==='sec'?`<div class="nvsec">${x[1]}</div>`
+    +L.map(x=>x[0]==='sec'?`<div class="nvsec">${x[1]}</div>`:x[0]==='end'?'<div class="nvend"></div>':x[0]==='fed'?`<div class="nvfed" role="group" aria-label="Fédération">${['FFG','UFOLEP'].map(f=>`<button type="button" class="${UI.fed===f?'on':''}" data-navfed="${f}" aria-pressed="${UI.fed===f}">${f}</button>`).join('')}</div>`
       :`<button class="nvi ${act===x[0]?'on':''} ${pri.includes(x[0])?'pri':''}" data-nav="${x[0]}" title="${esc(x[1])}"><span class="nvic" style="--c:${x[3]}">${x[2]}</span><span class="nvl"><span class="nl">${x[1]}</span><span class="ns">${x[4]||x[1]}</span></span>${badge[x[0]]?`<span class="nvb">${badge[x[0]]}</span>`:''}</button>`).join('')
     +`<button class="nvi nvmore ${pri.includes(act)||!L.some(x=>x[0]===act)?'':'on'}" id="nvMore" type="button" aria-label="Plus de rubriques"><span class="nvic">⋯</span><span class="nvl"><span class="nl">Plus</span><span class="ns">Plus</span></span></button>`
-    +`<div class="nvfoot">Saison ${SAISON}</div>`;
+    +`<div class="nvfoot">Saison ${SAISON} · <button type="button" class="nvver" data-ver="1" title="Voir les nouveautés de cette version">v${APP_VER}${verSeen()?'':' <span class="nvnew">nouveau</span>'}</button><div>Mise à jour du ${new Date(APP_DATE+'T12:00').toLocaleDateString('fr-FR')}</div></div>`;
   { const h=ffgSubHtml(), b=el.querySelector('.nvi[data-nav=gym]'); if(h&&b) b.insertAdjacentHTML('afterend',h) }
   if(typeof ufSubHtml==='function'){ const h=ufSubHtml(), b=el.querySelector('.nvi[data-nav=umvt]'); if(h&&b) b.insertAdjacentHTML('afterend',h) }
 }
 document.addEventListener('click',ev=>{
+  const f=ev.target.closest&&ev.target.closest('[data-navfed]');
+  if(f){ UI.fed=f.dataset.navfed; try{ localStorage.setItem('fa-fed',UI.fed) }catch(e){}
+    /* sur une page de compétition, on passe à la même page de l'autre fédération */
+    const c=COMP_OF(UI.view); if(c&&c[0]!==UI.fed){ const v=COMP_V[UI.fed][c[1]]; if(v==='gym') UI.gmenu=true; if(v==='umvt'&&typeof UF!=='undefined') UF.menu=true; UI.view=v; render() } else paintNav(); return }
   const n=document.getElementById('snav'); if(!n) return;
   if(ev.target.closest('#nvMore')){ n.classList.toggle('open'); return }
   if(n.classList.contains('open')&&(ev.target.closest('#snav .nvi')||!ev.target.closest('#snav'))) n.classList.remove('open');
@@ -4218,7 +4277,7 @@ document.addEventListener('click',ev=>{
 
 
 /* ---------- dossier de présentation (subventions, partenaires) : chiffres globaux, aucun nom ---------- */
-const DOC={type:'sub',edit:false,cr:null,crLoading:false,club:null,crWait:false,geoWait:false};
+const DOC={type:'sub',edit:false,cr:null,crLoading:false,club:null,crWait:false,geoWait:false,geoTried:new Set()};
 const DOC_TXT=[
   ['presentation','Présentation du club','Histoire, valeurs, disciplines (gym artistique, baby gym, loisirs…), ce qui fait la particularité du club.','both'],
   ['projets','Nos projets pour la saison','Nouveau créneau, achat de matériel, stage, accueil d’une compétition, formation d’entraîneurs ou de juges…','both'],
@@ -4238,9 +4297,11 @@ async function docLoadCren(){
 /* positions des communes et des lieux (déjà en cache, sinon recherche puis nouveau rendu) */
 function docGeo(vil){
   const c=geoCache(), miss=[];
-  const pv=vil.map(v=>{ const k=geoKey(v.v,v.cp)+'|m'; if(c[k]===undefined) miss.push(()=>geoFind(v.v,v.cp,true)); return {...v,p:c[k]||null} });
-  const pg=LIEUX.map(l=>{ const a=GYM_ADR[l], q=a?a.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim():l, k=geoKey(q,'')+(a?'':'|m'); if(c[k]===undefined) miss.push(()=>geoFind(q,'',!a)); return {l,adr:a||'',p:c[k]||null} });
-  if(miss.length&&!DOC.geoWait){ DOC.geoWait=true; Promise.all(miss.map(f=>f())).then(()=>{ DOC.geoWait=false; docRefresh() }) }
+  /* une recherche déjà tentée (même ratée, par exemple sans réseau) n'est pas relancée : sinon la page se redessinerait sans fin */
+  const want=(k,f)=>{ if(c[k]===undefined&&!DOC.geoTried.has(k)){ DOC.geoTried.add(k); miss.push(f) } };
+  const pv=vil.map(v=>{ const k=geoKey(v.v,v.cp)+'|m'; want(k,()=>geoFind(v.v,v.cp,true)); return {...v,p:c[k]||null} });
+  const pg=LIEUX.map(l=>{ const a=GYM_ADR[l], q=a?a.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim():l, k=geoKey(q,'')+(a?'':'|m'); want(k,()=>geoFind(q,'',!a)); return {l,adr:a||'',p:c[k]||null} });
+  if(miss.length){ DOC.geoWait=true; Promise.all(miss.map(f=>f())).then(r=>{ DOC.geoWait=false; if(r.some(x=>x)) docRefresh() }) }
   return {pv,pg};
 }
 function docMapSvg(pv,pg,main){
