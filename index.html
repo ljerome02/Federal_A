@@ -788,6 +788,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .lfamsec #famBox>h4{display:none}
 @media (max-width:520px){.lsec .lgrid.g2{grid-template-columns:1fr}.lfiche .lhead.big{position:relative}.lfiche .lhead.big .avatar{display:none}
   .lfiche .lhead.big>[data-lic-close]{position:absolute;top:0;right:0}.lfiche .lhead.big .lt h3{padding-right:86px}.lsec{padding:10px 12px 12px}}
+.musdz,.musdzt{}@media (max-width:700px),(pointer:coarse){.musdz,.musdzt{display:none!important}}
 .musdz{border:2px dashed #c9b6ef;border-radius:12px;padding:12px;text-align:center;color:#6b4bb0;background:#faf7ff;margin:4px 0 10px;font-size:13.5px}
 .musdrop{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;pointer-events:none;background:#7b4fd6;color:#fff;border-radius:16px;padding:14px 26px;text-align:center;box-shadow:0 8px 30px rgba(60,20,140,.35)}
 .musdrop .hint{color:#ede6ff}body.musdrag .musdrop{display:block}body.musdrag #main .card{outline:2px dashed #c9b6ef;outline-offset:4px}
@@ -3861,8 +3862,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.0', APP_DATE='2026-11-21';
+const APP_VER='2.0.1', APP_DATE='2026-11-21';
 const APP_LOG=[
+  ['2.0.1','2026-11-21',['Musiques de sol : zone de glisser-déposer masquée sur téléphone et tablette tactile (le bouton « Importer des musiques » reste disponible)']],
   ['2.0','2026-11-21',['Nouveau menu : Vie du club, Compétition avec bascule FFG / UFOLEP, Pilotage ; Paramètres en pied de menu','Onglets Équipes · Mouvements · Résumé · Résultats en tête des pages de compétition','Numéro de version et page des nouveautés (cette fenêtre)']],
   ['1.9','2026-11-20',['Fiche adhérent réorganisée : blocs, rôles en pastilles, points à régler, bouton Enregistrer toujours visible','Musiques de sol en ligne : import groupé ou glisser-déposer, une musique par fédération, durées FFG / UFOLEP contrôlées, écoute hors ligne, export pour clé USB','Fichiers joints aux documents des adhérents (certificat médical, autorisations…)','Juge FFG ou UFOLEP dans la fiche ; accès aux mouvements retiré des fiches']],
   ['1.8','2026-11-15',['Covoiturage : suivi par famille, plusieurs lieux de départ, annonce WhatsApp groupée par voiture','Fiche adhérent : liste des groupes plus lisible']],
@@ -4622,7 +4624,7 @@ function renderMusic(){
   if(MUS.ok!==true) return head+'<div class="card"><div class="empty">Chargement…</div></div>';
   if(MUS.imp){ const opts=S.gyms.slice().sort(byName), n=MUS.imp.filter(x=>x.on&&x.gid&&x.fed).length;
     return head+`<div class="card"><h3>Importer ${MUS.imp.length} musique${MUS.imp.length>1?'s':''}</h3>
-      <div class="hint" style="margin-bottom:8px">Tu peux encore glisser d’autres fichiers ici : ils s’ajoutent à la liste. Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
+      <div class="hint" style="margin-bottom:8px"><span class="musdzt">Tu peux encore glisser d’autres fichiers ici : ils s’ajoutent à la liste. </span>Chaque fichier est rattaché à une gym d’après son nom. Choisis la <b>fédération</b> (les durées ne sont pas les mêmes), vérifie, puis envoie. Le fichier sera renommé « NOM Prénom - FÉDÉRATION ». ⭐ = version principale (celle jouée en compétition).</div>
       <div class="ltwrap"><table class="ltb musimp"><thead><tr><th></th><th>Fichier</th><th>Gymnaste</th><th>Fédération</th><th>Durée</th><th>Nouveau nom</th><th>⭐</th></tr></thead><tbody>
       ${MUS.imp.map((x,i)=>{ const g=S.gyms.find(y=>y.id===x.gid), lic=g?musLic(g):[];
         return `<tr class="${x.gid&&x.fed?'':'musno'}"><td><input type="checkbox" data-mi-on="${i}" ${x.on?'checked':''}></td><td>${esc(x.f.name)}<div class="hint">${filMo(x.f.size)}</div>${x.err?`<div class="muserr">⚠️ Non envoyée : ${esc(x.err)}</div>`:''}</td>
