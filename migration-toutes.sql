@@ -1443,3 +1443,8 @@ alter table public.musiques_licencie add column if not exists titre       text c
 alter table public.musiques_licencie add column if not exists compositeur text check (compositeur is null or char_length(compositeur) <= 200);
 alter table public.musiques_licencie add column if not exists interprete  text check (interprete is null or char_length(interprete) <= 200);
 alter table public.musiques_licencie add column if not exists infos_source text check (infos_source is null or infos_source in ('fichier', 'nom', 'manuel'));
+
+-- >>>>>>>>>> migration-dates-competitions.sql <<<<<<<<<<
+-- Compétitions dont le jour n'est pas encore connu (« 12 ou 13 déc. ») : date_comp = le samedi,
+-- date_incertaine = vrai → l'application affiche « samedi ou dimanche ». Script réexécutable.
+alter table public.competitions add column if not exists date_incertaine boolean not null default false;

@@ -662,6 +662,9 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 .wcard{padding:12px 14px}
 .wnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.wtitle{margin-right:6px}
 .wday .ds{display:none}
+.wcp{font-size:11px;font-weight:700;color:#8a5a00;background:#fff4d6;border-radius:6px;padding:1px 5px;width:max-content;cursor:help}
+.wcpb{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.wcpb button{border:1px solid #f0d48a;background:#fffaf0;color:#6b4800;border-radius:8px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer;text-align:left}
+.ccal tr{cursor:pointer}.ccal tr.cpast td{color:var(--muted)}.ccal tr.cpast .lb{opacity:.6}.ccal tr.cnext td{background:#fffaf0}
 .wscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .wgrid{min-width:760px;--lane:48px}
 .wrow{display:grid;grid-template-columns:96px 1fr;border-top:1px solid var(--line)}
@@ -3685,7 +3688,8 @@ const mondayOf=iso=>addDays(iso,1-isoDow(iso));
 const hm2min=t=>{ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m?(+m[1])*60+(+m[2]):null };
 const GRP_COLORS=[['#e8e9fb','#3b3fa8','#5b5fc7'],['#fff1d6','#7a5200','#e5a823'],['#e0f4fb','#0b6b85','#17a2b8'],['#fde8f1','#a1245f','#e0577d'],['#e1f6ea','#14733a','#2fa56a'],['#efe8ff','#5a3aa8','#8a63d2'],['#ffe9dc','#8f4310','#f08a3c'],['#eef1f5','#3f4a56','#6b7a8c']];
 const grpColor=gid=>{ const i=PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).findIndex(x=>x.id===gid); return GRP_COLORS[(i<0?0:i)%GRP_COLORS.length] };
-function presWeekHtml(){
+function presWeekHtml(){ crEnsure(); return presWeekHtml0()+(PRES.groupes.length?compCalHtml():'') }
+function presWeekHtml0(){
   if(!PRES.groupes.length) return presNoGroup();
   const mon=PRES.week||(PRES.week=mondayOf(isoToday())), days=[0,1,2,3,4,5,6].map(i=>addDays(mon,i)), td=isoToday();
   const ses=days.map(d=>PRES.groupes.flatMap(g=>presSlotsOn(g.id,d).map(c=>({g,c,a:hm2min(c.heure_debut),b:hm2min(c.heure_fin),off:!!presAnnulOf(c.id,d)})).filter(x=>!x.off||UI.showAnnul)));
@@ -3706,14 +3710,14 @@ function presWeekHtml(){
       return `<button type="button" class="wblk ${rgt?'wr':''} ${x.off?'woff':''} ${x.c.type==='ponctuel'?'wpon':''}" data-wk="${x.g.id}|${d}|${x.c.id}" style="${rgt?`--rgt:${(100-(e-t0)/span*100).toFixed(3)}%;`:''}left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
         title="${esc(`${crLib(x.c)?crLib(x.c)+' · ':''}${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
         <span class="wl1">${x.off?'🚫 ':x.c.type==='ponctuel'?'★ ':''}${crLib(x.c)?`<b>${esc(crLib(x.c))}</b> · ${esc(x.g.nom)}`:`<b>${esc(x.g.nom)}</b>`} · ${esc(crHours(x.c))}${lieu?` · ${chg?'<b class="wchg" title="Lieu modifié pour cette séance">📍 '+esc(lieu)+'</b>':'📍 '+esc(lieu)}`:''}</span>${x.off?'<span class="wl2">Séance annulée</span>':co.length?`<span class="wl2">👤 ${esc(co.map(c=>c.prenom||c.nom).join(', '))}</span>`:''}</button>` };
-    return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}</div>
+    return `<div class="wrow ${d===td?'today':''} ${v?'vac':''}"><div class="wday"><b><span class="dl">${PRES_JOURS[isoDow(d)]}</span><span class="ds">${PRES_JOURS[isoDow(d)].slice(0,3)}.</span></b><span>${esc(d.slice(8,10)+'/'+d.slice(5,7))}</span>${v?`<span class="lb warn">${esc(v.nom)}</span>`:''}${(()=>{ const cp=CR.comps.filter(c=>crOnDay(c,d)); return cp.length?`<span class="wcp" title="${esc(cp.map(c=>crShort(c)+(c.date_incertaine?' (samedi ou dimanche)':'')).join('\n'))}">🏆 ${cp.map(c=>c.federation).join(' + ')}${cp.some(c=>c.date_incertaine)?' ?':''}</span>`:'' })()}</div>
       <div class="wtrack" style="--n:${nl}">${hours.map(h=>`<i class="wline" style="left:${pc(h)}"></i>`).join('')}${tl.map(blk).join('')}
         ${!list.length?`<span class="wnone">${v?'Vacances : pas d’entraînement':'—'}</span>`:''}${none.length?`<span class="wnoh">${none.map(x=>esc(x.g.nom)).join(', ')} (horaire non précisé)</span>`:''}</div></div>` };
   const lbl=iso=>new Date(iso+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   // sur petit écran, la grille défile : on amène la première séance (du jour si possible) en vue
   setTimeout(()=>{ const sc=document.querySelector('.wscroll'), el=document.querySelector('.wrow.today .wblk')||document.querySelector('.wblk');
     if(sc&&el&&window.innerWidth<=1000&&sc.scrollWidth>sc.clientWidth+4) sc.scrollLeft+=el.getBoundingClientRect().left-sc.getBoundingClientRect().left-(window.innerWidth<=700?80:110) },0);
-  return lieuxDatalist()+`<div class="card wcard"><div class="wnav"><b class="wtitle">Semaine du ${esc(lbl(mon))} au ${esc(lbl(days[6]))}</b><button type="button" class="btn" data-week="-1" title="Semaine précédente">◀</button><button type="button" class="btn" data-week="1" title="Semaine suivante">▶</button><button type="button" class="btn sm" data-week="0">Cette semaine</button>${presEdit()&&PRES.sx?'<button type="button" class="btn sm primary" data-wk-add="1">+ Ajouter une séance</button>':''}${presEdit()&&(nAnnul||UI.showAnnul)?`<label class="cbx wann"><input type="checkbox" id="wkShowAnnul" ${UI.showAnnul?'checked':''}> Afficher les séances annulées${nAnnul?` (${nAnnul})`:''}</label>`:''}${vacWeek.length?`<span class="lb warn">Vacances : ${esc(vacWeek.join(', '))}</span>`:''}</div>
+  return lieuxDatalist()+`<div class="card wcard"><div class="wnav"><b class="wtitle">Semaine du ${esc(lbl(mon))} au ${esc(lbl(days[6]))}</b><button type="button" class="btn" data-week="-1" title="Semaine précédente">◀</button><button type="button" class="btn" data-week="1" title="Semaine suivante">▶</button><button type="button" class="btn sm" data-week="0">Cette semaine</button>${presEdit()&&PRES.sx?'<button type="button" class="btn sm primary" data-wk-add="1">+ Ajouter une séance</button>':''}${presEdit()&&(nAnnul||UI.showAnnul)?`<label class="cbx wann"><input type="checkbox" id="wkShowAnnul" ${UI.showAnnul?'checked':''}> Afficher les séances annulées${nAnnul?` (${nAnnul})`:''}</label>`:''}${vacWeek.length?`<span class="lb warn">Vacances : ${esc(vacWeek.join(', '))}</span>`:''}</div>${(()=>{ const cw=CR.comps.filter(c=>days.some(d=>crOnDay(c,d))); return cw.length?`<div class="wcpb">${cw.map(c=>`<button type="button" data-comp-go="${c.id}">🏆 <b>${esc(crDateC(c))}</b> · ${esc(crShort(c))}${c.lieu?' · '+esc(c.lieu):''}</button>`).join('')}</div>`:'' })()}
     <div class="wscroll"><div class="wgrid" style="--wmin:${(span/60*92).toFixed(0)}px"><div class="wrow whead"><div class="wday"></div><div class="wtrack">${hours.map(h=>`<span class="whour" style="left:${pc(h)}">${String(h/60).padStart(2,'0')}h</span>`).join('')}</div></div>
       ${days.map((d,i)=>row(d,ses[i])).join('')}</div></div>
     <div class="wleg">${PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).map(g=>{ const [bg,fg,bd]=grpColor(g.id); return `<span class="wkey" style="background:${bg};color:${fg};border-left-color:${bd}">${esc(g.nom)}</span>` }).join('')}</div>
@@ -3726,6 +3730,20 @@ document.addEventListener('click',ev=>{
   if(d.weekGo){ const [g,iso]=d.weekGo.split('|'); popClose(); PRES.groupe=g; lsSet('fa-pres-groupe',g); PRES.date=iso; PRES.tab='pointage'; renderMain(); window.scrollTo(0,0) }
 });
 
+/* calendrier des compétitions de la saison, sous le planning de la semaine */
+function compCalHtml(){
+  if(!CR.loaded) return ''; const td=isoToday(), L=CR.comps.filter(c=>c.date_comp).sort((a,b)=>a.date_comp.localeCompare(b.date_comp)||a.federation.localeCompare(b.federation));
+  const sans=CR.comps.filter(c=>!c.date_comp); if(!L.length&&!sans.length) return '';
+  const nx=L.find(c=>addDays(c.date_comp,c.date_incertaine?1:0)>=td);
+  const row=c=>{ const past=addDays(c.date_comp,c.date_incertaine?1:0)<td;
+    return `<tr class="${past?'cpast':''} ${c===nx?'cnext':''}" data-comp-go="${c.id}"><td><b>${esc(crDateC(c))}</b>${c===nx?' <span class="lb ok">prochaine</span>':''}</td><td><span class="lb ${c.federation==='UFOLEP'?'no':'ok'}">${c.federation}</span></td><td>${esc(c.niveau||'')}</td><td>${esc(c.nom)}${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td><td>${c.federation==='FFG'?CR_FORM[crForm(c)]:'Par équipe'}</td></tr>` };
+  return `<div class="card" style="margin-top:14px"><h3>🏆 Compétitions de la saison (${CR.comps.length})</h3>
+    <div class="ltwrap"><table class="ltb ccal"><thead><tr><th>Date</th><th>Fédération</th><th>Niveau</th><th>Compétition</th><th>Formule</th></tr></thead><tbody>${L.map(row).join('')}</tbody></table></div>
+    ${sans.length?`<div class="hint" style="margin-top:6px">Sans date : ${sans.map(c=>esc(crShort(c))).join(' · ')}</div>`:''}
+    <div class="hint" style="margin-top:6px">« 13 ou 14 févr. » : le jour (samedi ou dimanche) n’est pas encore connu ; corrige-le dans Résultats quand le comité le communique. Clique sur une compétition pour l’ouvrir.</div></div>`;
+}
+document.addEventListener('click',ev=>{ const t=ev.target.closest&&ev.target.closest('[data-comp-go]'); if(!t) return; const c=CR.comps.find(x=>x.id===t.dataset.compGo); if(!c) return;
+  try{ popClose() }catch(e){} CR.sel[c.federation]=c.id; UI.view=c.federation==='UFOLEP'?'cresu':'cresf'; UI.fed=c.federation; render(); window.scrollTo(0,0) });
 function presPlanningHtml(){
   if(!PRES.groupes.length) return presNoGroup();
   const stat=gid=>{ const ds=presDates(gid); let p=0,t=0;
@@ -3889,8 +3907,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.1.4', APP_DATE='2026-11-21';
+const APP_VER='2.2', APP_DATE='2026-11-21';
 const APP_LOG=[
+  ['2.2','2026-11-21',['Calendrier des compétitions 2026-2027 intégré : 🏆 sur les jours du planning, bandeau de la semaine et tableau de la saison (clic = ouvrir la compétition)','Date « samedi ou dimanche » tant que le jour n’est pas connu (case « ou le lendemain »)','Niveau « Demi-finale » pour l’UFOLEP ; le bouton Q suit les étapes de chaque fédération']],
   ['2.1.4','2026-11-21',['Covoiturage : un parent qui conduit emmène ses enfants sans qu’il faille les placer (ils comptent dans ses places) ; une gym prise au passage par un parent qui part de chez lui est notée « 🚏 au passage »']],
   ['2.1.3','2026-11-21',['Covoiturage : un parent qui part « en famille » mais emmène d’autres gyms n’est plus classé « En famille » dans le message (départ de chez lui, avec l’heure) ; les gyms qui partent avec leur famille sans voiture du covoiturage sont sur une ligne à part']],
   ['2.1.2','2026-11-21',['Covoiturage : une voiture qui ne prend que les gyms de sa famille est notée « 🏠 en famille » dans le déplacement et dans le message WhatsApp']],
@@ -5418,7 +5437,9 @@ document.addEventListener('input',ev=>{
    classement des équipes. Statistiques par gymnaste et par catégorie. */
 const CR_MAX={FFG:8,UFOLEP:4};
 const CR_AG=[['saut','Saut'],['barres','Barres'],['poutre','Poutre'],['sol','Sol']];
-const CR_NIV=['Départemental','Interdépartemental','Régional','National','Autre'];
+const CR_NIV=['Départemental','Interdépartemental','Régional','Demi-finale','National','Autre'];
+/* niveaux de chaque fédération : FFG départemental → interdépartemental → régional → France ; UFOLEP départemental → régional → demi-finale → France */
+const crNivs=fed=>CR_NIV.filter(n=>fed==='UFOLEP'?n!=='Interdépartemental':n!=='Demi-finale');
 /* FFG : note = D + E − pénalités ; UFOLEP : note = note de départ − fautes − pénalités */
 const CR_LBL={FFG:['D','E','Pén.'],UFOLEP:['Départ','Fautes','Pén.']};
 let CR={club:null,loaded:false,loading:false,ok:null,err:'',comps:[],res:[],eqs:[],tab:{FFG:'comp',UFOLEP:'comp'},sel:{FFG:null,UFOLEP:null},gsel:{FFG:null,UFOLEP:null}};
@@ -5432,8 +5453,8 @@ const crNote=(fed,x)=>{ if(!x) return null; const d=crNum(x.d), e=crNum(x.e), p=
 const crTotal=(fed,r)=>{ const v=CR_AG.map(([a])=>crNote(fed,(r.notes||{})[a])).filter(x=>x!=null); return v.length?Math.round(v.reduce((a,b)=>a+b,0)*1000)/1000:null };
 const CR_FORM={indiv:'Individuel',equipe:'Par équipe'};
 /* qualification pour l'étape suivante (bouton Q) */
-const crNext=n=>{ const i=CR_NIV.indexOf(n); return i>=0&&i<CR_NIV.indexOf('National')?CR_NIV[i+1]:null };
-const crQTitle=(c,on)=>{ const nx=crNext(c&&c.niveau); return (on?'Qualifié(e)':'Qualifier')+(nx?` pour le niveau ${nx}`:' pour l’étape suivante') };
+const crNext=(n,fed)=>{ const L=crNivs(fed||'FFG'), i=L.indexOf(n); return i>=0&&i<L.indexOf('National')?L[i+1]:null };
+const crQTitle=(c,on)=>{ const nx=crNext(c&&c.niveau,c&&c.federation); return (on?'Qualifié(e)':'Qualifier')+(nx?` pour le niveau ${nx}`:' pour l’étape suivante') };
 const crQBadge=on=>on?' <span class="lb ok crqb" title="Qualifié(e) pour l’étape suivante">Q</span>':'';
 /* formule de la compétition : en FFG individuel ou par équipe (l'UFOLEP n'a que des équipes) */
 const crForm=c=>!c||c.federation!=='FFG'?'equipe':c.formule==='indiv'||c.formule==='equipe'?c.formule:(/indiv/i.test(c.nom||'')?'indiv':'equipe');
@@ -5443,10 +5464,15 @@ const crResOf=cid=>CR.res.filter(r=>r.competition_id===cid);
 const crGymComps=(fed,gid)=>crComps(fed).filter(c=>CR.res.some(r=>r.competition_id===c.id&&r.licencie_id===gid));
 const crRk=n=>n===1?'1<sup>re</sup>':n+'<sup>e</sup>';
 const crDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'date ?';
+/* date d'une compétition : « 13 ou 14 févr. » quand le jour n'est pas encore connu */
+const crDateC=c=>{ if(!c||!c.date_comp) return 'date ?'; if(!c.date_incertaine) return crDate(c.date_comp); const n=addDays(c.date_comp,1);
+  return n.slice(5,7)===c.date_comp.slice(5,7)?`${+c.date_comp.slice(8,10)} ou ${crDate(n)}`:`${crDate(c.date_comp)} ou ${crDate(n)}` };
+const crOnDay=(c,d)=>c.date_comp===d||(c.date_incertaine&&c.date_comp&&addDays(c.date_comp,1)===d);
+const crShort=c=>`${c.federation} · ${c.niveau||''} · ${c.nom}`;
 function crEnsure(){
   if(!CLUB) return false;
   if(CR.club!==CLUB.id) CR={...CR,club:CLUB.id,loaded:false,loading:false,ok:null,comps:[],res:[],eqs:[],sel:{FFG:null,UFOLEP:null}};
-  if(!CR.loaded&&!CR.loading) crLoad().then(()=>{ if(['cresf','cresu'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input,select,textarea'))) renderMain() });
+  if(!CR.loaded&&!CR.loading) crLoad().then(()=>{ if(['cresf','cresu','pres'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input,select,textarea'))) renderMain() });
   return CR.loaded;
 }
 async function crLoad(){
@@ -5499,11 +5525,11 @@ function renderCRes(){
 function crListHtml(fed){
   const cs=crComps(fed), ed=crEdit();
   const rows=cs.map(c=>{ const rs=crResOf(c.id), best=rs.filter(r=>r.rang).sort((a,b)=>a.rang-b.rang)[0], eq=CR.eqs.filter(q=>q.competition_id===c.id&&q.rang);
-    return `<tr class="crrow" data-cr-open="${c.id}"><td>${crDate(c.date_comp)}</td><td><b>${esc(c.nom)}</b>${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td>${fed==='FFG'?`<td>${CR_FORM[crForm(c)]}</td>`:''}<td>${esc(c.niveau||'')}</td><td>${rs.length}</td>
+    return `<tr class="crrow" data-cr-open="${c.id}"><td>${crDateC(c)}</td><td><b>${esc(c.nom)}</b>${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td>${fed==='FFG'?`<td>${CR_FORM[crForm(c)]}</td>`:''}<td>${esc(c.niveau||'')}</td><td>${rs.length}</td>
       <td>${best?`${crRk(best.rang)} ${esc(gymName(S.gyms.find(g=>g.id===best.licencie_id)||{}))}`:'—'}</td><td>${(()=>{ const nq=rs.filter(r=>r.qualifie).length, eq2=CR.eqs.filter(q=>q.competition_id===c.id&&q.qualifie&&crForm(c)!=='indiv').length; return nq||eq2?[nq?`${nq} gym${nq>1?'s':''}`:'',eq2?`${eq2} équipe${eq2>1?'s':''}`:''].filter(Boolean).join(' · '):'—' })()}</td><td>${crForm(c)==='indiv'?'—':eq.map(q=>`${esc(q.nom)} : ${crRk(q.rang)}${q.nb_classes?'/'+q.nb_classes:''}`).join('<br>')||'—'}</td></tr>` }).join('');
   return `<div class="card"><h3>Compétitions ${fed} de la saison (${cs.length})</h3>${cs.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Date</th><th>Compétition</th>${fed==='FFG'?'<th>Formule</th>':''}<th>Niveau</th><th>Gymnastes</th><th>Meilleur classement</th><th>Qualifiés (Q)</th><th>Équipes</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucune compétition saisie pour l’instant.</div>'}
     ${ed?`<form id="fCr" class="lfoot" style="margin-top:12px;flex-wrap:wrap"><input name="nom" placeholder="Nom de la compétition" required style="flex:2 1 220px"><input name="date" type="date" aria-label="Date"><input name="lieu" placeholder="Lieu" style="flex:1 1 140px">
-      ${fed==='FFG'?`<select name="formule" aria-label="Formule"><option value="indiv">Individuel</option><option value="equipe">Par équipe</option></select>`:''}<select name="niveau" aria-label="Niveau">${CR_NIV.map(n=>`<option>${n}</option>`).join('')}</select><button class="btn primary">+ Nouvelle compétition</button></form>`:''}</div>`;
+      ${fed==='FFG'?`<select name="formule" aria-label="Formule"><option value="indiv">Individuel</option><option value="equipe">Par équipe</option></select>`:''}<select name="niveau" aria-label="Niveau">${crNivs(fed).map(n=>`<option>${n}</option>`).join('')}</select><label class="cbx" title="La feuille du comité donne seulement le week-end"><input type="checkbox" name="inc"> samedi ou dimanche</label><button class="btn primary">+ Nouvelle compétition</button></form>`:''}</div>`;
 }
 /* compétition individuelle : catégorie recalculée selon l'année d'âge, aucune équipe */
 const CR_SYNC=new Set();
@@ -5542,10 +5568,10 @@ function crCompHtml(fed,cid){
   const asel=ind&&INDIV_CATS.includes(CR.agesel)?CR.agesel:'', gymShown=asel?gymList.filter(g=>indivCat(ageOf(g))===asel):gymList;
   const ageList=ind?INDIV_CATS.map(l=>[l,S.gyms.filter(g=>!already.has(g.id)&&g.compet!=='aucune'&&indivCat(ageOf(g))===l).length]):[];
   return `<div class="card"><div class="crbar"><button class="btn sm" data-cr-back="1">← Toutes les compétitions</button><div style="flex:1"></div>${ed?'<button class="btn sm" data-cr-del="1">Supprimer la compétition</button>':''}</div>
-    <div class="lgrid" style="margin-top:10px"><label>Nom<input data-cr-c="nom" value="${esc(c.nom)}" ${dis}></label><label>Date<input type="date" data-cr-c="date_comp" value="${c.date_comp||''}" ${dis}></label>
-      <label>Lieu<input data-cr-c="lieu" value="${esc(c.lieu||'')}" ${dis}></label>${fed==='FFG'?`<label>Formule<select data-cr-form="1" ${dis}>${Object.entries(CR_FORM).map(([k,l])=>`<option value="${k}" ${form===k?'selected':''}>${l}</option>`).join('')}</select></label>`:''}<label>Niveau<select data-cr-c="niveau" ${dis}>${(c.niveau&&!CR_NIV.includes(c.niveau)?[c.niveau,...CR_NIV]:CR_NIV).map(n=>`<option ${c.niveau===n?'selected':''}>${n}</option>`).join('')}</select></label></div></div>
+    <div class="lgrid" style="margin-top:10px"><label>Nom<input data-cr-c="nom" value="${esc(c.nom)}" ${dis}></label><label>Date<input type="date" data-cr-c="date_comp" value="${c.date_comp||''}" ${dis}><span class="cbx" style="margin-top:4px"><input type="checkbox" data-cr-inc="1" ${c.date_incertaine?'checked':''} ${dis}> ou le lendemain (jour à confirmer)</span></label>
+      <label>Lieu<input data-cr-c="lieu" value="${esc(c.lieu||'')}" ${dis}></label>${fed==='FFG'?`<label>Formule<select data-cr-form="1" ${dis}>${Object.entries(CR_FORM).map(([k,l])=>`<option value="${k}" ${form===k?'selected':''}>${l}</option>`).join('')}</select></label>`:''}<label>Niveau<select data-cr-c="niveau" ${dis}>${(c.niveau&&!crNivs(fed).includes(c.niveau)?[c.niveau,...crNivs(fed)]:crNivs(fed)).map(n=>`<option ${c.niveau===n?'selected':''}>${n}</option>`).join('')}</select></label></div></div>
     <div class="card"><h3>${ind?'Résultats individuels':'Gymnastes engagées'} (${rs.length})</h3>
-      <div class="hint" style="margin:-4px 0 8px">Bouton <b>Q</b> : gymnaste${ind?'':' ou équipe'} qualifié(e) pour l’étape suivante${crNext(c.niveau)?` (${esc(crNext(c.niveau))})`:''}.</div>
+      <div class="hint" style="margin:-4px 0 8px">Bouton <b>Q</b> : gymnaste${ind?'':' ou équipe'} qualifié(e) pour l’étape suivante${crNext(c.niveau,c.federation)?` (${esc(crNext(c.niveau,c.federation))})`:''}.</div>
       ${ind?`<div class="hint" style="margin:-4px 0 8px">Compétition individuelle : chaque gymnaste concourt dans la catégorie de son année d’âge (âge atteint en ${SY}) : ${INDIV_CATS.join(', ')}.</div>`:''}
       <div class="hint" style="margin:-4px 0 8px">${fed==='FFG'?'Note = D + E − pénalités.':'Note = note de départ − fautes − pénalités.'} La note se calcule dès que ${L[1]} est saisi. Si tu n’as que la note finale, laisse ${L[1]} vide et saisis-la dans la dernière case.</div>
       ${ed?`<div class="lfoot" style="flex-wrap:wrap;margin-bottom:8px">${ind?`<select id="crAge" aria-label="Catégorie d’âge"><option value="">— Toutes les catégories d’âge —</option>${ageList.map(([l,n])=>`<option value="${esc(l)}" ${asel===l?'selected':''}>Fédéral A ${esc(l)} (${n} gymnaste${n>1?'s':''})</option>`).join('')}</select><button class="btn sm" data-cr-addage="1" ${asel?'':'disabled'} title="Ajouter toutes les gymnastes de cette catégorie">+ Toute la catégorie</button>`
@@ -5601,7 +5627,7 @@ function crCatHtml(fed){
     const pod=gyms.map(g=>[g,rr.filter(r=>r.licencie_id===g.id&&r.rang&&r.rang<=3).length]).filter(x=>x[1]);
     const teams=fm==='indiv'?[]:CR.eqs.filter(q=>q.categorie===cat&&cc.some(c=>c.id===q.competition_id));
     return `<div class="card"><h3>${fed==='FFG'?`<span class="lb ${fm==='indiv'?'ok':'no'}">${CR_FORM[fm]}</span> `:''}${esc(cat)} <span class="hint">· ${gyms.length} gymnaste(s), ${cc.length} compétition(s)</span></h3>
-      <div class="ltwrap"><table class="ltb"><thead><tr><th>Gymnaste</th>${cc.map(c=>`<th>${esc(c.nom)}<div class="hint">${crDate(c.date_comp)}</div></th>`).join('')}<th>Moyenne</th><th>Meilleur rang</th></tr></thead>
+      <div class="ltwrap"><table class="ltb"><thead><tr><th>Gymnaste</th>${cc.map(c=>`<th>${esc(c.nom)}<div class="hint">${crDateC(c)}</div></th>`).join('')}<th>Moyenne</th><th>Meilleur rang</th></tr></thead>
         <tbody>${gyms.map(g=>{ const mine=rr.filter(r=>r.licencie_id===g.id), rk=mine.map(r=>r.rang).filter(Boolean); return `<tr><td><b>${esc(g.nom||'')}</b> ${esc(g.prenom||'')}</td>${cc.map(c=>cell(c,g)).join('')}<td><b>${crF(crAvg(mine.map(r=>crTotal(fed,r))))}</b></td><td>${rk.length?crRk(Math.min(...rk)):'—'}</td></tr>` }).join('')}</tbody></table></div>
       <div class="crks" style="margin-top:10px">${avgAg.map(([l,v])=>`<div class="crk"><div class="hint">${l} (moyenne)</div><b>${crF(v)}</b></div>`).join('')}</div>
       ${pod.length?`<div class="hint" style="margin-top:6px">Podiums : ${pod.map(([g,n])=>`${esc(gymName(g))} ×${n}`).join(', ')}</div>`:''}
@@ -5610,7 +5636,7 @@ function crCatHtml(fed){
 
 /* ---------- actions ---------- */
 /* Q : recopie dans la compétition suivante (même fédération et formule, niveau au-dessus) */
-function crNextComp(c){ const nx=crNext(c.niveau); if(!nx) return {nx:null,c:null};
+function crNextComp(c){ const nx=crNext(c.niveau,c.federation); if(!nx) return {nx:null,c:null};
   const l=CR.comps.filter(x=>x.id!==c.id&&x.federation===c.federation&&crForm(x)===crForm(c)&&x.niveau===nx).sort((a,b)=>(a.date_comp||'9').localeCompare(b.date_comp||'9'));
   return {nx,c:l.find(x=>!c.date_comp||!x.date_comp||x.date_comp>=c.date_comp)||l[0]||null} }
 async function crQualifyCopy(fed,cid,gids,on){
@@ -5622,7 +5648,7 @@ async function crQualifyCopy(fed,cid,gids,on){
       catch(e){ toast('Erreur : '+e.message); return } }
     const add=gids.filter(id=>!CR.res.some(r=>r.competition_id===n.id&&r.licencie_id===id));
     if(add.length) await crAddGyms(fed,n.id,add,true);
-    toast(add.length?`${add.length>1?add.length+' gymnastes recopiées':'Gymnaste recopiée'} dans « ${n.nom} »${n.date_comp?' ('+crDate(n.date_comp)+')':''}`:`Déjà présente${gids.length>1?'s':''} dans « ${n.nom} »`);
+    toast(add.length?`${add.length>1?add.length+' gymnastes recopiées':'Gymnaste recopiée'} dans « ${n.nom} »${n.date_comp?' ('+crDateC(n)+')':''}`:`Déjà présente${gids.length>1?'s':''} dans « ${n.nom} »`);
   } else if(n){
     /* on retire de la compétition suivante seulement si rien n'y a encore été saisi */
     /* encore qualifiée ici, elle-même ou par son équipe : on la laisse */
@@ -5643,7 +5669,7 @@ async function crAddGyms(fed,cid,ids,quiet){
 }
 document.addEventListener('submit',async ev=>{
   if(ev.target.id!=='fCr') return; ev.preventDefault(); const f=ev.target.elements, fed=crFed();
-  try{ const r=chk(await sb.from('competitions').insert({club_id:CLUB.id,saison:SAISON,federation:fed,nom:f.nom.value.trim(),date_comp:f.date.value||null,lieu:f.lieu.value.trim()||null,niveau:f.niveau.value,...(fed==='FFG'&&f.formule?{formule:f.formule.value}:{})}).select('*'));
+  try{ const r=chk(await sb.from('competitions').insert({club_id:CLUB.id,saison:SAISON,federation:fed,nom:f.nom.value.trim(),date_comp:f.date.value||null,lieu:f.lieu.value.trim()||null,niveau:f.niveau.value,...(f.inc&&f.inc.checked?{date_incertaine:true}:{}),...(fed==='FFG'&&f.formule?{formule:f.formule.value}:{})}).select('*'));
     CR.comps.push(r.data[0]); CR.sel[fed]=r.data[0].id; toast('Compétition créée'); renderMain() }catch(e){ toast('Erreur : '+e.message) }
 });
 document.addEventListener('click',async ev=>{
@@ -5690,6 +5716,7 @@ document.addEventListener('change',async ev=>{
     try{ chk(await sb.from('competitions').update({formule:v}).eq('id',cid)); c.formule=v }
     catch(e){ toast(/formule/.test(e.message)?'Lance d’abord migration-formule.sql dans Supabase':'Erreur : '+e.message); t.value=crForm(c); return }
     rs.forEach(r=>{ const cc=crCatOf(fed,r.licencie_id,v); r.categorie=cc.categorie; r.equipe=cc.equipe; crSaveRes(r) }); renderMain(); return }
+  if(d.crInc){ const c=CR.comps.find(x=>x.id===cid); try{ chk(await sb.from('competitions').update({date_incertaine:t.checked}).eq('id',cid)); c.date_incertaine=t.checked }catch(e){ toast(/date_incertaine/.test(e.message)?'Lance d’abord migration-dates-competitions.sql dans Supabase':'Erreur : '+e.message); t.checked=!t.checked } return }
   if(d.crC){ const c=CR.comps.find(x=>x.id===cid), v=t.value.trim()||null; if(d.crC==='nom'&&!v) return; try{ chk(await sb.from('competitions').update({[d.crC]:v}).eq('id',cid)); c[d.crC]=v }catch(e){ toast('Erreur : '+e.message) } return }
   if(d.crN){ const [gid,a,f]=d.crN.split('|'), r=CR.res.find(x=>x.competition_id===cid&&x.licencie_id===gid); if(!r) return;
     const v=crNum(t.value); if(t.value.trim()&&v==null){ toast('Nombre invalide'); return }
