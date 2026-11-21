@@ -3304,7 +3304,7 @@ function cvDetailHtml(so){
       const pl=cvCarPlace(d,so); return `<option value="${d.conducteur_id}" ${mine?'selected':''} ${!mine&&l<=0?'disabled':''}>🚗 ${esc(d.c.nom)}${pl&&cvCfg().lieux.length>1?' · '+esc(cvShortPlace(pl)):''}${mine?'':l>0?` (${l} pl.)`:' (complet)'}</option>` }).join('');
     return `<select data-cv-seat="${g.id}|${k}" class="${cur||st.fam(g)?'':'cvneed'}" aria-label="${k==='aller'?'Aller':'Retour'} de ${esc(gymName(g))}"><option value="">${st.fam(g)?'🏠 En famille (sans covoiturage)':'⚠ À placer'}</option>${self?`<option value="${self.conducteur_id}" ${cur&&cur.conducteur_id===self.conducteur_id?'selected':''}>🔑 Conduit sa voiture</option>`:''}${opts}</select>${cur&&!cvSelf(cur.c,g)&&!cvSamePlace(g,cur,so)?'<div class="hint cvwp">⚠ autre lieu de départ</div>':''}` };
   const carHtml=(d,k)=>{ const rs=st.riders(d.conducteur_id,k), drv=st.oui.find(g=>cvSelf(d.c,g)&&st.car(g,k)&&st.car(g,k).conducteur_id===d.conducteur_id);
-    return `<div class="cvcar"><div class="cvh"><div><b>🚗 ${esc(d.c.nom)}</b>${cvFamCar(d.c,rs)?' <span class="lb ok" title="La voiture ne prend que les gyms de la famille">🏠 en famille</span>':''} <span class="hint">${rs.length}/${st.cap(d)} place(s)${k==='retour'&&cvCarPlace(d,so)?' · 📍 '+esc(cvShortPlace(cvCarPlace(d,so))):''}${d.c.telephone?' · '+esc(d.c.telephone):''}</span></div>
+    return `<div class="cvcar"><div class="cvh"><div><b>🚗 ${esc(d.c.nom)}</b>${cvFamCar(d.c,rs)?' <span class="lb ok" title="La voiture ne prend que les gyms de la famille">🏠 en famille</span>':rs.length&&cvFamPlace(cvCarPlace(d,so))?' <span class="lb warn" title="Ce conducteur part « en famille » mais prend aussi d’autres gyms : vérifie le lieu de départ">⚠ prend d’autres gyms</span>':''} <span class="hint">${rs.length}/${st.cap(d)} place(s)${k==='retour'&&cvCarPlace(d,so)?' · 📍 '+esc(cvShortPlace(cvCarPlace(d,so))):''}${d.c.telephone?' · '+esc(d.c.telephone):''}</span></div>
         ${k==='aller'?`<div class="cvrdv"><input data-cv-dp="${d.conducteur_id}|rdv_heure" type="time" value="${esc(hhmm(d.rdv_heure))}" aria-label="Heure de départ de ${esc(d.c.nom)}" title="Heure de départ (vide = heure commune)">${cvPlaceField(`data-cv-dp="${d.conducteur_id}|rdv_lieu" aria-label="Lieu de départ de ${esc(d.c.nom)}"`,d.rdv_lieu||d.c.depart_lieu||'',so.rdv_lieu||'lieu de départ')}</div>`:''}</div>
       <div class="cvseats">${rs.map(g=>esc(gymName(g))).join(', ')||(drv?'':'<span class="hint">personne</span>')}${drv&&d.c.type==='gym'?'<span class="hint"> (conduit)</span>':''}</div></div>` };
   const al=k=>{ const n=st.need(k); return n.length?`<div class="warn">⚠ ${n.length} gym(s) sans place ${k==='aller'?'à l’aller':'au retour'} : ${n.map(g=>esc(gymName(g))).join(', ')} · ${st.dispo.filter(d=>d[k]).reduce((s,d)=>s+Math.max(0,st.left(d,k)),0)} place(s) libre(s)</div>`:'' };
@@ -3414,19 +3414,20 @@ function cvAnnonce(so){
   const cars=st.dispo.map(d=>{ const ra=st.riders(d.conducteur_id,'aller'), rr=st.riders(d.conducteur_id,'retour');
       const self=st.oui.find(g=>cvSelf(d.c,g)&&['aller','retour'].some(k=>{ const x=st.car(g,k); return x&&x.conducteur_id===d.conducteur_id }));
       const fam=cvFamCar(d.c,[...ra,...rr]);
-      return {d,ra,rr,self,fam,pl:fam?'En famille':cvCarPlace(d,so)} }).filter(x=>x.ra.length||x.rr.length||x.self);
+      const p0=cvCarPlace(d,so);
+      return {d,ra,rr,self,fam,pl:fam?'En famille':cvFamPlace(p0)?'chez '+who(d.c):p0} }).filter(x=>x.ra.length||x.rr.length||x.self);
   const rank=pl=>{ if(!pl) return 98; if(cvFamPlace(pl)) return 99; const i=cfg.lieux.findIndex(l=>norm(l)===norm(pl)); return i<0?97:i };
   cars.sort((a,b)=>rank(a.pl)-rank(b.pl)||norm(a.pl).localeCompare(norm(b.pl))||String(hhmm(a.d.rdv_heure)||hhmm(so.rdv_heure)||'').localeCompare(String(hhmm(b.d.rdv_heure)||hhmm(so.rdv_heure)||''))||(a.d.c.type==='entraineur'?0:1)-(b.d.c.type==='entraineur'?0:1)||who(a.d.c).localeCompare(who(b.d.c),'fr'));
   const seule=az(st.seule('aller').concat(st.seule('retour').filter(g=>!st.seule('aller').includes(g))));
   let cur=null;
-  const head=pl=>{ const h=cvFamPlace(pl)?'🏠 *En famille*':pl?`📍 *Départ de ${pl}*`:'📍 *Lieu de départ non précisé*'; if(h!==cur){ cur=h; L.push('',h); return true } return false };
-  cars.forEach(({d,ra,rr,self,pl})=>{ if(!head(pl)) L.push('');
+  const head=pl=>{ const h=cvFamPlace(pl)&&!/^chez /.test(pl)?'🏠 *En famille*':pl?`📍 *Départ de ${pl}*`:'📍 *Lieu de départ non précisé*'; if(h!==cur){ cur=h; L.push('',h); return true } return false };
+  cars.forEach(({d,ra,rr,self,fam,pl})=>{ if(!head(pl)) L.push('');
     const all=az([...new Set([...ra,...rr])]), t=H(d.rdv_heure)||H(so.rdv_heure);
     const va=ra.length||(self&&st.car(self,'aller')), vr=rr.length||(self&&st.car(self,'retour')), deux=va&&vr;
     const names=all.map(g=>nm(g)+(!deux?'':ra.includes(g)&&!rr.includes(g)?' (à l’aller)':!ra.includes(g)&&rr.includes(g)?' (au retour)':''));
-    const quand=cvFamPlace(pl)?'':!va?'':t?t+' ':'', sens=deux?'':va?' (aller seulement)':' (retour seulement)';
+    const quand=fam?'':!va?'':t?t+' ':'', sens=deux?'':va?' (aller seulement)':' (retour seulement)';
     L.push(`- ${quand}avec ${who(d.c)}${sens} :`, names.join(' + ')||(self?'seule':'—')) });
-  if(seule.length){ head('En famille'); L.push(seule.map(nm).join(' + ')) }
+  if(seule.length){ if(!head('En famille')) L.push(''); L.push(`- avec leur famille :`, seule.map(nm).join(' + ')) }
   const na=st.need('aller'), nr=st.need('retour');
   if(na.length||nr.length) L.push('');
   if(na.length) L.push(`⚠ Sans place à l’aller : ${az(na).map(nm).join(', ')}`);
@@ -3885,8 +3886,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.1.2', APP_DATE='2026-11-21';
+const APP_VER='2.1.3', APP_DATE='2026-11-21';
 const APP_LOG=[
+  ['2.1.3','2026-11-21',['Covoiturage : un parent qui part « en famille » mais emmène d’autres gyms n’est plus classé « En famille » dans le message (départ de chez lui, avec l’heure) ; les gyms qui partent avec leur famille sans voiture du covoiturage sont sur une ligne à part']],
   ['2.1.2','2026-11-21',['Covoiturage : une voiture qui ne prend que les gyms de sa famille est notée « 🏠 en famille » dans le déplacement et dans le message WhatsApp']],
   ['2.1.1','2026-11-21',['Covoiturage : une gym peut être retirée de la liste selon le lieu de l’entraînement (ex. pas de covoiturage quand c’est à Chauny) — réglage dans Conducteurs › Réglages']],
   ['2.1','2026-11-21',['Musiques de sol : le nom d’origine du fichier n’est plus affiché','3 versions au plus par gym et par fédération : les plus anciennes sont supprimées après confirmation','Sur ordinateur, bouton 🎼 « Titres et compositeurs » : titre original et compositeur lus dans le fichier, ou saisis à la main, et page 📝 Déclaration (tableur ou PDF) pour les fédérations']],
