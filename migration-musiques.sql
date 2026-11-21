@@ -83,3 +83,9 @@ do $$ begin
       check (federation is null or federation in ('FFG', 'UFOLEP', 'FFG+UFOLEP'));
   end if;
 end $$;
+
+-- déclaration des musiques aux fédérations : titre original, compositeur, interprète
+alter table public.musiques_licencie add column if not exists titre       text check (titre is null or char_length(titre) <= 200);
+alter table public.musiques_licencie add column if not exists compositeur text check (compositeur is null or char_length(compositeur) <= 200);
+alter table public.musiques_licencie add column if not exists interprete  text check (interprete is null or char_length(interprete) <= 200);
+alter table public.musiques_licencie add column if not exists infos_source text check (infos_source is null or infos_source in ('fichier', 'nom', 'manuel'));
