@@ -3430,7 +3430,7 @@ function cvAnnonce(so){
   const gT={}; cars.forEach(x=>{ if(x.fam||!vaOf(x)) return; (gT[x.pl]=gT[x.pl]||new Set()).add(tOf(x)) });
   const tHead=pl=>{ const S=gT[pl]; return S&&S.size===1?[...S][0]:'' };
   let cur=null;
-  const head=pl=>{ const h=cvFamPlace(pl)&&!/^chez /.test(pl)?'🏠 *En famille*':(pl?`📍 *Départ de ${pl}*`:'📍 *Lieu de départ non précisé*')+(tHead(pl)?' '+tHead(pl):''); if(h!==cur){ cur=h; L.push('',h); return true } return false };
+  const head=pl=>{ const h=cvFamPlace(pl)&&!/^chez /.test(pl)?'🏠 *En famille*':(pl?`📍 *Départ de ${pl}*`:'📍 *Lieu de départ non précisé*')+(tHead(pl)?' à '+tHead(pl):''); if(h!==cur){ cur=h; L.push('',h); return true } return false };
   cars.forEach(({d,ra,rr,self,fam,pl})=>{ if(!head(pl)) L.push('');
     const all=az([...new Set([...ra,...rr])]), t=H(d.rdv_heure)||H(so.rdv_heure);
     const va=ra.length||(self&&st.car(self,'aller')), vr=rr.length||(self&&st.car(self,'retour')), deux=va&&vr;
@@ -3911,8 +3911,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.2.1', APP_DATE='2026-11-22';
+const APP_VER='2.2.2', APP_DATE='2026-11-22';
 const APP_LOG=[
+  ['2.2.2','2026-11-22',['Message du covoiturage : « 📍 Départ de Laon (Semilly) à 17h15 »']],
   ['2.2.1','2026-11-22',['Message du covoiturage : l’heure de départ est en bout de ligne du lieu (« 📍 Départ de Laon (Semilly) 17h15 ») quand toutes ses voitures partent à la même heure']],
   ['2.2','2026-11-21',['Calendrier des compétitions 2026-2027 intégré : 🏆 sur les jours du planning, bandeau de la semaine et tableau de la saison (clic = ouvrir la compétition)','Date « samedi ou dimanche » tant que le jour n’est pas connu (case « ou le lendemain »)','Niveau « Demi-finale » pour l’UFOLEP ; le bouton Q suit les étapes de chaque fédération']],
   ['2.1.4','2026-11-21',['Covoiturage : un parent qui conduit emmène ses enfants sans qu’il faille les placer (ils comptent dans ses places) ; une gym prise au passage par un parent qui part de chez lui est notée « 🚏 au passage »']],
