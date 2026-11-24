@@ -764,7 +764,7 @@ details.crdates{display:block}details.crdates .dckbox{display:flex;flex-wrap:wra
 .nvsubi{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:5px 8px;font:inherit;font-size:13.5px;color:inherit;cursor:pointer}
 .nvsubi:hover{background:#f2f4f6}.nvsubi.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}.nvsubn{color:var(--muted);font-size:12px}
 .crtb td,.crtb th{vertical-align:top}.crag{white-space:nowrap}.crag .crin{margin:0 2px 0 0;padding:4px 5px;font-size:13px}.crnn{display:inline-block;min-width:54px;text-align:right;padding-left:4px}
-.crtot{white-space:nowrap}.crtb td:nth-last-child(2){white-space:nowrap}.crbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crag .crin{width:50px}.crg{min-width:150px}.crrow{cursor:pointer}.crrow:hover{background:#f6f8fa}
+.crtot{white-space:nowrap}.crtb td:nth-last-child(2){white-space:nowrap}.crbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crdocs{display:flex;flex-direction:column;gap:6px}.crdoc{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crag .crin{width:50px}.crg{min-width:150px}.crrow{cursor:pointer}.crrow:hover{background:#f6f8fa}
 .crks{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.crk{border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:120px;background:#fafbfc}.crk b{font-size:20px}
 .crsvg{width:100%;max-width:640px;height:auto;display:block;margin:6px 0 10px}.crsl{font-size:12px;font-weight:700;fill:var(--accent-ink)}.crsx{font-size:11px;fill:#7c8792}
 .barb{display:block;width:100%;text-align:left;background:transparent;border:0;padding:4px 6px;margin:0 -6px;border-radius:8px;cursor:pointer;font:inherit;color:inherit}
@@ -5449,7 +5449,7 @@ const CR_NIV=['Départemental','Interdépartemental','Régional','Demi-finale','
 const crNivs=fed=>CR_NIV.filter(n=>fed==='UFOLEP'?n!=='Interdépartemental':n!=='Demi-finale');
 /* FFG : note = D + E − pénalités ; UFOLEP : note = note de départ − fautes − pénalités */
 const CR_LBL={FFG:['D','E','Pén.'],UFOLEP:['Départ','Fautes','Pén.']};
-let CR={club:null,loaded:false,loading:false,ok:null,err:'',comps:[],res:[],eqs:[],tab:{FFG:'comp',UFOLEP:'comp'},sel:{FFG:null,UFOLEP:null},gsel:{FFG:null,UFOLEP:null}};
+let CR={club:null,loaded:false,loading:false,ok:null,err:'',comps:[],res:[],eqs:[],docs:[],docsErr:'',tab:{FFG:'comp',UFOLEP:'comp'},sel:{FFG:null,UFOLEP:null},gsel:{FFG:null,UFOLEP:null}};
 const crFed=()=>UI.view==='cresu'?'UFOLEP':'FFG';
 const crEdit=()=>(ROLE==='admin'||ROLE==='entraineur')&&CR.ok&&!OFFLINE;
 const crNum=v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(',','.')); return Number.isFinite(n)?n:null };
@@ -5478,7 +5478,7 @@ const crOnDay=(c,d)=>c.date_comp===d||(c.date_incertaine&&c.date_comp&&addDays(c
 const crShort=c=>`${c.federation} · ${c.niveau||''} · ${c.nom}`;
 function crEnsure(){
   if(!CLUB) return false;
-  if(CR.club!==CLUB.id) CR={...CR,club:CLUB.id,loaded:false,loading:false,ok:null,comps:[],res:[],eqs:[],sel:{FFG:null,UFOLEP:null}};
+  if(CR.club!==CLUB.id) CR={...CR,club:CLUB.id,loaded:false,loading:false,ok:null,comps:[],res:[],eqs:[],docs:[],docsErr:'',sel:{FFG:null,UFOLEP:null}};
   if(!CR.loaded&&!CR.loading) crLoad().then(()=>{ if(['cresf','cresu','pres'].includes(UI.view)&&!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('input,select,textarea'))) renderMain() });
   return CR.loaded;
 }
@@ -5491,6 +5491,9 @@ async function crLoad(){
     else{ CR.ok=true; CR.comps=a.data; const ids=new Set(a.data.map(x=>x.id)); CR.res=b.data.filter(r=>ids.has(r.competition_id)); CR.eqs=c.data.filter(r=>ids.has(r.competition_id));
       lsSet('fa-comp-'+CLUB.id,{comps:CR.comps,res:CR.res,eqs:CR.eqs}) }
   }catch(e){ const k=lsGet('fa-comp-'+CLUB.id); if(k){ CR.comps=k.comps||[]; CR.res=k.res||[]; CR.eqs=k.eqs||[]; CR.ok=true } else { CR.ok=false; CR.err=e.message } }
+  try{ const d=await withTimeout(sb.from('competition_documents').select('id,competition_id,nom,mime,taille,created_at').eq('club_id',CLUB.id).order('created_at'),15000);
+    if(d.error){ CR.docsErr=d.error.message; CR.docs=(lsGet('fa-cdocs-'+CLUB.id)||[]) } else { CR.docsErr=''; CR.docs=d.data; lsSet('fa-cdocs-'+CLUB.id,d.data) } }
+  catch(e){ CR.docs=lsGet('fa-cdocs-'+CLUB.id)||[] }
   CR.loaded=true; CR.loading=false;
 }
 /* catégorie et équipe d'une gymnaste au moment de l'engager dans une compétition */
@@ -5517,6 +5520,48 @@ function crSaveRes(r){
 const crCompFed=cid=>(CR.comps.find(c=>c.id===cid)||{}).federation||'FFG';
 async function crSaveEq(q){ try{ chk(await sb.from('competition_equipes').upsert({...q,qualifie:!!q.qualifie,club_id:CLUB.id,updated_at:new Date().toISOString()},{onConflict:'competition_id,equipe_ref'})) }catch(e){ toast(/qualifie/.test(e.message)?'Lance d’abord migration-qualif.sql dans Supabase':'Erreur : '+e.message) } }
 
+/* ---------- documents d'une compétition (organigramme, convocation…) ---------- */
+const CRD_MAX=5*1024*1024, CRD_CACHE={};
+const crDocsOf=cid=>(CR.docs||[]).filter(x=>x.competition_id===cid);
+const crKo=n=>n>=1048576?(Math.round(n/104857.6)/10).toLocaleString('fr-FR')+' Mo':Math.max(1,Math.round(n/1024))+' ko';
+function crDocsHtml(cid,ed){
+  const ds=crDocsOf(cid), miss=CR.docsErr&&/competition_documents/.test(CR.docsErr);
+  return `<div class="card"><h3>📄 Documents (${ds.length})</h3>
+    ${miss?`<div class="warn">Pour joindre des documents, lance le script <b>migration-documents-competitions.sql</b> dans Supabase (SQL Editor), puis « Actualiser ».</div>`:''}
+    ${ds.length?`<div class="crdocs">${ds.map(x=>`<div class="crdoc"><button class="btn sm" data-crd-open="${x.id}" title="Ouvrir">${x.mime==='application/pdf'?'📄':'🖼️'} ${esc(x.nom)}</button><span class="hint">${crKo(x.taille)}</span>${ed?`<button class="btn sm ghost" data-crd-del="${x.id}" aria-label="Supprimer ${esc(x.nom)}">✕</button>`:''}</div>`).join('')}</div>`
+      :(miss?'':'<div class="empty">Aucun document. Joins ici l’organigramme, la convocation ou le plan d’accès.</div>')}
+    ${ed&&!miss?`<label class="btn sm filup" style="margin-top:8px" title="PDF ou photo, 5 Mo maximum">📎 Joindre un document<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-crd-up="${cid}" hidden></label>`:''}</div>`;
+}
+const crB64=file=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(r.error); r.readAsDataURL(file) });
+async function crDocOpen(id){
+  const x=(CR.docs||[]).find(d=>d.id===id); if(!x) return;
+  const w=window.open('','_blank');   // ouverte tout de suite, sinon le navigateur bloque la fenêtre
+  try{
+    let b64=CRD_CACHE[id];
+    if(!b64){ const r=await withTimeout(sb.from('competition_documents').select('contenu_b64').eq('id',id).single(),20000); chk(r); b64=CRD_CACHE[id]=r.data.contenu_b64 }
+    const bin=atob(b64), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([u8],{type:x.mime}));
+    if(w&&!w.closed) w.location.href=url; else { const a=document.createElement('a'); a.href=url; a.download=x.nom; document.body.appendChild(a); a.click(); a.remove() }
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(e){ if(w) w.close(); toast(OFFLINE?'Document indisponible hors connexion':'Erreur : '+e.message) }
+}
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-crd-open],[data-crd-del]'); if(!t) return;
+  if(t.dataset.crdOpen){ crDocOpen(t.dataset.crdOpen); return }
+  if(!crEdit()) return; const x=(CR.docs||[]).find(d=>d.id===t.dataset.crdDel); if(!x||!confirm(`Supprimer le document « ${x.nom} » ?`)) return;
+  try{ chk(await sb.from('competition_documents').delete().eq('id',x.id)); CR.docs=CR.docs.filter(d=>d.id!==x.id); delete CRD_CACHE[x.id]; lsSet('fa-cdocs-'+CLUB.id,CR.docs); renderMain() }catch(e){ toast('Erreur : '+e.message) }
+});
+document.addEventListener('change',async ev=>{
+  const t=ev.target; if(!t.dataset||!t.dataset.crdUp||!crEdit()) return; const cid=t.dataset.crdUp, f=t.files&&t.files[0]; t.value=''; if(!f) return;
+  const mime=f.type||(/\.pdf$/i.test(f.name)?'application/pdf':'');
+  if(!['application/pdf','image/jpeg','image/png','image/webp'].includes(mime)) return toast('Format accepté : PDF, JPEG, PNG ou WebP');
+  if(f.size>CRD_MAX) return toast(`Fichier trop lourd (${crKo(f.size)}) : 5 Mo maximum`);
+  try{ toast('Envoi…'); const b64=await crB64(f);
+    const r=await withTimeout(sb.from('competition_documents').insert({competition_id:cid,club_id:CLUB.id,nom:f.name.slice(0,200),mime,taille:f.size,contenu_b64:b64}).select('id,competition_id,nom,mime,taille,created_at'),60000); chk(r);
+    CR.docs=[...(CR.docs||[]),r.data[0]]; CRD_CACHE[r.data[0].id]=b64; lsSet('fa-cdocs-'+CLUB.id,CR.docs); toast('Document ajouté'); renderMain() }
+  catch(e){ toast(/competition_documents/.test(e.message)?'Lance d’abord migration-documents-competitions.sql dans Supabase':'Erreur : '+e.message) }
+});
+
 /* ---------- pages ---------- */
 function renderCRes(){
   crEnsure(); ufEnsure&&crFed()==='UFOLEP'&&ufEnsure();
@@ -5532,7 +5577,7 @@ function renderCRes(){
 function crListHtml(fed){
   const cs=crComps(fed), ed=crEdit();
   const rows=cs.map(c=>{ const rs=crResOf(c.id), best=rs.filter(r=>r.rang).sort((a,b)=>a.rang-b.rang)[0], eq=CR.eqs.filter(q=>q.competition_id===c.id&&q.rang);
-    return `<tr class="crrow" data-cr-open="${c.id}"><td>${crDateC(c)}</td><td><b>${esc(c.nom)}</b>${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td>${fed==='FFG'?`<td>${CR_FORM[crForm(c)]}</td>`:''}<td>${esc(c.niveau||'')}</td><td>${rs.length}</td>
+    return `<tr class="crrow" data-cr-open="${c.id}"><td>${crDateC(c)}</td><td><b>${esc(c.nom)}</b>${crDocsOf(c.id).length?` <span title="${crDocsOf(c.id).length} document(s) : ${esc(crDocsOf(c.id).map(x=>x.nom).join(', '))}">📄</span>`:''}${c.lieu?`<div class="hint">${esc(c.lieu)}</div>`:''}</td>${fed==='FFG'?`<td>${CR_FORM[crForm(c)]}</td>`:''}<td>${esc(c.niveau||'')}</td><td>${rs.length}</td>
       <td>${best?`${crRk(best.rang)} ${esc(gymName(S.gyms.find(g=>g.id===best.licencie_id)||{}))}`:'—'}</td><td>${(()=>{ const nq=rs.filter(r=>r.qualifie).length, eq2=CR.eqs.filter(q=>q.competition_id===c.id&&q.qualifie&&crForm(c)!=='indiv').length; return nq||eq2?[nq?`${nq} gym${nq>1?'s':''}`:'',eq2?`${eq2} équipe${eq2>1?'s':''}`:''].filter(Boolean).join(' · '):'—' })()}</td><td>${crForm(c)==='indiv'?'—':eq.map(q=>`${esc(q.nom)} : ${crRk(q.rang)}${q.nb_classes?'/'+q.nb_classes:''}`).join('<br>')||'—'}</td></tr>` }).join('');
   return `<div class="card"><h3>Compétitions ${fed} de la saison (${cs.length})</h3>${cs.length?`<div class="ltwrap"><table class="ltb"><thead><tr><th>Date</th><th>Compétition</th>${fed==='FFG'?'<th>Formule</th>':''}<th>Niveau</th><th>Gymnastes</th><th>Meilleur classement</th><th>Qualifiés (Q)</th><th>Équipes</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucune compétition saisie pour l’instant.</div>'}
     ${ed?`<form id="fCr" class="lfoot" style="margin-top:12px;flex-wrap:wrap"><input name="nom" placeholder="Nom de la compétition" required style="flex:2 1 220px"><input name="date" type="date" aria-label="Date"><input name="lieu" placeholder="Lieu" style="flex:1 1 140px">
@@ -5577,6 +5622,7 @@ function crCompHtml(fed,cid){
   return `<div class="card"><div class="crbar"><button class="btn sm" data-cr-back="1">← Toutes les compétitions</button><div style="flex:1"></div>${ed?'<button class="btn sm" data-cr-del="1">Supprimer la compétition</button>':''}</div>
     <div class="lgrid" style="margin-top:10px"><label>Nom<input data-cr-c="nom" value="${esc(c.nom)}" ${dis}></label><label>Date<input type="date" data-cr-c="date_comp" value="${c.date_comp||''}" ${dis}><span class="cbx" style="margin-top:4px"><input type="checkbox" data-cr-inc="1" ${c.date_incertaine?'checked':''} ${dis}> ou le lendemain (jour à confirmer)</span></label>
       <label>Lieu<input data-cr-c="lieu" value="${esc(c.lieu||'')}" ${dis}></label>${fed==='FFG'?`<label>Formule<select data-cr-form="1" ${dis}>${Object.entries(CR_FORM).map(([k,l])=>`<option value="${k}" ${form===k?'selected':''}>${l}</option>`).join('')}</select></label>`:''}<label>Niveau<select data-cr-c="niveau" ${dis}>${(c.niveau&&!crNivs(fed).includes(c.niveau)?[c.niveau,...crNivs(fed)]:crNivs(fed)).map(n=>`<option ${c.niveau===n?'selected':''}>${n}</option>`).join('')}</select></label></div></div>
+    ${crDocsHtml(cid,ed)}
     <div class="card"><h3>${ind?'Résultats individuels':'Gymnastes engagées'} (${rs.length})</h3>
       <div class="hint" style="margin:-4px 0 8px">Bouton <b>Q</b> : gymnaste${ind?'':' ou équipe'} qualifié(e) pour l’étape suivante${crNext(c.niveau,c.federation)?` (${esc(crNext(c.niveau,c.federation))})`:''}.</div>
       ${ind?`<div class="hint" style="margin:-4px 0 8px">Compétition individuelle : chaque gymnaste concourt dans la catégorie de son année d’âge (âge atteint en ${SY}) : ${INDIV_CATS.join(', ')}.</div>`:''}
