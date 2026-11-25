@@ -663,6 +663,7 @@ header.top h1 .brand-t{color:var(--ink);font-weight:800}
 .wnav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.wtitle{margin-right:6px}
 .wday .ds{display:none}
 .wcp{font-size:11px;font-weight:700;color:#8a5a00;background:#fff4d6;border-radius:6px;padding:1px 5px;width:max-content;cursor:help}
+.wblk.wcomp{background:#fff4d6;color:#6b4800;border-left-color:#e0a800;border-style:dashed;border-left-style:solid}.wblk.wcomp .wl2{color:#8a6a1a}
 .wcpb{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.wcpb button{border:1px solid #f0d48a;background:#fffaf0;color:#6b4800;border-radius:8px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer;text-align:left}
 .ccal tr{cursor:pointer}.ccal tr.cpast td{color:var(--muted)}.ccal tr.cpast .lb{opacity:.6}.ccal tr.cnext td{background:#fffaf0}
 .wscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -3694,10 +3695,25 @@ const hm2min=t=>{ const m=/^(\d{1,2}):(\d{2})/.exec(t||''); return m?(+m[1])*60+
 const GRP_COLORS=[['#e8e9fb','#3b3fa8','#5b5fc7'],['#fff1d6','#7a5200','#e5a823'],['#e0f4fb','#0b6b85','#17a2b8'],['#fde8f1','#a1245f','#e0577d'],['#e1f6ea','#14733a','#2fa56a'],['#efe8ff','#5a3aa8','#8a63d2'],['#ffe9dc','#8f4310','#f08a3c'],['#eef1f5','#3f4a56','#6b7a8c']];
 const grpColor=gid=>{ const i=PRES.groupes.slice().sort((a,b)=>a.nom.localeCompare(b.nom)).findIndex(x=>x.id===gid); return GRP_COLORS[(i<0?0:i)%GRP_COLORS.length] };
 function presWeekHtml(){ crEnsure(); return presWeekHtml0()+(PRES.groupes.length?compCalHtml():'') }
+/* compétitions dans la grille du planning : de la première heure de présence au dernier palmarès des gyms du club
+   (ordre de passage saisi), sinon toute la journée (9h – 18h) */
+function presCompItems(d){
+  return CR.comps.filter(c=>crOnDay(c,d)).map(c=>{ const P=crResOf(c.id).map(r=>r.passage||{}).filter(p=>p.presence||p.debut);
+    const st=P.map(p=>hm2min(p.presence||p.debut)).filter(x=>x!=null), en=P.map(p=>hm2min(p.palmares||p.fin||p.debut)).filter(x=>x!=null);
+    return {comp:c,a:st.length?Math.min(...st):9*60,b:en.length?Math.max(...en):18*60,known:!!st.length,n:crResOf(c.id).length} });
+}
+function presCompBlk(x,t0,span,pc){ const c=x.comp, rgt=x.a>t0+span*0.55, P=crResOf(c.id).filter(r=>r.passage&&r.passage.presence);
+  const subs=[...new Set(P.map(r=>r.passage.sub).filter(Boolean))].sort((a,b)=>a-b).map(n=>{ const r=P.find(r=>r.passage.sub===n); return `S${n} ${crHH(r.passage.presence)}` });
+  const hrs=`${crHH(String(Math.floor(x.a/60)).padStart(2,'0')+':'+String(x.a%60).padStart(2,'0'))} – ${crHH(String(Math.floor(x.b/60)).padStart(2,'0')+':'+String(x.b%60).padStart(2,'0'))}`;
+  return `<button type="button" class="wblk wcomp ${rgt?'wr':''}" data-comp-go="${c.id}" style="left:${pc(x.a)};width:calc(${((x.b-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px)"
+    title="${esc(`${crShort(c)}${c.date_incertaine?' (samedi ou dimanche)':''}${c.lieu?' · '+c.lieu:''}${x.known?' · présence '+subs.join(', '):' · horaires à venir'} · ${x.n} gym(s) du club`)}">
+    <span class="wl1">🏆 <b>${esc(c.federation)} · ${esc(c.niveau||'')}</b> · ${esc(c.nom)}${c.date_incertaine?' · <b>samedi ou dimanche ?</b>':''}${x.known?' · '+esc(hrs):''}${c.lieu?' · 📍 '+esc(c.lieu.split(/\s[–-]\s|,/)[0]):''}</span>
+    <span class="wl2">${x.known?`Présence : ${esc(subs.join(' · '))} · ${x.n} gym${x.n>1?'s':''}`:`${x.n?x.n+' gym'+(x.n>1?'s':'')+' · ':''}horaires à venir`}</span></button>`;
+}
 function presWeekHtml0(){
   if(!PRES.groupes.length) return presNoGroup();
   const mon=PRES.week||(PRES.week=mondayOf(isoToday())), days=[0,1,2,3,4,5,6].map(i=>addDays(mon,i)), td=isoToday();
-  const ses=days.map(d=>PRES.groupes.flatMap(g=>presSlotsOn(g.id,d).map(c=>({g,c,a:hm2min(c.heure_debut),b:hm2min(c.heure_fin),off:!!presAnnulOf(c.id,d)})).filter(x=>!x.off||UI.showAnnul)));
+  const ses=days.map(d=>PRES.groupes.flatMap(g=>presSlotsOn(g.id,d).map(c=>({g,c,a:hm2min(c.heure_debut),b:hm2min(c.heure_fin),off:!!presAnnulOf(c.id,d)})).filter(x=>!x.off||UI.showAnnul)).concat(presCompItems(d)));
   const nAnnul=days.reduce((n,d)=>n+PRES.groupes.reduce((m,g)=>m+presSlotsOn(g.id,d).filter(c=>presAnnulOf(c.id,d)).length,0),0);
   const timed=ses.flat().filter(x=>x.a!=null);
   let t0=timed.length?Math.min(...timed.map(x=>x.a)):9*60, t1=timed.length?Math.max(...timed.map(x=>x.b!=null?x.b:x.a+60)):19*60;
@@ -3710,7 +3726,7 @@ function presWeekHtml0(){
     const tl=list.filter(x=>x.a!=null).sort((x,y)=>x.a-y.a), lanes=[];
     tl.forEach(x=>{ const e=x.b!=null?x.b:x.a+60; let k=lanes.findIndex(end=>end<=x.a); if(k<0){ k=lanes.length; lanes.push(e) } else lanes[k]=e; x.lane=k });
     const nl=Math.max(1,lanes.length), v=vacOf(d), none=list.filter(x=>x.a==null);
-    const blk=x=>{ const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g,d), n=presMembers(x.g.id).length, chg=!!presExOf(x.c.id,d);
+    const blk=x=>{ if(x.comp) return presCompBlk(x,t0,span,pc); const [bg,fg,bd]=grpColor(x.g.id), e=x.b!=null?x.b:x.a+60, co=presCoachs(x.g.id), lieu=crLieu(x.c,x.g,d), n=presMembers(x.g.id).length, chg=!!presExOf(x.c.id,d);
       const rgt=x.a>t0+span*0.55;
       return `<button type="button" class="wblk ${rgt?'wr':''} ${x.off?'woff':''} ${x.c.type==='ponctuel'?'wpon':''}" data-wk="${x.g.id}|${d}|${x.c.id}" style="${rgt?`--rgt:${(100-(e-t0)/span*100).toFixed(3)}%;`:''}left:${pc(x.a)};width:calc(${((e-x.a)/span*100).toFixed(3)}% - 3px);top:calc(${x.lane} * var(--lane) + 4px);background:${bg};color:${fg};border-left-color:${bd}"
         title="${esc(`${crLib(x.c)?crLib(x.c)+' · ':''}${x.g.nom} · ${crHours(x.c)}${lieu?' · '+lieu:''}${co.length?' · '+co.map(gymName).join(', '):''} · ${n} adhérent(s)`)}">
@@ -3912,8 +3928,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.3', APP_DATE='2026-11-25';
+const APP_VER='2.3.1', APP_DATE='2026-11-25';
 const APP_LOG=[
+  ['2.3.1','2026-11-25',['Planning : les compétitions apparaissent dans la grille de la journée (de la première heure de présence au palmarès, ou 9h – 18h tant que l’ordre de passage n’est pas connu)']],
   ['2.3','2026-11-25',['Compétitions : documents joints (organigramme, convocation, plan d’accès)','Ordre de passage des gyms du club (subdivision, horaires, heure de présence, agrès de départ, palmarès), saisi d’après l’organigramme','Bouton « Copier le message pour les familles » : heures de présence par subdivision, prêt pour WhatsApp']],
   ['2.2.3','2026-11-22',['Message du covoiturage : l’heure est aussi en gras sur WhatsApp (« *Départ de Laon (Semilly) à 17h15* »)']],
   ['2.2.2','2026-11-22',['Message du covoiturage : « 📍 Départ de Laon (Semilly) à 17h15 »']],
