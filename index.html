@@ -2740,6 +2740,7 @@ function renderPres(){
   if(PRES.club!==(CLUB&&CLUB.id)){ PRES=presNew(); PRES.club=CLUB&&CLUB.id }
   if(!PRES.loaded&&!PRES.loading) presLoad().then(()=>{ if(UI.view==='pres') renderMain() });
   if(COV.club!==(CLUB&&CLUB.id)){ COV=covNew(); COV.club=CLUB&&CLUB.id }
+  if(COV.loaded&&COV.err&&!COV.loading&&Date.now()-(COV.tried||0)>20000) COV.loaded=false;
   if(!COV.loaded&&!COV.loading) covLoad().then(()=>{ if(UI.view==='pres') renderMain() });
   licEnsure();
   const head=`<div class="gymhead"><div><h2 class="name">Groupes</h2><div class="meta">Saison ${SAISON} · horaires, lieux, adhérents et présences · le pointage fonctionne sans connexion et s’envoie ensuite</div></div><div style="flex:1"></div><button class="btn sm" data-pres-reload="1">↻ Actualiser</button></div>`;
@@ -3117,13 +3118,15 @@ const cvDays=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))
 const cvD=iso=>{ const d=new Date(iso+'T12:00:00'); return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'numeric'}).replace('.','') };
 const cvHours=so=>hhmm(so.heure_debut)?hhmm(so.heure_debut)+(hhmm(so.heure_fin)?'–'+hhmm(so.heure_fin):''):'';
 const cvTitle=so=>`${so.titre?so.titre+' · ':''}${longDate(so.date)}${so.lieu?' · '+so.lieu:''}${cvHours(so)?' ('+cvHours(so)+')':''}`;
+/* l'accès au covoiturage est mémorisé : une coupure réseau ne fait plus disparaître l'onglet */
+const covAccK=()=>'fa-cv-acces-'+(CLUB&&CLUB.id)+'-'+(SESSION&&SESSION.user&&SESSION.user.id);
 async function covLoad(){
-  if(!CLUB||COV.loading) return; COV.loading=true;
+  if(!CLUB||COV.loading) return; COV.loading=true; COV.tried=Date.now();
   try{
     if(!presOnline()) throw new Error('hors connexion');
     const a=await withTimeout(sb.from('cv_acces').select('user_id').eq('club_id',CLUB.id).eq('user_id',SESSION.user.id),10000);
     if(a.error){ if(isNetErr(a.error)) throw new Error('hors connexion'); COV.ok=false; COV.acces=false }
-    else { COV.ok=true; COV.acces=a.data.length>0;
+    else { COV.ok=true; COV.acces=a.data.length>0; lsSet(covAccK(),COV.acces);
       if(COV.acces){
         const rs=await withTimeout(Promise.all([
           sb.from('cv_config').select('groupes,rdv_lieu,seuil_sans,seuil_jours,lieux,depart_gyms,exclus,exclus_lieux').eq('club_id',CLUB.id),
@@ -3135,9 +3138,12 @@ async function covLoad(){
         COV.cfg=rs[0].data[0]||null; COV.cond=rs[1].data; COV.sorties=rs[2].data; COV.rep=rs[3].data; COV.dispo=rs[4].data;
       } }
     COV.err='';
-  }catch(e){ COV.err=isNetErr(e)?'Connexion nécessaire pour le covoiturage : réessaie quand le réseau est revenu.':e.message }
+  }catch(e){ COV.err=isNetErr(e)||/hors connexion|délai|timeout/i.test(e.message||'')?'Connexion nécessaire pour le covoiturage : réessaie quand le réseau est revenu.':e.message;
+    if(!COV.acces&&lsGet(covAccK())===true) COV.acces=true }
   COV.loaded=true; COV.loading=false;
 }
+/* nouvel essai automatique après une erreur : au retour du réseau, ou en revenant sur la page après 20 s */
+window.addEventListener('online',()=>{ if(COV.err&&!COV.loading){ COV.loaded=false; covLoad().then(()=>{ if(UI.view==='pres') renderMain() }) } });
 const covRender=()=>{ if(UI.view==='pres'&&PRES.tab==='covoit') renderMain() };
 /* envoie une écriture après les précédentes ; en cas d'échec : message, puis rechargement de l'état réel */
 function cvSend(fn){
@@ -3928,8 +3934,9 @@ function compTabs(){
   return `<div class="ctabs"><span class="lb ${F==='FFG'?'ok':'no'}">${F}</span>${[['teams','🏅 Équipes'],['mvt','🤸 Mouvements'],['sum','📋 Résumé'],['res','🏆 Résultats']].map(([x,l])=>`<button type="button" class="tab ${k===x?'on':''}" data-nav="${V[x]}">${l}</button>`).join('')}</div>`;
 }
 /* version en ligne et nouveautés */
-const APP_VER='2.3.1', APP_DATE='2026-11-25';
+const APP_VER='2.3.2', APP_DATE='2026-11-26';
 const APP_LOG=[
+  ['2.3.2','2026-11-26',['Covoiturage : l’onglet ne disparaît plus après une coupure réseau (accès mémorisé, nouvel essai automatique au retour du réseau)']],
   ['2.3.1','2026-11-25',['Planning : les compétitions apparaissent dans la grille de la journée (de la première heure de présence au palmarès, ou 9h – 18h tant que l’ordre de passage n’est pas connu)']],
   ['2.3','2026-11-25',['Compétitions : documents joints (organigramme, convocation, plan d’accès)','Ordre de passage des gyms du club (subdivision, horaires, heure de présence, agrès de départ, palmarès), saisi d’après l’organigramme','Bouton « Copier le message pour les familles » : heures de présence par subdivision, prêt pour WhatsApp']],
   ['2.2.3','2026-11-22',['Message du covoiturage : l’heure est aussi en gras sur WhatsApp (« *Départ de Laon (Semilly) à 17h15* »)']],
